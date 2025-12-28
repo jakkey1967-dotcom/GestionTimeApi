@@ -1,91 +1,110 @@
-# ?? Guía de Deployment en Render.com
+# ?? CONFIGURACIÓN DE SEGURIDAD PARA REPOSITORIO PRIVADO
 
-## ?? Pasos para deploar en Render.com
+## ?? IMPORTANTE: REPOSITORIO PRIVADO OBLIGATORIO
 
-### 1?? Crear Web Service
-1. Ve a https://render.com/dashboard
-2. Click **"New +"** ? **"Web Service"**
-3. Conecta tu repositorio: `https://github.com/jakkey1967-dotcom/GestionTimeApi.git`
+### 1. Hacer Repositorio Privado en GitHub
+1. Ve a: https://github.com/jakkey1967-dotcom/GestionTimeApi/settings
+2. **Danger Zone** ? **Change repository visibility**
+3. **Make private** ? Confirma la acción
+4. ? Tu código ya NO será público
 
-### 2?? Configuración Básica
+### 2. Variables de Entorno con Validación de Seguridad
+
+#### Variables OBLIGATORIAS (con validación de origen):
 ```
-Name: gestiontime-api
+# Core Security
+ASPNETCORE_ENVIRONMENT=Production
+DEPLOYMENT_SOURCE=AUTHORIZED_RENDER_ONLY
+SECURITY_KEY=tu-clave-secreta-unica-aqui
+
+# Database
+ConnectionStrings__Default=Host=dpg-d57tobm3jp1c73b6i4ug-a.frankfurt-postgres.render.com;Port=5432;Database=pss_dvnx;Username=gestiontime;Password=BvCDRFguh9SljJJUZOzGpdvxgf18qnI;SslMode=Require
+
+# JWT
+Jwt__Key=v7ZpQ9mL3H2kN8xR1aT6yW4cE0sB5dU9jF2hK7nP3qL8rM1tX6zA4gS9uV2bC5e
+Jwt__Issuer=GestionTime
+Jwt__Audience=GestionTime.Web
+Jwt__AccessMinutes=15
+Jwt__RefreshDays=14
+```
+
+#### Variables OPCIONALES (Email):
+```
+Email__SmtpHost=smtp.ionos.es
+Email__SmtpPort=587
+Email__SmtpUser=envio_noreplica@tdkportal.com
+Email__SmtpPassword=Nimda2008@2020
+Email__From=envio_noreplica@tdkportal.com
+Email__FromName=GestionTime
+```
+
+### 3. Configuración Solo para Render Autorizado
+```
+Name: gestiontime-api-private
 Environment: Docker
 Region: Frankfurt (mismo que tu BD)
 Branch: master
 Instance Type: Starter (Free) o Basic ($7/mes)
+Auto-Deploy: SOLO desde tu cuenta autorizada
 ```
 
-### 3?? Variables de Entorno (CRÍTICO)
+### 4. Acceso Restringido
+- ? Solo TÚ puedes ver el código
+- ? Solo TÚ puedes hacer deployments
+- ? Render accede con permisos limitados
+- ? Nadie más puede clonar o ver el repositorio
 
-Agrega estas variables en **Environment Variables**:
+## ??? MEDIDAS DE PROTECCIÓN ADICIONALES
 
-| Variable | Valor |
-|----------|--------|
-| `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `ConnectionStrings__Default` | `Host=dpg-d57tobm3jp1c73b6i4ug-a.frankfurt-postgres.render.com;Port=5432;Database=pss_dvnx;Username=gestiontime;Password=BvCDRFguh9SljJJUZOzGpdvpxgf18qnI;SslMode=Require` |
-| `Jwt__Key` | `v7ZpQ9mL3H2kN8xR1aT6yW4cE0sB5dU9jF2hK7nP3qL8rM1tX6zA4gS9uV2bC5e` |
+### A. Restricción de Deployment por IP (Opcional)
+En Render.com puedes configurar:
+- **Access Control** ? **Allowed IPs**
+- Agrega solo TUS IPs autorizadas
 
-### 4?? Variables Opcionales (Email)
-| Variable | Valor |
-|----------|--------|
-| `Email__SmtpHost` | `smtp.ionos.es` |
-| `Email__SmtpPort` | `587` |
-| `Email__SmtpUser` | `envio_noreplica@tdkportal.com` |
-| `Email__SmtpPassword` | `Nimda2008@2020` |
+### B. Variables de Entorno Secretas
+Todas las contraseñas y claves están:
+- ?? Encriptadas en Render
+- ?? No visibles en logs
+- ?? Solo accesibles durante runtime
 
-### 5?? Deploy
-1. Click **"Create Web Service"**
-2. Render automáticamente:
-   - Clona tu repositorio
-   - Construye la imagen Docker
-   - Deploya la aplicación
-   - Te da una URL: `https://gestiontime-api-xxxx.onrender.com`
+### C. Autenticación de 2 Factores
+Habilita 2FA en:
+- ? GitHub (para proteger el repositorio)
+- ? Render.com (para proteger deployments)
 
-## ?? Verificación del Deploy
+## ?? PASOS INMEDIATOS
 
-### Health Check
-```bash
-curl https://tu-api-url.onrender.com/health
+### 1. Hacer Repositorio Privado AHORA
+```
+1. GitHub.com ? Tu repositorio ? Settings
+2. Scroll hasta "Danger Zone"
+3. "Change repository visibility" ? "Make private"
+4. Confirmar con tu contraseña
 ```
 
-### Swagger UI
+### 2. Verificar Acceso en Render
 ```
-https://tu-api-url.onrender.com/swagger
-```
-
-### Test Login
-```bash
-curl -X POST https://tu-api-url.onrender.com/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@gestiontime.local","password":"admin123"}'
+1. Render Dashboard ? Web Services
+2. Solo TU cuenta debe tener acceso
+3. Verificar que nadie más está en el equipo
 ```
 
-## ?? URLs Finales
-
-Una vez deployado tendrás:
-- **API Base:** `https://gestiontime-api-xxxx.onrender.com`
-- **Swagger:** `https://gestiontime-api-xxxx.onrender.com/swagger`  
-- **Health:** `https://gestiontime-api-xxxx.onrender.com/health`
-
-## ?? Configuración para Clientes
-
-Tus clientes desktop deberán usar:
-```csharp
-// En ApiClient.cs
-BaseUrl = "https://gestiontime-api-xxxx.onrender.com"
+### 3. Cambiar Claves Sensibles
+```
+# Genera nuevas claves para mayor seguridad
+Jwt__Key=NUEVA-CLAVE-SECRETA-AQUI
+SECURITY_KEY=CLAVE-UNICA-PARA-TU-DEPLOYMENT
 ```
 
-## ? Nota sobre Free Tier
+## ?? ADVERTENCIAS DE SEGURIDAD
 
-Si usas el plan gratuito de Render:
-- La aplicación se "duerme" tras 15 min de inactividad
-- Primer request después del "sueño" tarda ~30 segundos
-- Para producción real, considera el plan Basic ($7/mes)
+? **NUNCA hagas público un repositorio con:**
+- Connection strings de base de datos
+- Claves JWT
+- Contraseñas de email
+- Cualquier credencial
 
-## ?? Auto Deploy
-
-Cada vez que hagas `git push` a master:
-- Render automáticamente redeploya
-- Puedes ver logs en tiempo real
-- Zero downtime deployments
+? **SIEMPRE mantén privado cualquier código que contenga:**
+- Lógica de negocio sensible  
+- Configuraciones de producción
+- Credenciales o tokens

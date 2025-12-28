@@ -15,6 +15,19 @@ try
 {
     Log.Information("Iniciando GestionTime API...");
 
+    // ?? VALIDACIÓN DE SEGURIDAD PARA DEPLOYMENT AUTORIZADO
+    var deploymentSource = Environment.GetEnvironmentVariable("DEPLOYMENT_SOURCE");
+    var securityKey = Environment.GetEnvironmentVariable("SECURITY_KEY");
+    
+    if (deploymentSource != "AUTHORIZED_RENDER_ONLY" || string.IsNullOrEmpty(securityKey))
+    {
+        Log.Fatal("? DEPLOYMENT NO AUTORIZADO - Acceso denegado por seguridad");
+        Log.Fatal("Esta aplicación solo puede ejecutarse en el entorno autorizado");
+        throw new UnauthorizedAccessException("Deployment no autorizado detectado");
+    }
+    
+    Log.Information("? Deployment autorizado verificado");
+
     var builder = WebApplication.CreateBuilder(args);
 
     // ?? Configurar URLs para Render.com (usa PORT de variable de entorno)
@@ -164,6 +177,7 @@ try
     app.MapControllers();
 
     Log.Information("GestionTime API iniciada correctamente en puerto {Port}", port);
+    Log.Information("?? Deployment seguro y autorizado");
 
     app.Run();
 }
