@@ -23,9 +23,16 @@ public sealed class GestionTimeDbContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
+        // Configuración básica
         base.OnConfiguring(optionsBuilder);
-        optionsBuilder.ConfigureWarnings(w => 
-            w.Ignore(RelationalEventId.PendingModelChangesWarning));
+        
+        // Configurar warnings para Entity Framework 8.0
+        optionsBuilder.ConfigureWarnings(warnings =>
+        {
+            // Ignorar warnings comunes que no afectan funcionalidad
+            warnings.Ignore(CoreEventId.NavigationBaseIncludeIgnored);
+            warnings.Ignore(CoreEventId.NavigationBaseIncluded);
+        });
     }
 
     protected override void OnModelCreating(ModelBuilder b)
