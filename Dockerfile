@@ -3,9 +3,6 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 WORKDIR /app
 
-# Cache busting para forzar rebuild completo
-RUN echo "REBUILD_$(date +%s)" > /tmp/rebuild_marker
-
 # Copiar archivos de solucion y proyectos
 COPY GestionTime.sln ./
 COPY GestionTime.Api.csproj ./
@@ -30,9 +27,8 @@ RUN echo "=== VERIFICANDO CODIGO ===" && \
         echo "OK: Codigo limpio sin AddNpgSql"; \
     fi
 
-# Compilar aplicacion con limpieza previa
-RUN dotnet clean GestionTime.Api.csproj -c Release && \
-    dotnet publish GestionTime.Api.csproj -c Release -o /app/publish --no-restore
+# Compilar aplicacion directamente sin clean
+RUN dotnet publish GestionTime.Api.csproj -c Release -o /app/publish --no-restore
 
 # Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
