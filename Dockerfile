@@ -4,6 +4,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
+# Invalidar cache con fecha actual
+RUN echo "Build timestamp: $(date)" > /tmp/build_timestamp
+
 # Copiar archivo de solución
 COPY GestionTime.sln ./
 
