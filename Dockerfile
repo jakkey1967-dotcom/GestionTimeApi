@@ -19,10 +19,10 @@ RUN dotnet restore GestionTime.sln
 # Copiar codigo fuente
 COPY . .
 
-# CRITICO: Verificar que el codigo no tiene AddNpgSql
+# Verificar que el codigo C# no tiene referencias problematicas
 RUN echo "=== VERIFICANDO CODIGO ===" && \
-    if grep -r "AddNpgSql" .; then \
-        echo "ERROR: AddNpgSql encontrado en codigo!" && exit 1; \
+    if grep -r "AddNpgSql" --include="*.cs" .; then \
+        echo "ERROR: AddNpgSql encontrado en codigo C#!" && exit 1; \
     else \
         echo "OK: Codigo limpio sin AddNpgSql"; \
     fi
