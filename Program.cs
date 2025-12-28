@@ -49,7 +49,7 @@ try
     // JWT (leído desde cookie "access_token")
     var jwtIssuer = builder.Configuration["Jwt:Issuer"]!;
     var jwtAudience = builder.Configuration["Jwt:Audience"]!;
-    var jwtKey = builder.Configuration["Jwt:Key"]!;
+    var jwtKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? builder.Configuration["Jwt:Key"]!;
 
     builder.Services.AddSingleton<GestionTime.Api.Security.RefreshTokenService>();
     builder.Services.AddSingleton<GestionTime.Api.Security.JwtService>();
@@ -104,8 +104,9 @@ try
     builder.Services.AddSwaggerGen();
 
     // DbContext
+    var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") ?? builder.Configuration.GetConnectionString("Default");
     builder.Services.AddDbContext<GestionTimeDbContext>(opt =>
-        opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+        opt.UseNpgsql(connectionString));
 
     // Memory Cache
     builder.Services.AddMemoryCache();

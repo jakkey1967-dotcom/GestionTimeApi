@@ -3,6 +3,13 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# ?? SECURITY: Archivos sensibles
+*.env
+.env*
+*secrets*
+*SECURE*
+render-env-variables-SECURE.txt
+
 # User-specific files
 *.rsuser
 *.suo
