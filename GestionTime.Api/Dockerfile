@@ -1,61 +1,66 @@
-# Dockerfile for GestionTime API
-# Build context: Root of repository (C:\GestionTime\src)
+# Dockerfile optimizado para Render.com
+# Build context: Raíz del repositorio (donde está GestionTime.sln)
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy solution file
+# Copiar archivo de solución
 COPY GestionTime.sln ./
 
-# Copy project files for layer caching
-COPY GestionTime.Domain/GestionTime.Domain.csproj ./GestionTime.Domain/
-COPY GestionTime.Application/GestionTime.Application.csproj ./GestionTime.Application/
-COPY GestionTime.Infrastructure/GestionTime.Infrastructure.csproj ./GestionTime.Infrastructure/
+# Copiar archivos de proyecto para caché de capas
+COPY GestionTime.Domain/*.csproj ./GestionTime.Domain/
+COPY GestionTime.Application/*.csproj ./GestionTime.Application/
+COPY GestionTime.Infrastructure/*.csproj ./GestionTime.Infrastructure/
 
-# Check if API project is in subdirectory or root
-COPY GestionTime.Api/GestionTime.Api/*.csproj ./GestionTime.Api/ 2>/dev/null || true
-COPY *.csproj ./ 2>/dev/null || true
+# Buscar y copiar proyecto API desde cualquier ubicación
+COPY GestionTime.Api/GestionTime.Api/*.csproj ./GestionTime.Api/ 2>/dev/null || \
+     find . -name "Program.cs" -path "*/GestionTime.Api*" -exec dirname {} \; | head -1 | xargs -I {} cp {}/*.csproj ./GestionTime.Api/ || \
+     echo "Proyecto API no encontrado en estructura esperada"
 
-# Restore dependencies using solution file
-RUN dotnet restore GestionTime.sln
+# Restaurar dependencias
+RUN dotnet restore GestionTime.sln || \
+    find . -name "*.csproj" -path "*Api*" | head -1 | xargs dotnet restore
 
-# Copy all source code
+# Copiar todo el código fuente
 COPY . .
 
-# Build and publish the main API project (try both locations)
-RUN if [ -f "GestionTime.Api/GestionTime.Api/GestionTime.Api.csproj" ]; then \
-        echo "Building from GestionTime.Api/GestionTime.Api/" && \
-        dotnet publish GestionTime.Api/GestionTime.Api/GestionTime.Api.csproj -c Release -o /app/publish --no-restore; \
-    elif [ -f "Program.cs" ]; then \
-        echo "Building from root with Program.cs" && \
-        find . -name "*.csproj" -path "*/GestionTime.Api*" | head -1 | xargs dotnet publish -c Release -o /app/publish --no-restore; \
+# Encontrar y publicar el proyecto API
+RUN if [ -f "Program.cs" ]; then \
+        echo "Publicando desde raíz con Program.cs" && \
+        find . -name "*.csproj" -path "*Api*" | head -1 | xargs dotnet publish -c Release -o /app/publish; \
+    elif [ -f "GestionTime.Api/GestionTime.Api/GestionTime.Api.csproj" ]; then \
+        echo "Publicando desde GestionTime.Api/GestionTime.Api/" && \
+        dotnet publish GestionTime.Api/GestionTime.Api/GestionTime.Api.csproj -c Release -o /app/publish; \
     else \
-        echo "Building any API project found" && \
-        find . -name "*.csproj" -exec grep -l "Microsoft.NET.Sdk.Web" {} \; | head -1 | xargs dotnet publish -c Release -o /app/publish --no-restore; \
+        echo "Buscando cualquier proyecto API..." && \
+        find . -name "*.csproj" -exec grep -l "Microsoft.NET.Sdk.Web" {} \; | head -1 | xargs dotnet publish -c Release -o /app/publish; \
     fi
 
-# Runtime stage
+# Etapa de runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
-# Install curl for health checks
+# Instalar curl para health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy published app
+# Copiar aplicación publicada
 COPY --from=build /app/publish .
 
-# Create logs directory
+# Crear directorio de logs
 RUN mkdir -p /app/logs && chmod 755 /app/logs
 
-# Set environment
+# Variables de entorno para Render
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_URLS=http://0.0.0.0:$PORT
 
-# Use PORT environment variable (for Render.com)
+# Exponer puerto (Render usa la variable PORT)
 EXPOSE $PORT
 
-# Health check
+# Health check específico para Render
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD curl -f http://localhost:$PORT/health || exit 1
 
-# Start the application  
-ENTRYPOINT ["dotnet", "GestionTime.Api.dll"]
+# Buscar y ejecutar el DLL correcto
+CMD find . -name "*.dll" -path "*Api*" | head -1 | xargs dotnet || \
+    find . -name "GestionTime.Api.dll" | head -1 | xargs dotnet || \
+    dotnet GestionTime.Api.dll
