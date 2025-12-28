@@ -11,7 +11,7 @@ COPY GestionTime.sln ./
 COPY GestionTime.Domain/*.csproj ./GestionTime.Domain/
 COPY GestionTime.Application/*.csproj ./GestionTime.Application/
 COPY GestionTime.Infrastructure/*.csproj ./GestionTime.Infrastructure/
-COPY *.csproj ./
+COPY GestionTime.Api.csproj ./
 
 # Restaurar dependencias
 RUN dotnet restore GestionTime.sln

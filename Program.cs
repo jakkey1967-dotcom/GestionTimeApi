@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
+using HealthChecks.NpgSql;
 
 // Configuración temprana de Serilog para capturar errores de arranque
 Log.Logger = new LoggerConfiguration()
