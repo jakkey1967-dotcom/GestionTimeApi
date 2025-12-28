@@ -2,9 +2,20 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy project files and restore
+# Copy project files first
+COPY *.csproj ./
+COPY ../GestionTime.Domain/*.csproj ../GestionTime.Domain/
+COPY ../GestionTime.Application/*.csproj ../GestionTime.Application/
+COPY ../GestionTime.Infrastructure/*.csproj ../GestionTime.Infrastructure/
+
+# Restore dependencies
+RUN dotnet restore
+
+# Copy everything else
 COPY . .
-RUN dotnet restore GestionTime.Api.csproj
+COPY ../GestionTime.Domain/ ../GestionTime.Domain/
+COPY ../GestionTime.Application/ ../GestionTime.Application/
+COPY ../GestionTime.Infrastructure/ ../GestionTime.Infrastructure/
 
 # Build the application
 RUN dotnet publish GestionTime.Api.csproj -c Release -o /app/publish

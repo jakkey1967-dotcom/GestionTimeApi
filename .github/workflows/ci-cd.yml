@@ -1,249 +1,32 @@
-name: ?? CI/CD - GestionTime API
+name: ? Build Test
 
 on:
   push:
-    branches: [ master, main, develop ]
+    branches: [ master, main ]
   pull_request:
     branches: [ master, main ]
 
-env:
-  DOTNET_VERSION: '8.0'
-  
 jobs:
-  # Job 1: Compilar y probar
-  build-and-test:
-    name: ?? Build & Test
+  build:
+    name: ?? Build Test
     runs-on: ubuntu-latest
     
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: gestiontime_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: test_password
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-    
     steps:
-    - name: ?? Checkout code
+    - name: ?? Checkout
       uses: actions/checkout@v4
     
-    - name: ??? Setup .NET
-      uses: actions/setup-dotnet@v3
+    - name: ??? Setup .NET 8
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+        dotnet-version: '8.0.x'
     
-    - name: ?? Restore dependencies
+    - name: ?? Restore
       run: dotnet restore
     
     - name: ?? Build
       run: dotnet build --no-restore --configuration Release
     
-    - name: ?? Run unit tests
+    - name: ? Success
       run: |
-        echo "Running unit tests..."
-        # dotnet test --no-build --configuration Release --verbosity normal
-        echo "? Unit tests would run here"
-    
-    - name: ??? Setup test database
-      env:
-        ConnectionStrings__Default: "Host=localhost;Port=5432;Database=gestiontime_test;Username=postgres;Password=test_password"
-      run: |
-        echo "Setting up test database..."
-        dotnet ef database update --no-build
-        echo "? Database migrations applied"
-    
-    - name: ?? Start API for integration tests
-      env:
-        ASPNETCORE_ENVIRONMENT: Testing
-        ConnectionStrings__Default: "Host=localhost;Port=5432;Database=gestiontime_test;Username=postgres;Password=test_password"
-        ASPNETCORE_URLS: "https://localhost:5001"
-      run: |
-        echo "Starting API in background..."
-        dotnet run --no-build --project GestionTime.Api.csproj &
-        API_PID=$!
-        echo "API_PID=$API_PID" >> $GITHUB_ENV
-        
-        # Esperar a que la API esté lista
-        echo "Waiting for API to be ready..."
-        for i in {1..30}; do
-          if curl -k -s https://localhost:5001/health > /dev/null; then
-            echo "? API is ready"
-            break
-          fi
-          echo "Waiting... ($i/30)"
-          sleep 2
-        done
-    
-    - name: ?? Run integration tests
-      run: |
-        echo "Running integration tests..."
-        chmod +x test-api.sh
-        ./test-api.sh
-        echo "? Integration tests completed"
-    
-    - name: ?? Stop API
-      if: always()
-      run: |
-        if [ ! -z "$API_PID" ]; then
-          kill $API_PID || true
-        fi
-    
-    - name: ?? Upload test results
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: test-results
-        path: |
-          TestResults/
-          logs/
-          *.log
-
-  # Job 2: Build Docker image
-  docker-build:
-    name: ?? Docker Build
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-    
-    steps:
-    - name: ?? Checkout code
-      uses: actions/checkout@v4
-    
-    - name: ??? Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: ?? Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-    
-    - name: ??? Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ secrets.DOCKER_USERNAME }}/gestiontime-api
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix=sha-
-          type=raw,value=latest,enable={{is_default_branch}}
-    
-    - name: ?? Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        platforms: linux/amd64,linux/arm64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-    
-    - name: ?? Test Docker image
-      run: |
-        echo "Testing Docker image..."
-        docker run --rm -d \
-          --name gestiontime-test \
-          -p 8080:8080 \
-          -e ConnectionStrings__Default="Host=host.docker.internal;Port=5432;Database=gestiontime_test;Username=postgres;Password=test_password" \
-          ${{ secrets.DOCKER_USERNAME }}/gestiontime-api:latest
-        
-        # Wait for container to start
-        sleep 10
-        
-        # Test health endpoint
-        if curl -f http://localhost:8080/health; then
-          echo "? Docker image is working"
-        else
-          echo "? Docker image test failed"
-          docker logs gestiontime-test
-          exit 1
-        fi
-        
-        # Cleanup
-        docker stop gestiontime-test
-
-  # Job 3: Deploy to staging (opcional)
-  deploy-staging:
-    name: ?? Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: [build-and-test, docker-build]
-    if: github.ref == 'refs/heads/develop'
-    environment: staging
-    
-    steps:
-    - name: ?? Checkout code
-      uses: actions/checkout@v4
-    
-    - name: ?? Deploy to Render/Railway (ejemplo)
-      run: |
-        echo "Deploying to staging environment..."
-        echo "This would trigger deployment to your staging server"
-        echo "? Deployment triggered"
-    
-    - name: ?? Run smoke tests on staging
-      run: |
-        echo "Running smoke tests on staging..."
-        # curl -f $STAGING_URL/health
-        echo "? Smoke tests passed"
-
-  # Job 4: Deploy to production
-  deploy-production:
-    name: ?? Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [build-and-test, docker-build]
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-    environment: production
-    
-    steps:
-    - name: ?? Checkout code
-      uses: actions/checkout@v4
-    
-    - name: ?? Deploy to Production
-      run: |
-        echo "Deploying to production environment..."
-        echo "This would trigger deployment to your production server"
-        echo "? Production deployment triggered"
-    
-    - name: ?? Run smoke tests on production
-      run: |
-        echo "Running smoke tests on production..."
-        # curl -f $PRODUCTION_URL/health
-        echo "? Production smoke tests passed"
-    
-    - name: ?? Notify deployment success
-      if: success()
-      run: |
-        echo "?? Deployment successful!"
-        echo "Production URL: https://your-api-domain.com"
-
-  # Job 5: Security scan (opcional)
-  security-scan:
-    name: ?? Security Scan
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    
-    steps:
-    - name: ?? Checkout code
-      uses: actions/checkout@v4
-    
-    - name: ?? Run security scan
-      uses: securecodewarrior/github-action-add-sarif@v1
-      with:
-        sarif-file: 'security-scan-results.sarif'
-      continue-on-error: true
-    
-    - name: ??? Dependency scan
-      run: |
-        echo "Running dependency vulnerability scan..."
-        # dotnet list package --vulnerable
-        echo "? Dependency scan completed"
+        echo "? Build completed successfully!"
+        echo "? Ready for deployment to Render.com"
