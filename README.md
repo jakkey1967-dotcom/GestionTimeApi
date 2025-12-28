@@ -177,24 +177,69 @@ Los logs se almacenan en:
 
 ## ?? Testing
 
-### Pruebas con Swagger
+### ? Verificación Rápida
+
+Después de arrancar la API, puedes verificar que funciona:
+
+#### Automático (Recomendado)
+
+```bash
+# Linux/macOS
+chmod +x test-api.sh
+./test-api.sh
+
+# Windows
+test-api.bat
+```
+
+#### Manual con Swagger
 
 1. Ve a https://localhost:2501/swagger
 2. Haz login con las credenciales de prueba
 3. Prueba los endpoints disponibles
 
-### Pruebas con curl
+#### Manual con curl
 
 ```bash
+# Health Check
+curl -k https://localhost:2501/health
+
 # Login
 curl -X POST https://localhost:2501/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@gestiontime.local","password":"admin123"}'
 
-# Obtener partes (requiere autenticación)
-curl https://localhost:2501/api/v1/partes \
-  -H "Cookie: access_token=tu-token-aqui"
+# Obtener tipos (sin autenticación)
+curl -k https://localhost:2501/api/v1/tipos
 ```
+
+### ?? Verificación desde GitHub
+
+Si clonas el repositorio desde GitHub:
+
+```bash
+# 1. Clonar repositorio
+git clone https://github.com/jakkey1967-dotcom/GestionTimeApi.git
+cd GestionTimeApi
+
+# 2. Arrancar API
+./start-dev.sh   # Linux/macOS
+start-dev.bat    # Windows
+
+# 3. En otra terminal, ejecutar pruebas
+./test-api.sh    # Linux/macOS  
+test-api.bat     # Windows
+```
+
+### ?? CI/CD Automático
+
+El repositorio incluye GitHub Actions que:
+- ? Compila automáticamente en cada push
+- ? Ejecuta pruebas de integración
+- ? Construye imagen Docker
+- ? Verifica que la API funciona correctamente
+
+Ver estado en: [Actions tab](https://github.com/jakkey1967-dotcom/GestionTimeApi/actions)
 
 ## ?? Seguridad
 
