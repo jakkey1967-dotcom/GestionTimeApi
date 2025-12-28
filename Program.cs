@@ -17,11 +17,19 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
+    // ?? Configurar URLs para Render.com (usa PORT de variable de entorno)
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
     // Configurar Serilog con archivos separados
     SerilogConfiguration.ConfigureSerilog(builder);
 
     // Controllers
     builder.Services.AddControllers();
+
+    // Health checks
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(builder.Configuration.GetConnectionString("Default")!);
 
     // CORS (para navegador + cookies)
     var corsOrigins = builder.Configuration
@@ -78,10 +86,10 @@ try
 
     builder.Services.AddAuthorization();
 
-    // ? Configurar Identity Options
+    // Configurar Identity Options
     builder.Services.Configure<Microsoft.AspNetCore.Identity.IdentityOptions>(options =>
     {
-        // ? HABILITAR verificación de email (para testing del sistema de activación)
+        // HABILITAR verificación de email (para testing del sistema de activación)
         options.SignIn.RequireConfirmedEmail = true;
         
         // Relajar requisitos de contraseña para desarrollo
@@ -100,10 +108,10 @@ try
     builder.Services.AddDbContext<GestionTimeDbContext>(opt =>
         opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
-// Memory Cache
+    // Memory Cache
     builder.Services.AddMemoryCache();
 
-// Servicios de email y verificación
+    // Servicios de email y verificación
     builder.Services.AddScoped<GestionTime.Api.Services.ResetTokenService>();
     builder.Services.AddScoped<GestionTime.Api.Services.EmailVerificationTokenService>();
     builder.Services.AddScoped<GestionTime.Api.Services.IEmailService, GestionTime.Api.Services.SmtpEmailService>(); 
@@ -121,15 +129,32 @@ try
     await GestionTime.Api.Startup.DbSeeder.SeedAsync(app.Services);
     Log.Information("Seed completado");
 
+    // Health checks endpoint
+    app.MapHealthChecks("/health");
+
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
         app.UseSwaggerUI();
     }
+    else
+    {
+        // En producción también habilitar Swagger para debugging
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "GestionTime API v1");
+            c.RoutePrefix = "swagger";
+        });
+    }
 
-    app.UseHttpsRedirection();
+    // No usar HTTPS redirect en Render (ellos manejan SSL)
+    if (!app.Environment.IsProduction())
+    {
+        app.UseHttpsRedirection();
+    }
 
-    // ? Servir archivos estáticos (logos, imágenes)
+    // Servir archivos estáticos (logos, imágenes)
     app.UseStaticFiles();
 
     app.UseCors("WebClient");
@@ -138,7 +163,7 @@ try
 
     app.MapControllers();
 
-    Log.Information("GestionTime API iniciada correctamente");
+    Log.Information("GestionTime API iniciada correctamente en puerto {Port}", port);
 
     app.Run();
 }
