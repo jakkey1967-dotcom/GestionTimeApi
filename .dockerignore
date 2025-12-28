@@ -30,6 +30,7 @@ docs
 
 # Render deployment files
 render-env-variables.txt
+render-env-variables-SECURE.txt
 configure-production.sh
 start-dev.*
 test-api.*
@@ -41,6 +42,17 @@ GestionTime.Infrastructure/Migrations/SQL/
 
 # Archivos de desarrollo
 appsettings.Development.json
+appsettings.Development.secure.json
 *.backup*
 *.original*
 *.temp*
+
+# Archivos de entorno
+.env*
+*SECURE*
+
+# Archivos de documentacion
+SECURITY-RENDER-CONFIG.md
+RENDER-ENVIRONMENT-GUIDE.md
+RENDER-SETUP-CHECKLIST.md
+README-NUEVOS-ARCHIVOS.md

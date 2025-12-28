@@ -15,18 +15,18 @@ COPY GestionTime.Infrastructure/*.csproj ./GestionTime.Infrastructure/
 
 RUN dotnet restore
 
-# Copiar código fuente
+# Copiar codigo fuente
 COPY . .
 
-# CRÍTICO: Verificar que el código no tiene AddNpgSql
-RUN echo "=== VERIFICANDO CÓDIGO ===" && \
+# CRITICO: Verificar que el codigo no tiene AddNpgSql
+RUN echo "=== VERIFICANDO CODIGO ===" && \
     if grep -r "AddNpgSql" .; then \
-        echo "ERROR: AddNpgSql encontrado en código!" && exit 1; \
+        echo "ERROR: AddNpgSql encontrado en codigo!" && exit 1; \
     else \
-        echo "? Código limpio sin AddNpgSql"; \
+        echo "OK: Codigo limpio sin AddNpgSql"; \
     fi
 
-# Compilar aplicación
+# Compilar aplicacion
 RUN dotnet publish -c Release -o /app/publish
 
 # Runtime
