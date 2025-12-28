@@ -103,8 +103,10 @@ try
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
 
-    // DbContext
-    var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") ?? builder.Configuration.GetConnectionString("Default");
+    // ? DbContext con conversión de DATABASE_URL de Render
+    var connectionString = GetConnectionString(builder.Configuration);
+    Log.Information("Usando connection string (oculto por seguridad)");
+    
     builder.Services.AddDbContext<GestionTimeDbContext>(opt =>
         opt.UseNpgsql(connectionString));
 
@@ -175,5 +177,43 @@ catch (Exception ex)
 finally
 {
     SerilogConfiguration.CloseAndFlush();
+}
+
+/// <summary>
+/// Convierte DATABASE_URL de Render (postgresql://...) a formato Npgsql connection string
+/// </summary>
+static string GetConnectionString(IConfiguration configuration)
+{
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    
+    // Si DATABASE_URL existe y es formato URL de Render
+    if (!string.IsNullOrEmpty(databaseUrl) && databaseUrl.StartsWith("postgresql://"))
+    {
+        Log.Information("Detectado DATABASE_URL en formato Render, convirtiendo...");
+        
+        try
+        {
+            var uri = new Uri(databaseUrl);
+            var userInfo = uri.UserInfo.Split(':');
+            
+            var connectionString = $"Host={uri.Host};" +
+                                 $"Port={uri.Port};" +
+                                 $"Database={uri.AbsolutePath.TrimStart('/')};" +
+                                 $"Username={userInfo[0]};" +
+                                 $"Password={userInfo[1]};" +
+                                 $"SslMode=Require;";
+            
+            Log.Information("Connection string convertido exitosamente");
+            return connectionString;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error convirtiendo DATABASE_URL, usando connection string de configuración");
+        }
+    }
+    
+    // Fallback: usar connection string de appsettings
+    return configuration.GetConnectionString("Default") 
+           ?? throw new InvalidOperationException("No se encontró connection string");
 }
 
