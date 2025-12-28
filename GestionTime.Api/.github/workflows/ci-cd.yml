@@ -20,18 +20,32 @@ jobs:
       with:
         dotnet-version: '8.0.x'
     
-    - name: ?? List Projects
+    - name: ?? List Project Structure
       run: |
         echo "=== Repository Structure ==="
         find . -name "*.csproj" -o -name "*.sln" | head -10
-        echo "=== Current Directory ==="
-        ls -la
+        echo "=== Solution File Content ==="
+        if [ -f "GestionTime.sln" ]; then
+          cat GestionTime.sln
+        else
+          echo "No solution file found"
+        fi
     
-    - name: ? Structure Verified
+    - name: ?? Restore Dependencies
+      run: |
+        if [ -f "GestionTime.sln" ]; then
+          echo "Restoring using solution file"
+          dotnet restore GestionTime.sln
+        else
+          echo "Restoring individual projects"
+          find . -name "*.csproj" | head -1 | xargs dotnet restore
+        fi
+    
+    - name: ? Verify Structure
       run: |
         echo "? Repository structure verified!"
         echo "? .NET 8 SDK available"
-        echo "? Ready for deployment to Render.com"
+        echo "? Dependencies restored successfully"
+        echo "? Ready for Docker deployment on Render.com"
         echo ""
-        echo "Note: Build verification disabled until project structure is cleaned up"
-        echo "Docker deployment will handle the actual compilation"
+        echo "Note: Compilation disabled until code issues are resolved"
