@@ -16,8 +16,8 @@ RUN dotnet restore GestionTime.sln
 # Copiar codigo fuente
 COPY . .
 
-# Limpiar directorios bin y obj para evitar conflictos
-RUN rm -rf bin obj GestionTime.Api/bin GestionTime.Api/obj
+# Limpiar solo directorios bin para evitar conflictos (mantener obj para assets)
+RUN rm -rf bin GestionTime.Api/bin
 
 # Verificar que el codigo C# no tiene referencias problematicas
 RUN echo "=== VERIFICANDO CODIGO ===" && \
@@ -27,8 +27,8 @@ RUN echo "=== VERIFICANDO CODIGO ===" && \
         echo "OK: Codigo limpio sin AddNpgSql"; \
     fi
 
-# Compilar aplicacion directamente sin clean
-RUN dotnet publish GestionTime.Api.csproj -c Release -o /app/publish --no-restore
+# Compilar aplicacion sin --no-restore para regenerar assets si es necesario
+RUN dotnet publish GestionTime.Api.csproj -c Release -o /app/publish
 
 # Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
