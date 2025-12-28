@@ -1,0 +1,16 @@
+version: 2
+
+services:
+  - type: web
+    name: gestiontime-api
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    branch: main
+    rootDir: .
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:$PORT
