@@ -1,0 +1,157 @@
+// ========================================
+// REGISTRO DE USUARIOS - AGREGAR AL AuthController.cs
+// ========================================
+
+[HttpPost("register")]
+[AllowAnonymous]
+public async Task<IActionResult> Register(
+    [FromBody] RegisterRequest req,
+    [FromServices] Services.ResetTokenService tokenSvc,
+    [FromServices] Services.IEmailService emailSvc)
+{
+    var email = (req.Email ?? "").Trim().ToLowerInvariant();
+    logger.LogInformation("Solicitud de registro para {Email}", email);
+
+    var existingUser = await db.Users.SingleOrDefaultAsync(u => u.Email == email);
+
+    if (existingUser != null)
+    {
+        logger.LogWarning("Intento de registro con email existente: {Email}", email);
+        return BadRequest(new RegisterResponse(false, null, "El email ya está registrado."));
+    }
+
+    var token = tokenSvc.GenerateToken();
+    
+    var tempData = new
+    {
+        Email = email,
+        FullName = req.FullName ?? "",
+        Password = req.Password ?? "",
+        Empresa = req.Empresa ?? ""
+    };
+    
+    var tempDataJson = System.Text.Json.JsonSerializer.Serialize(tempData);
+    
+    // Guardar datos temporales con el token
+    db.TempRegistrationData.Add(new { Token = $"register:{token}", Data = tempDataJson, ExpiresAt = DateTime.UtcNow.AddHours(1) });
+    await db.SaveChangesAsync();
+    
+    logger.LogInformation("Código de verificación generado para registro: {Email}", email);
+
+    try
+    {
+        await emailSvc.SendRegistrationEmailAsync(email, token);
+        logger.LogInformation("Email de verificación enviado a {Email}", email);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error enviando email de verificación a {Email}", email);
+        return StatusCode(500, new RegisterResponse(false, null, "Error al enviar el correo."));
+    }
+
+    return Ok(new RegisterResponse(true, "Código de verificación enviado a tu correo.", null));
+}
+
+[HttpPost("verify-email")]
+[AllowAnonymous]
+public async Task<IActionResult> VerifyEmail(
+    [FromBody] VerifyEmailRequest req,
+    [FromServices] Services.ResetTokenService tokenSvc)
+{
+    var token = (req.Token ?? "").Trim();
+    var email = (req.Email ?? "").Trim().ToLowerInvariant();
+
+    logger.LogInformation("Intento de verificación de email: {Email}", email);
+
+    // Buscar datos temporales del registro
+    var tempReg = await db.TempRegistrationData
+        .Where(t => t.Token == $"register:{token}" && t.ExpiresAt > DateTime.UtcNow)
+        .FirstOrDefaultAsync();
+
+    if (tempReg == null)
+    {
+        logger.LogWarning("Token de registro inválido o expirado");
+        return BadRequest(new RegisterResponse(false, null, "Código inválido o expirado."));
+    }
+
+    var data = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(tempReg.Data);
+    var storedEmail = data.GetProperty("Email").GetString();
+
+    if (storedEmail != email)
+    {
+        logger.LogWarning("Email no coincide con el token");
+        return BadRequest(new RegisterResponse(false, null, "Código inválido."));
+    }
+
+    var existingUser = await db.Users.SingleOrDefaultAsync(u => u.Email == email);
+    if (existingUser != null)
+    {
+        return BadRequest(new RegisterResponse(false, null, "El email ya está registrado."));
+    }
+
+    try
+    {
+        var fullName = data.GetProperty("FullName").GetString() ?? "";
+        var password = data.GetProperty("Password").GetString() ?? "";
+        var empresa = data.GetProperty("Empresa").GetString();
+
+        var newUser = new GestionTime.Domain.Auth.User
+        {
+            Id = Guid.NewGuid(),
+            Email = email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            FullName = fullName,
+            Empresa = empresa,
+            Enabled = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.Users.Add(newUser);
+
+        var userRole = await db.Roles.SingleOrDefaultAsync(r => r.Name == "User");
+        if (userRole != null)
+        {
+            db.UserRoles.Add(new GestionTime.Domain.Auth.UserRole
+            {
+                Id = Guid.NewGuid(),
+                UserId = newUser.Id,
+                RoleId = userRole.Id
+            });
+        }
+
+        // Eliminar datos temporales
+        db.TempRegistrationData.Remove(tempReg);
+
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Usuario registrado exitosamente: {Email}", email);
+
+        return Ok(new RegisterResponse(true, "Usuario registrado exitosamente.", null));
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error creando usuario: {Email}", email);
+        return StatusCode(500, new RegisterResponse(false, null, "Error al crear el usuario."));
+    }
+}
+
+
+# Diagrama de flujo para el registro de usuarios
+
+1. Usuario ingresa: email, nombre, contraseña, empresa
+2. POST /api/v1/auth/register ? Envía código de 6 dígitos por email
+3. Usuario recibe código en su email
+4. Usuario ingresa código de verificación
+5. POST /api/v1/auth/verify-email ? Crea usuario con rol "User"
+6. Usuario puede hacer login
+
+# Instrucciones para construir y ejecutar el proyecto
+
+1. Abrir una terminal y navegar hasta el directorio del proyecto:
+   cd C:\GestionTime\src\GestionTime.Api
+   
+2. Construir el proyecto:
+   dotnet build
+   
+3. Ejecutar el proyecto:
+   dotnet run

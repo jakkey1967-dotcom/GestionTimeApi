@@ -1,0 +1,129 @@
+// ========================================
+// REGISTRO DE USUARIOS - COPIAR ESTE CÓDIGO
+// Agregar al final de AuthController.cs (antes del cierre de clase)
+// ========================================
+
+[HttpPost("register")]
+[AllowAnonymous]
+public async Task<IActionResult> Register(
+    [FromBody] RegisterRequest req,
+    [FromServices] Services.ResetTokenService tokenSvc,
+    [FromServices] Services.IEmailService emailSvc)
+{
+    var email = (req.Email ?? "").Trim().ToLowerInvariant();
+    logger.LogInformation("Solicitud de registro para {Email}", email);
+
+    var existingUser = await db.Users.SingleOrDefaultAsync(u => u.Email == email);
+
+    if (existingUser != null)
+    {
+        logger.LogWarning("Email ya registrado: {Email}", email);
+        return BadRequest(new RegisterResponse(false, null, "El email ya está registrado."));
+    }
+
+    var token = tokenSvc.GenerateToken();
+    
+    var tempData = new
+    {
+        Email = email,
+        FullName = req.FullName ?? "",
+        Password = req.Password ?? "",
+        Empresa = req.Empresa ?? ""
+    };
+    
+    var jsonData = System.Text.Json.JsonSerializer.Serialize(tempData);
+    tokenSvc.SaveTokenWithData($"register:{token}", jsonData);
+    
+    logger.LogInformation("Código de verificación: {Token} para {Email}", token, email);
+
+    try
+    {
+        await emailSvc.SendRegistrationEmailAsync(email, token);
+        logger.LogInformation("Email de verificación enviado");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error enviando email");
+        return StatusCode(500, new RegisterResponse(false, null, "Error al enviar el correo."));
+    }
+
+    return Ok(new RegisterResponse(true, "Código enviado a tu correo.", null));
+}
+
+[HttpPost("verify-email")]
+[AllowAnonymous]
+public async Task<IActionResult> VerifyEmail(
+    [FromBody] VerifyEmailRequest req,
+    [FromServices] Services.ResetTokenService tokenSvc)
+{
+    var token = (req.Token ?? "").Trim();
+    var email = (req.Email ?? "").Trim().ToLowerInvariant();
+
+    logger.LogInformation("Verificación de email: {Email}", email);
+
+    var jsonData = tokenSvc.GetTokenData($"register:{token}");
+
+    if (jsonData == null)
+    {
+        logger.LogWarning("Token inválido o expirado");
+        return BadRequest(new RegisterResponse(false, null, "Código inválido o expirado."));
+    }
+
+    var data = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(jsonData);
+    var storedEmail = data.GetProperty("Email").GetString();
+
+    if (storedEmail != email)
+    {
+        logger.LogWarning("Email no coincide");
+        return BadRequest(new RegisterResponse(false, null, "Código inválido."));
+    }
+
+    var existingUser = await db.Users.SingleOrDefaultAsync(u => u.Email == email);
+    if (existingUser != null)
+    {
+        return BadRequest(new RegisterResponse(false, null, "El email ya está registrado."));
+    }
+
+    try
+    {
+        var fullName = data.GetProperty("FullName").GetString() ?? "";
+        var password = data.GetProperty("Password").GetString() ?? "";
+        var empresa = data.GetProperty("Empresa").GetString();
+
+        var newUser = new GestionTime.Domain.Auth.User
+        {
+            Id = Guid.NewGuid(),
+            Email = email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            FullName = fullName,
+            Empresa = empresa,
+            Enabled = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.Users.Add(newUser);
+
+        var userRole = await db.Roles.SingleOrDefaultAsync(r => r.Name == "User");
+        if (userRole != null)
+        {
+            db.UserRoles.Add(new GestionTime.Domain.Auth.UserRole
+            {
+                Id = Guid.NewGuid(),
+                UserId = newUser.Id,
+                RoleId = userRole.Id
+            });
+        }
+
+        await db.SaveChangesAsync();
+        tokenSvc.RemoveTokenByKey($"register:{token}");
+
+        logger.LogInformation("Usuario registrado: {Email}", email);
+
+        return Ok(new RegisterResponse(true, "Registro exitoso. Ya puedes iniciar sesión.", null));
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error creando usuario");
+        return StatusCode(500, new RegisterResponse(false, null, "Error al crear el usuario."));
+    }
+}

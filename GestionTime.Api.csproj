@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.OpenApi" Version="1.6.14" />
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.8.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="GestionTime.Application\GestionTime.Application.csproj" />
+    <ProjectReference Include="GestionTime.Infrastructure\GestionTime.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- Excluir expl�citamente archivos de los proyectos referenciados -->
+  <ItemGroup>
+    <Compile Remove="GestionTime.Domain\**" />
+    <Compile Remove="GestionTime.Infrastructure\**" />
+    <Compile Remove="GestionTime.Application\**" />
+    <Content Remove="GestionTime.Domain\**" />
+    <Content Remove="GestionTime.Infrastructure\**" />
+    <Content Remove="GestionTime.Application\**" />
+    <EmbeddedResource Remove="GestionTime.Domain\**" />
+    <EmbeddedResource Remove="GestionTime.Infrastructure\**" />
+    <EmbeddedResource Remove="GestionTime.Application\**" />
+    <None Remove="GestionTime.Domain\**" />
+    <None Remove="GestionTime.Infrastructure\**" />
+    <None Remove="GestionTime.Application\**" />
+  </ItemGroup>
+</Project>

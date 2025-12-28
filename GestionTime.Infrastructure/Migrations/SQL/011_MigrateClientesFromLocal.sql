@@ -1,0 +1,65 @@
+-- ============================================================================
+-- MIGRATE CLIENTES from localhost to cloud
+-- ============================================================================
+
+INSERT INTO gestiontime.cliente (id, nombre, nombre_comercial, provincia, id_puntoop, local_num, data_update, data_html) VALUES
+(1, 'AhorraCash/Bonacash', '', '', 0, 1, NOW(), ''),
+(2, 'Aitana', '', '', 0, 1, NOW(), ''),
+(3, 'Albir Garden', '', '', 0, 1, NOW(), ''),
+(4, 'Alifoods/Guillen', '', '', 0, 1, NOW(), ''),
+(5, 'Boprezo', '', '', 0, 1, NOW(), ''),
+(6, 'Campofresh', '', '', 0, 1, NOW(), ''),
+(7, 'Cardona', '', '', 0, 1, NOW(), ''),
+(8, 'Casalma', '', '', 0, 1, NOW(), ''),
+(9, 'Cash Zafra/MerkaCash', '', '', 0, 1, NOW(), ''),
+(10, 'Cifra', '', '', 0, 1, NOW(), ''),
+(11, 'Coalimenta', '', '', 0, 1, NOW(), ''),
+(12, 'Comestibles Castellanos', '', '', 0, 1, NOW(), ''),
+(13, 'Correos', '', '', 0, 1, NOW(), ''),
+(14, 'DIA', '', '', 0, 1, NOW(), ''),
+(15, 'Distrialimen', '', '', 0, 1, NOW(), ''),
+(16, 'El Árbol', '', '', 0, 1, NOW(), ''),
+(17, 'Global Retail', '', '', 0, 1, NOW(), ''),
+(18, 'Grupo Sánchez Romero', '', '', 0, 1, NOW(), ''),
+(19, 'Hermanos Granero', '', '', 0, 1, NOW(), ''),
+(20, 'I+D+i', '', '', 0, 1, NOW(), ''),
+(21, 'Il Negozio', '', '', 0, 1, NOW(), ''),
+(22, 'INTEGRA INFORMATION TECHNOLOGY SL', '', '', 0, 1, NOW(), ''),
+(23, 'Lidermas', '', '', 0, 1, NOW(), ''),
+(24, 'Lidl España', '', '', 0, 1, NOW(), ''),
+(25, 'Marabú Mercado', '', '', 0, 1, NOW(), ''),
+(26, 'Maxcoop', '', '', 0, 1, NOW(), ''),
+(27, 'Mercadona', '', '', 0, 1, NOW(), ''),
+(28, 'Mercarural', '', '', 0, 1, NOW(), ''),
+(29, 'MiCash-Dialsol', '', '', 0, 1, NOW(), ''),
+(30, 'Miquel Alimentació Grup', '', '', 0, 1, NOW(), ''),
+(31, 'Molcapríx-Carrefour', '', '', 0, 1, NOW(), ''),
+(32, 'NUFRI', '', '', 0, 1, NOW(), ''),
+(33, 'Ortofrutícola Rioja Alavesa', '', '', 0, 1, NOW(), ''),
+(34, 'PBX COMERCIAL, S.L.', '', '', 0, 1, NOW(), ''),
+(35, 'Plusfresc', '', '', 0, 1, NOW(), ''),
+(36, 'Primafrio', '', '', 0, 1, NOW(), ''),
+(37, 'Prixma/Gadisa', '', '', 0, 1, NOW(), ''),
+(38, 'Productos Fisan', '', '', 0, 1, NOW(), ''),
+(39, 'PROVEEDORES', '', '', 0, 1, NOW(), ''),
+(40, 'Grupo Quick', '', '', 0, 1, NOW(), ''),
+(41, 'ReyPan', '', '', 0, 1, NOW(), ''),
+(42, 'S.A.T. Les Coves de Vinromá', '', '', 0, 1, NOW(), ''),
+(43, 'Sánchez Romero', '', '', 0, 1, NOW(), ''),
+(44, 'SDFG', '', '', 0, 1, NOW(), ''),
+(45, 'Sucesores de Agustín Amores', '', '', 0, 1, NOW(), ''),
+(46, 'Spar Fragadis', '', '', 0, 1, NOW(), ''),
+(47, 'Supermercats Pujol', '', '', 0, 1, NOW(), ''),
+(48, 'Supersol', '', '', 0, 1, NOW(), ''),
+(49, 'TESCO', '', '', 0, 1, NOW(), ''),
+(50, 'Topfruit', '', '', 0, 1, NOW(), ''),
+(51, 'Uvesa', '', '', 0, 1, NOW(), ''),
+(52, 'Valseco 97 S.L.', '', '', 0, 1, NOW(), ''),
+(53, 'Vegalsa-Eroski Eskor 10', '', '', 0, 1, NOW(), ''),
+(54, 'Verdifresh Market', '', '', 0, 1, NOW(), '');
+
+-- Reset sequence
+SELECT setval('gestiontime.cliente_id_seq', (SELECT MAX(id) FROM gestiontime.cliente));
+
+-- Verification
+SELECT 'CLIENTES MIGRADOS: ' || COUNT(*) as resultado FROM gestiontime.cliente;
