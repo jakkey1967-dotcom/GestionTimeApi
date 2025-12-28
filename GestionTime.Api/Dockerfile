@@ -1,29 +1,38 @@
-# Multi-project Dockerfile for GestionTime solution
-# Build context should be from src/ folder (root of repository)
+# Dockerfile for GestionTime API
+# Build context: Root of repository (C:\GestionTime\src)
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy all project files for better layer caching
-COPY GestionTime.Domain/*.csproj ./GestionTime.Domain/
-COPY GestionTime.Application/*.csproj ./GestionTime.Application/
-COPY GestionTime.Infrastructure/*.csproj ./GestionTime.Infrastructure/
-COPY GestionTime.Api/*.csproj ./GestionTime.Api/
+# Copy solution file
+COPY GestionTime.sln ./
 
-# Restore dependencies
-WORKDIR /src/GestionTime.Api
-RUN dotnet restore
+# Copy project files for layer caching
+COPY GestionTime.Domain/GestionTime.Domain.csproj ./GestionTime.Domain/
+COPY GestionTime.Application/GestionTime.Application.csproj ./GestionTime.Application/
+COPY GestionTime.Infrastructure/GestionTime.Infrastructure.csproj ./GestionTime.Infrastructure/
+
+# Check if API project is in subdirectory or root
+COPY GestionTime.Api/GestionTime.Api/*.csproj ./GestionTime.Api/ 2>/dev/null || true
+COPY *.csproj ./ 2>/dev/null || true
+
+# Restore dependencies using solution file
+RUN dotnet restore GestionTime.sln
 
 # Copy all source code
-WORKDIR /src
-COPY GestionTime.Domain/ ./GestionTime.Domain/
-COPY GestionTime.Application/ ./GestionTime.Application/
-COPY GestionTime.Infrastructure/ ./GestionTime.Infrastructure/
-COPY GestionTime.Api/ ./GestionTime.Api/
+COPY . .
 
-# Build and publish
-WORKDIR /src/GestionTime.Api
-RUN dotnet publish -c Release -o /app/publish --no-restore
+# Build and publish the main API project (try both locations)
+RUN if [ -f "GestionTime.Api/GestionTime.Api/GestionTime.Api.csproj" ]; then \
+        echo "Building from GestionTime.Api/GestionTime.Api/" && \
+        dotnet publish GestionTime.Api/GestionTime.Api/GestionTime.Api.csproj -c Release -o /app/publish --no-restore; \
+    elif [ -f "Program.cs" ]; then \
+        echo "Building from root with Program.cs" && \
+        find . -name "*.csproj" -path "*/GestionTime.Api*" | head -1 | xargs dotnet publish -c Release -o /app/publish --no-restore; \
+    else \
+        echo "Building any API project found" && \
+        find . -name "*.csproj" -exec grep -l "Microsoft.NET.Sdk.Web" {} \; | head -1 | xargs dotnet publish -c Release -o /app/publish --no-restore; \
+    fi
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
@@ -48,5 +57,5 @@ EXPOSE $PORT
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD curl -f http://localhost:$PORT/health || exit 1
 
-# Start the application
+# Start the application  
 ENTRYPOINT ["dotnet", "GestionTime.Api.dll"]
