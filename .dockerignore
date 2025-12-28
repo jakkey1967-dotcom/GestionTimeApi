@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Visual Studio
+.vs
+.vscode
+
+# Build output
+bin
+obj
+logs
+
+# Node modules
+node_modules
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Test files
+**/test*
+**/*test*
+
+# Render deployment files
+render-env-variables.txt
+configure-production.sh
+start-dev.*
+test-api.*
+quick-test.sh
+
+# Scripts SQL no necesarios en runtime
+fix-migrations-schema.sql
+GestionTime.Infrastructure/Migrations/SQL/
+
+# Archivos de desarrollo
+appsettings.Development.json
+*.backup*
+*.original*
+*.temp*

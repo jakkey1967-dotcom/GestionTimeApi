@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
-using HealthChecks.NpgSql;
 
 // Configuración temprana de Serilog para capturar errores de arranque
 Log.Logger = new LoggerConfiguration()
@@ -28,9 +27,8 @@ try
     // Controllers
     builder.Services.AddControllers();
 
-    // Health checks
-    builder.Services.AddHealthChecks()
-        .AddNpgSql(builder.Configuration.GetConnectionString("Default")!);
+    // Health checks (básico para compatibilidad con Docker)
+    builder.Services.AddHealthChecks();
 
     // CORS (para navegador + cookies)
     var corsOrigins = builder.Configuration
