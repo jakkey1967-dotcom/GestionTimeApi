@@ -1,0 +1,121 @@
+﻿using GestionTime.Domain.Auth;
+using Microsoft.EntityFrameworkCore;
+
+namespace GestionTime.Infrastructure.Persistence;
+
+public sealed class GestionTimeDbContext : DbContext
+{
+    public GestionTimeDbContext(DbContextOptions<GestionTimeDbContext> options) : base(options) { }
+
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<GestionTime.Domain.Work.ParteDeTrabajo> PartesDeTrabajo => Set<GestionTime.Domain.Work.ParteDeTrabajo>();
+
+    protected override void OnModelCreating(ModelBuilder b)
+    {
+        base.OnModelCreating(b);
+
+        // ✅ PostgreSQL 9.4 => SERIAL (no IDENTITY)
+        b.UseSerialColumns();
+        // AUTH mappings...
+        // WORK mappings de Cliente/Grupo/Tipo...
+
+        // ✅ AQUÍ PEGAS EL MAPPING DE ParteDeTrabajo (punto 2.2)
+        b.Entity<GestionTime.Domain.Work.ParteDeTrabajo>(e =>
+        {
+            e.ToTable("partesdetrabajo");
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+
+            e.Property(x => x.FechaTrabajo).HasColumnName("fecha_trabajo").HasColumnType("date").IsRequired();
+
+            e.Property(x => x.HoraInicio).HasColumnName("hora_inicio").HasColumnType("time").IsRequired();
+            e.Property(x => x.HoraFin).HasColumnName("hora_fin").HasColumnType("time").IsRequired();
+
+            e.Property(x => x.Accion).HasColumnName("accion").IsRequired();
+            e.Property(x => x.Ticket).HasColumnName("ticket");
+            e.Property(x => x.Tienda).HasColumnName("tienda");
+
+            e.Property(x => x.IdCliente).HasColumnName("id_cliente").IsRequired();
+            e.Property(x => x.IdGrupo).HasColumnName("id_grupo");
+            e.Property(x => x.IdTipo).HasColumnName("id_tipo");
+
+            e.Property(x => x.IdUsuario).HasColumnName("id_usuario").IsRequired();
+
+            e.Property(x => x.Estado).HasColumnName("estado").HasDefaultValue("activo").IsRequired();
+
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()").IsRequired();
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()").IsRequired();
+
+            e.HasCheckConstraint("ck_partes_horas_validas", "hora_fin >= hora_inicio");
+
+            e.HasIndex(x => x.FechaTrabajo).HasDatabaseName("idx_partes_fecha_trabajo");
+            e.HasIndex(x => x.CreatedAt).HasDatabaseName("idx_partes_created_at");
+            e.HasIndex(x => new { x.IdUsuario, x.FechaTrabajo }).HasDatabaseName("idx_partes_user_fecha");
+        });
+        b.Entity<User>(e =>
+        {
+            e.ToTable("users");
+
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+
+            e.Property(x => x.Email).HasColumnName("email").HasMaxLength(200).IsRequired();
+            e.HasIndex(x => x.Email).IsUnique();
+
+            e.Property(x => x.PasswordHash).HasColumnName("password_hash").IsRequired();
+            e.Property(x => x.FullName).HasColumnName("full_name").HasMaxLength(200);
+            e.Property(x => x.Enabled).HasColumnName("enabled").HasDefaultValue(true);
+        });
+
+        b.Entity<Role>(e =>
+        {
+            e.ToTable("roles");
+
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+
+            e.Property(x => x.Name).HasColumnName("name").HasMaxLength(50).IsRequired();
+            e.HasIndex(x => x.Name).IsUnique();
+        });
+
+        b.Entity<UserRole>(e =>
+        {
+            e.ToTable("user_roles");
+
+            e.Property(x => x.UserId).HasColumnName("user_id");
+            e.Property(x => x.RoleId).HasColumnName("role_id");
+
+            e.HasKey(x => new { x.UserId, x.RoleId });
+
+            e.HasOne(x => x.User).WithMany(u => u.UserRoles)
+             .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.Role).WithMany(r => r.UserRoles)
+             .HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<RefreshToken>(e =>
+        {
+            e.ToTable("refresh_tokens");
+
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+
+            e.Property(x => x.UserId).HasColumnName("user_id");
+            e.Property(x => x.TokenHash).HasColumnName("token_hash").HasMaxLength(128).IsRequired();
+            e.HasIndex(x => x.TokenHash).IsUnique();
+
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").IsRequired();
+            e.Property(x => x.ExpiresAt).HasColumnName("expires_at").IsRequired();
+            e.Property(x => x.RevokedAt).HasColumnName("revoked_at");
+
+            e.HasOne(x => x.User).WithMany(u => u.RefreshTokens)
+             .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+}
+

@@ -1,0 +1,54 @@
+-- ============================================================================
+-- MIGRATION: Create user_profiles table
+-- ============================================================================
+
+-- Create user_profiles table
+CREATE TABLE IF NOT EXISTS user_profiles (
+    id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Personal data
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    phone VARCHAR(20),
+    mobile VARCHAR(20),
+    
+    -- Address
+    address VARCHAR(200),
+    city VARCHAR(100),
+    postal_code VARCHAR(10),
+    
+    -- Work information
+    department VARCHAR(100),
+    position VARCHAR(100),
+    employee_type VARCHAR(50), -- tecnico, tecnico_remoto, atencion_cliente, administrativo, manager
+    hire_date DATE,
+    
+    -- Others
+    avatar_url VARCHAR(500),
+    notes TEXT,
+    
+    -- Audit
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_user_profiles_employee_type ON user_profiles(employee_type);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_department ON user_profiles(department);
+
+-- ============================================================================
+-- VERIFICATION
+-- ============================================================================
+SELECT 
+    table_name, 
+    column_name, 
+    data_type 
+FROM information_schema.columns 
+WHERE table_name = 'user_profiles'
+ORDER BY ordinal_position;
+
+-- ============================================================================
+-- ROLLBACK (in case of error)
+-- ============================================================================
+-- DROP TABLE IF EXISTS user_profiles;
+-- ============================================================================
