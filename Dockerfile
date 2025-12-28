@@ -1,58 +1,49 @@
-# Dockerfile optimizado para Render.com (corrige problemas de tipos duplicados)
-# Build context: Raíz del repositorio
-
+# Dockerfile optimizado para Render.com
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Invalidar cache con fecha actual
-RUN echo "Build timestamp: $(date)" > /tmp/build_timestamp
+# Cache busting para forzar rebuild
+ARG BUILD_DATE
+RUN echo "Build date: $BUILD_DATE" > /tmp/builddate.txt
 
-# Copiar archivo de solución
-COPY GestionTime.sln ./
-
-# Copiar archivos de proyecto para caché de capas
-COPY GestionTime.Domain/*.csproj ./GestionTime.Domain/
-COPY GestionTime.Application/*.csproj ./GestionTime.Application/
-COPY GestionTime.Infrastructure/*.csproj ./GestionTime.Infrastructure/
-COPY GestionTime.Api.csproj ./
+# Copiar archivos de configuración del proyecto
+COPY ["GestionTime.Api.csproj", "./"]
+COPY ["GestionTime.Domain/GestionTime.Domain.csproj", "GestionTime.Domain/"]
+COPY ["GestionTime.Application/GestionTime.Application.csproj", "GestionTime.Application/"]
+COPY ["GestionTime.Infrastructure/GestionTime.Infrastructure.csproj", "GestionTime.Infrastructure/"]
+COPY ["GestionTime.sln", "./"]
 
 # Restaurar dependencias
-RUN dotnet restore GestionTime.sln
+RUN dotnet restore "GestionTime.Api.csproj"
 
-# Copiar todo el código fuente
+# Copiar el resto del código fuente
 COPY . .
 
-# Construir y publicar la aplicación (ignorando warnings CS0436)
-RUN dotnet publish GestionTime.Api.csproj -c Release -o /app/publish \
-    --no-restore \
-    --verbosity quiet \
-    -p:WarningsAsErrors="" \
-    -p:TreatWarningsAsErrors=false \
-    -nowarn:CS0436
+# Cambiar al directorio del proyecto principal
+WORKDIR "/src"
 
-# Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+# Publicar aplicación
+RUN dotnet publish "GestionTime.Api.csproj" -c Release -o /app/publish \
+    --no-restore \
+    --verbosity minimal \
+    /p:TreatWarningsAsErrors=false
+
+# Runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
 # Instalar curl para health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copiar aplicación publicada
-COPY --from=build /app/publish .
-
-# Crear directorio de logs
+# Crear directorio de logs con permisos
 RUN mkdir -p /app/logs && chmod 755 /app/logs
+
+# Copiar archivos publicados
+COPY --from=build /app/publish .
 
 # Variables de entorno para Render
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://0.0.0.0:$PORT
-
-# Exponer puerto
-EXPOSE $PORT
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-    CMD curl -f http://localhost:$PORT/health || exit 1
 
 # Ejecutar aplicación
 ENTRYPOINT ["dotnet", "GestionTime.Api.dll"]
