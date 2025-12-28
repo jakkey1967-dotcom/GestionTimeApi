@@ -42,12 +42,9 @@ public static class SerilogConfiguration
             .Enrich.WithProperty("Application", "GestionTime.Api")
             .Enrich.WithProperty("Environment", builder.Environment.EnvironmentName);
 
-        // Consola (solo en desarrollo)
-        if (builder.Environment.IsDevelopment())
-        {
-            loggerConfig.WriteTo.Console(
-                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
-        }
+        // ? CONSOLA SIEMPRE HABILITADA (desarrollo y producción)
+        loggerConfig.WriteTo.Console(
+            outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
 
         // Archivo informativo (Information + Warning)
         loggerConfig.WriteTo.Logger(lc => lc
