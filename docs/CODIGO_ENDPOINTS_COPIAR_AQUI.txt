@@ -1,0 +1,146 @@
+// ========================================
+// RECUPERACIÓN DE CONTRASEÑA
+// ========================================
+// 
+// IMPORTANTE: Este NO es un archivo compilable.
+// Es solo código para COPIAR y PEGAR en AuthController.cs
+//
+// INSTRUCCIONES:
+// 1. Copia TODO este archivo (Ctrl+A, Ctrl+C)
+// 2. Abre: C:\GestionTime\src\GestionTime.Api\Controllers\AuthController.cs
+// 3. Ve al final del archivo (después de SetRefreshCookie, antes del último })
+// 4. Pega el código (Ctrl+V)
+// 5. Guarda (Ctrl+S)
+// ========================================
+
+[HttpPost("forgot-password")]
+[AllowAnonymous]
+public async Task<IActionResult> ForgotPassword(
+    [FromBody] ForgotPasswordRequest req,
+    [FromServices] Services.ResetTokenService resetTokenSvc,
+    [FromServices] Services.IEmailService emailSvc)
+{
+    var email = (req.Email ?? "").Trim().ToLowerInvariant();
+    logger.LogInformation("Solicitud de recuperación de contraseña para {Email}", email);
+
+    var user = await db.Users.SingleOrDefaultAsync(u => u.Email == email);
+
+    if (user is null || !user.Enabled)
+    {
+        // Por seguridad, siempre responder éxito
+        logger.LogWarning("Solicitud de recuperación para email no existente o deshabilitado: {Email}", email);
+        return Ok(new ForgotPasswordResponse(
+            true, 
+            "Si el email existe, recibirás un código de verificación.", 
+            null
+        ));
+    }
+
+    // Generar código de 6 dígitos
+    var token = resetTokenSvc.GenerateToken();
+    
+    // Guardar en caché
+    resetTokenSvc.SaveToken(token, user.Id);
+    
+    logger.LogInformation("Código de recuperación generado para {Email}: {Token}", email, token);
+
+    // Enviar email
+    try
+    {
+        await emailSvc.SendPasswordResetEmailAsync(user.Email, token);
+        logger.LogInformation("Email de recuperación enviado a {Email}", email);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error al enviar email de recuperación a {Email}", email);
+        return StatusCode(500, new ForgotPasswordResponse(
+            false,
+            null,
+            "Error al enviar el correo. Intenta nuevamente."
+        ));
+    }
+
+    return Ok(new ForgotPasswordResponse(
+        true,
+        "Código de verificación enviado a tu correo.",
+        null
+    ));
+}
+
+[HttpPost("reset-password")]
+[AllowAnonymous]
+public async Task<IActionResult> ResetPassword(
+    [FromBody] ResetPasswordRequest req,
+    [FromServices] Services.ResetTokenService resetTokenSvc)
+{
+    var token = (req.Token ?? "").Trim();
+    var email = (req.Email ?? "").Trim().ToLowerInvariant();
+    var newPassword = req.NewPassword ?? "";
+
+    logger.LogInformation("Intento de reset de contraseña para {Email} con token {TokenPrefix}...", 
+        email, token.Length > 3 ? token.Substring(0, 3) : "***");
+
+    // Validar token
+    var userId = resetTokenSvc.ValidateAndGetUserId(token);
+
+    if (userId == null)
+    {
+        logger.LogWarning("Token inválido o expirado: {Token}", token);
+        return BadRequest(new ForgotPasswordResponse(
+            false,
+            null,
+            "Código inválido o expirado."
+        ));
+    }
+
+    // Validar usuario
+    var user = await db.Users.FindAsync(userId.Value);
+
+    if (user is null || user.Email != email || !user.Enabled)
+    {
+        logger.LogWarning("Usuario no encontrado, email no coincide o deshabilitado para UserId: {UserId}", userId);
+        return BadRequest(new ForgotPasswordResponse(
+            false,
+            null,
+            "Código inválido."
+        ));
+    }
+
+    // Validar longitud de contraseña
+    if (newPassword.Length < 6)
+    {
+        return BadRequest(new ForgotPasswordResponse(
+            false,
+            null,
+            "La contraseña debe tener al menos 6 caracteres."
+        ));
+    }
+
+    // Actualizar contraseña
+    try
+    {
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        await db.SaveChangesAsync();
+
+        // Eliminar token usado
+        resetTokenSvc.RemoveToken(token);
+
+        logger.LogInformation("Contraseña reseteada exitosamente para {Email} (UserId: {UserId})", 
+            email, user.Id);
+
+        return Ok(new ForgotPasswordResponse(
+            true,
+            "Contraseña actualizada correctamente.",
+            null
+        ));
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error al actualizar contraseña para {Email}", email);
+        return StatusCode(500, new ForgotPasswordResponse(
+            false,
+            null,
+            "Error al actualizar la contraseña."
+        ));
+    }
+}

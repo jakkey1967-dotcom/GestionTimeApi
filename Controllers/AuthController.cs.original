@@ -1,0 +1,202 @@
+﻿using BCrypt.Net;
+using GestionTime.Api.Contracts.Auth;
+using GestionTime.Api.Security;
+using GestionTime.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+
+namespace GestionTime.Api.Controllers;
+
+[ApiController]
+[Route("api/v1/auth")]
+public class AuthController(
+    GestionTimeDbContext db, 
+    JwtService jwt, 
+    RefreshTokenService refreshSvc,
+    ILogger<AuthController> logger) : ControllerBase
+{
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest req)
+    {
+        var email = (req.Email ?? "").Trim().ToLowerInvariant();
+        logger.LogInformation("Intento de login para {Email}", email);
+
+        var user = await db.Users
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .SingleOrDefaultAsync(u => u.Email == email);
+
+        if (user is null || !user.Enabled)
+        {
+            logger.LogWarning("Login fallido para {Email}: usuario no encontrado o deshabilitado", email);
+            return Unauthorized(new { message = "Credenciales inválidas" });
+        }
+
+        bool ok;
+        try
+        {
+            ok = BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash);
+        }
+        catch (BCrypt.Net.SaltParseException ex)
+        {
+            logger.LogError(ex, "Error de BCrypt al verificar password para {Email}", email);
+            ok = false;
+        }
+
+        if (!ok)
+        {
+            logger.LogWarning("Login fallido para {Email}: contraseña incorrecta", email);
+            return Unauthorized(new { message = "Credenciales inválidas" });
+        }
+
+        var roles = user.UserRoles.Select(ur => ur.Role.Name).ToArray();
+
+        // Access token (JWT)
+        var accessToken = jwt.CreateAccessToken(user.Id, user.Email, roles);
+        logger.LogDebug("Token de acceso generado para {UserId}", user.Id);
+
+        // Refresh token (raw + hash)
+        var (rawRefresh, refreshHash, refreshExpires) = refreshSvc.Create();
+
+        db.RefreshTokens.Add(new GestionTime.Domain.Auth.RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TokenHash = refreshHash,
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = refreshExpires,
+            RevokedAt = null
+        });
+
+        await db.SaveChangesAsync();
+
+        SetAccessCookie(accessToken);
+        SetRefreshCookie(rawRefresh, refreshExpires);
+
+        logger.LogInformation("Login exitoso para {Email} (UserId: {UserId}, Roles: {Roles})", 
+            email, user.Id, string.Join(", ", roles));
+
+        return Ok(new { message = "ok" });
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh()
+    {
+        if (!Request.Cookies.TryGetValue("refresh_token", out var rawRefresh) || string.IsNullOrWhiteSpace(rawRefresh))
+        {
+            logger.LogWarning("Intento de refresh sin token");
+            return Unauthorized(new { message = "No refresh token" });
+        }
+
+        var hash = RefreshTokenService.Hash(rawRefresh);
+        logger.LogDebug("Procesando refresh token (hash: {HashPrefix}...)", hash[..8]);
+
+        var token = await db.RefreshTokens
+            .Include(t => t.User)
+                .ThenInclude(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+            .SingleOrDefaultAsync(t => t.TokenHash == hash);
+
+        if (token is null || token.RevokedAt != null || token.ExpiresAt <= DateTime.UtcNow || !token.User.Enabled)
+        {
+            logger.LogWarning("Refresh token inválido, revocado o expirado");
+            return Unauthorized(new { message = "Refresh inválido" });
+        }
+
+        // Rotación: revoca el antiguo
+        token.RevokedAt = DateTime.UtcNow;
+
+        var roles = token.User.UserRoles.Select(ur => ur.Role.Name).ToArray();
+        var newAccess = jwt.CreateAccessToken(token.User.Id, token.User.Email, roles);
+
+        var (newRawRefresh, newHash, newRefreshExpires) = refreshSvc.Create();
+
+        db.RefreshTokens.Add(new GestionTime.Domain.Auth.RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = token.User.Id,
+            TokenHash = newHash,
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = newRefreshExpires,
+            RevokedAt = null
+        });
+
+        await db.SaveChangesAsync();
+
+        SetAccessCookie(newAccess);
+        SetRefreshCookie(newRawRefresh, newRefreshExpires);
+
+        logger.LogInformation("Token refrescado exitosamente para {UserId}", token.User.Id);
+
+        return Ok(new { message = "ok" });
+    }
+
+    [Authorize]
+    [HttpGet("me")]
+    public IActionResult Me()
+    {
+        var email = User.FindFirst(ClaimTypes.Email)?.Value ?? "unknown";
+        var roles = User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToArray();
+        
+        logger.LogDebug("Consulta /me para {Email}", email);
+        
+        return Ok(new MeResponse(email, roles));
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        logger.LogInformation("Logout solicitado{UserInfo}", 
+            userId != null ? $" por UserId: {userId}" : "");
+
+        // Revoca el refresh actual (si existe)
+        if (Request.Cookies.TryGetValue("refresh_token", out var rawRefresh) && !string.IsNullOrWhiteSpace(rawRefresh))
+        {
+            var hash = RefreshTokenService.Hash(rawRefresh);
+
+            var token = await db.RefreshTokens.SingleOrDefaultAsync(t => t.TokenHash == hash);
+            if (token is not null && token.RevokedAt == null)
+            {
+                token.RevokedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+                logger.LogDebug("Refresh token revocado");
+            }
+        }
+
+        Response.Cookies.Delete("access_token");
+        Response.Cookies.Delete("refresh_token", new CookieOptions
+        {
+            Path = "/api/v1/auth/refresh"
+        });
+
+        logger.LogInformation("Logout completado");
+
+        return Ok(new { message = "bye" });
+    }
+
+    private void SetAccessCookie(string jwtToken)
+    {
+        Response.Cookies.Append("access_token", jwtToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = DateTimeOffset.UtcNow.AddMinutes(15),
+            Path = "/"
+        });
+    }
+
+    private void SetRefreshCookie(string refreshRaw, DateTime refreshExpiresUtc)
+    {
+        Response.Cookies.Append("refresh_token", refreshRaw, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = new DateTimeOffset(refreshExpiresUtc),
+            Path = "/api/v1/auth/refresh"
+        });
+    }
+}
