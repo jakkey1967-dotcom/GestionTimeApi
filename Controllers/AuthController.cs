@@ -869,6 +869,101 @@ public class AuthController(
 
     // Cerrar la clase AuthController
 
+    // ========================================
+    // LOGIN PARA APLICACIÓN DESKTOP (sin cookies)
+    // ========================================
+    
+    [HttpPost("login-desktop")]
+    [AllowAnonymous]
+    public async Task<IActionResult> LoginDesktop([FromBody] LoginRequest req)
+    {
+        var email = (req.Email ?? "").Trim().ToLowerInvariant();
+        logger.LogInformation("Intento de login DESKTOP para {Email}", email);
+
+        var user = await db.Users
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .SingleOrDefaultAsync(u => u.Email == email);
+
+        if (user is null || !user.Enabled)
+        {
+            logger.LogWarning("Login fallido para {Email}: usuario no encontrado o deshabilitado", email);
+            return Unauthorized(new { message = "Credenciales inválidas" });
+        }
+
+        bool ok;
+        try
+        {
+            ok = BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash);
+        }
+        catch (BCrypt.Net.SaltParseException ex)
+        {
+            logger.LogError(ex, "Error de BCrypt al verificar password para {Email}", email);
+            ok = false;
+        }
+
+        if (!ok)
+        {
+            logger.LogWarning("Login fallido para {Email}: contraseña incorrecta", email);
+            return Unauthorized(new { message = "Credenciales inválidas" });
+        }
+
+        // Verificar si debe cambiar contraseña
+        if (user.ShouldChangePassword)
+        {
+            logger.LogInformation("Usuario {Email} debe cambiar contraseña", email);
+            
+            return Ok(new 
+            { 
+                message = "password_change_required",
+                mustChangePassword = true,
+                passwordExpired = user.IsPasswordExpired,
+                daysUntilExpiration = user.DaysUntilPasswordExpires,
+                userName = !string.IsNullOrWhiteSpace(user.FullName) ? user.FullName : user.Email?.Split('@')[0] ?? "Usuario"
+            });
+        }
+
+        var roles = user.UserRoles.Select(ur => ur.Role.Name).ToArray();
+
+        // Access token (JWT)
+        var accessToken = jwt.CreateAccessToken(user.Id, user.Email, roles);
+        
+        // Refresh token (raw + hash)
+        var (rawRefresh, refreshHash, refreshExpires) = refreshSvc.Create();
+
+        db.RefreshTokens.Add(new GestionTime.Domain.Auth.RefreshToken
+        {
+            UserId = user.Id,
+            TokenHash = refreshHash,
+            ExpiresAt = refreshExpires,
+            RevokedAt = null
+        });
+
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Login DESKTOP exitoso para {Email} (UserId: {UserId}, Roles: {Roles})", 
+            email, user.Id, string.Join(", ", roles));
+
+        var role = roles.FirstOrDefault() ?? "Usuario";
+        var userName = !string.IsNullOrWhiteSpace(user.FullName) 
+            ? user.FullName 
+            : user.Email?.Split('@')[0] ?? "Usuario";
+
+        // ✅ DEVOLVER TOKENS EN JSON (sin cookies)
+        return Ok(new 
+        { 
+            message = "ok",
+            userName = userName,
+            userEmail = user.Email,
+            userRole = role,
+            mustChangePassword = false,
+            daysUntilPasswordExpires = user.DaysUntilPasswordExpires,
+            // Tokens para Desktop
+            accessToken = accessToken,
+            refreshToken = rawRefresh,
+            expiresAt = refreshExpires
+        });
+    }
+
 }
 
 public record ForcePasswordChangeRequest
