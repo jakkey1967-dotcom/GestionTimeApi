@@ -1,0 +1,33 @@
+name: ? Build Test
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build:
+    name: ?? Build Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: ?? Checkout
+      uses: actions/checkout@v4
+    
+    - name: ??? Setup .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: ?? Restore
+      run: dotnet restore GestionTime.sln
+    
+    - name: ?? Build
+      run: dotnet build GestionTime.sln --no-restore --configuration Release
+    
+    - name: ? Success
+      run: |
+        echo "? Build completed successfully!"
+        echo "? All projects compiled"
+        echo "? Ready for deployment to Render.com"
