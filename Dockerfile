@@ -6,14 +6,15 @@ WORKDIR /app
 # Cache busting para forzar rebuild completo
 RUN echo "REBUILD_$(date +%s)" > /tmp/rebuild_marker
 
-# Copiar y restaurar dependencias
-COPY *.csproj ./
-COPY *.sln ./
+# Copiar archivos de solucion y proyectos
+COPY GestionTime.sln ./
+COPY GestionTime.Api.csproj ./
 COPY GestionTime.Domain/*.csproj ./GestionTime.Domain/
 COPY GestionTime.Application/*.csproj ./GestionTime.Application/
 COPY GestionTime.Infrastructure/*.csproj ./GestionTime.Infrastructure/
 
-RUN dotnet restore
+# Restaurar dependencias
+RUN dotnet restore GestionTime.sln
 
 # Copiar codigo fuente
 COPY . .
@@ -27,7 +28,7 @@ RUN echo "=== VERIFICANDO CODIGO ===" && \
     fi
 
 # Compilar aplicacion
-RUN dotnet publish -c Release -o /app/publish
+RUN dotnet publish GestionTime.Api.csproj -c Release -o /app/publish
 
 # Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
