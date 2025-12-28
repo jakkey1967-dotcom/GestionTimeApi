@@ -1,49 +1,38 @@
-# Dockerfile optimizado para Render.com
+# Dockerfile para Render.com - Estructura simplificada
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
 
-# Cache busting para forzar rebuild
-ARG BUILD_DATE
-RUN echo "Build date: $BUILD_DATE" > /tmp/builddate.txt
+# Establecer directorio de trabajo
+WORKDIR /app
 
-# Copiar archivos de configuración del proyecto
-COPY ["GestionTime.Api.csproj", "./"]
-COPY ["GestionTime.Domain/GestionTime.Domain.csproj", "GestionTime.Domain/"]
-COPY ["GestionTime.Application/GestionTime.Application.csproj", "GestionTime.Application/"]
-COPY ["GestionTime.Infrastructure/GestionTime.Infrastructure.csproj", "GestionTime.Infrastructure/"]
-COPY ["GestionTime.sln", "./"]
+# Copiar archivos de proyecto
+COPY *.csproj ./
+COPY GestionTime.Domain/*.csproj GestionTime.Domain/
+COPY GestionTime.Application/*.csproj GestionTime.Application/
+COPY GestionTime.Infrastructure/*.csproj GestionTime.Infrastructure/
+COPY GestionTime.sln ./
 
 # Restaurar dependencias
-RUN dotnet restore "GestionTime.Api.csproj"
+RUN dotnet restore
 
-# Copiar el resto del código fuente
-COPY . .
-
-# Cambiar al directorio del proyecto principal
-WORKDIR "/src"
+# Copiar todo el código
+COPY . ./
 
 # Publicar aplicación
-RUN dotnet publish "GestionTime.Api.csproj" -c Release -o /app/publish \
-    --no-restore \
-    --verbosity minimal \
-    /p:TreatWarningsAsErrors=false
+RUN dotnet publish -c Release -o out
 
 # Runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 
 # Instalar curl para health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Crear directorio de logs con permisos
-RUN mkdir -p /app/logs && chmod 755 /app/logs
-
 # Copiar archivos publicados
-COPY --from=build /app/publish .
+COPY --from=build /app/out .
 
-# Variables de entorno para Render
+# Variables de entorno
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://0.0.0.0:$PORT
 
-# Ejecutar aplicación
-ENTRYPOINT ["dotnet", "GestionTime.Api.dll"]
+# Ejecutar aplicación  
+CMD ["dotnet", "GestionTime.Api.dll"]

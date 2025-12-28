@@ -1,0 +1,35 @@
+# Archivos que Render debe ignorar durante el build
+
+# Visual Studio
+.vs/
+bin/
+obj/
+logs/
+
+# Git
+.git/
+.gitignore
+
+# Documentation  
+docs/
+*.md
+!README.md
+
+# Development files
+*.Development.json
+*.user
+*.suo
+
+# Archivos de desarrollo local
+start-dev.*
+test-api.*
+quick-test.sh
+configure-production.sh
+
+# Variables de entorno locales
+.env*
+*SECURE*
+
+# Carpetas duplicadas que pueden causar confusión
+GestionTime.Api/.github/
+GestionTime.Api/docs/
