@@ -174,14 +174,12 @@ public static class DbSeeder
     {
         try
         {
-            using var connection = db.Database.GetDbConnection();
-            await connection.OpenAsync();
+            // Usar ExecuteSqlRaw en lugar de abrir una conexión separada
+            var lockResult = await db.Database.ExecuteSqlRawAsync(
+                $"SELECT pg_try_advisory_lock({MIGRATION_LOCK_ID})");
             
-            using var command = connection.CreateCommand();
-            command.CommandText = $"SELECT pg_try_advisory_lock({MIGRATION_LOCK_ID})";
-            
-            var result = await command.ExecuteScalarAsync();
-            return Convert.ToBoolean(result);
+            // Si ExecuteSqlRaw devuelve -1, el lock no se pudo adquirir
+            return lockResult != -1;
         }
         catch (Exception ex)
         {
