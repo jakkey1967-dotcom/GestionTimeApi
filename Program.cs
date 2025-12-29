@@ -103,6 +103,17 @@ try
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
 
+    // 🔒 Configurar Data Protection para contenedores (persistir en /app/keys)
+    var keysPath = Path.Combine(Directory.GetCurrentDirectory(), "keys");
+    Directory.CreateDirectory(keysPath);
+    
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(keysPath))
+        .SetApplicationName("GestionTimeAPI")
+        .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
+    
+    Log.Information("🔒 Data Protection configurado en: {KeysPath}", keysPath);
+
     // ? DbContext con conversión de DATABASE_URL de Render
     var connectionString = GetConnectionString(builder.Configuration);
     Log.Information("Usando connection string (oculto por seguridad)");
