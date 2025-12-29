@@ -103,13 +103,6 @@ try
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
 
-    // 🔒 Configurar Data Protection (sin persistencia adicional, solo en memoria para contenedores efímeros)
-    builder.Services.AddDataProtection()
-        .SetApplicationName("GestionTimeAPI")
-        .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
-    
-    Log.Information("🔒 Data Protection configurado correctamente");
-
     // ? DbContext con conversión de DATABASE_URL de Render
     var connectionString = GetConnectionString(builder.Configuration);
     Log.Information("Usando connection string (oculto por seguridad)");
