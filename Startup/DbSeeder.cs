@@ -130,29 +130,18 @@ public static class DbSeeder
     {
         try
         {
-            // Verificar si las tablas principales existen
-            var query = @"
-                SELECT COUNT(*) 
-                FROM information_schema.tables 
-                WHERE table_schema = 'gestiontime' 
-                AND table_name IN ('users', 'roles', 'tipo', 'grupo', 'cliente')";
+            // Intentar acceder directamente a las tablas usando EF Core
+            var rolesCount = await db.Roles.CountAsync();
+            var usersCount = await db.Users.CountAsync();
             
-            using var connection = db.Database.GetDbConnection();
-            await connection.OpenAsync();
-            
-            using var command = connection.CreateCommand();
-            command.CommandText = query;
-            
-            var result = await command.ExecuteScalarAsync();
-            var count = Convert.ToInt32(result);
-            
-            Log.Information("  • Tablas encontradas: {Count}/5", count);
-            
-            return count >= 5;
+            // Si llegamos aquí, las tablas existen
+            Log.Information("  • Tablas encontradas: Las tablas principales existen");
+            return true;
         }
-        catch (Exception ex)
+        catch
         {
-            Log.Warning(ex, "⚠️ Error verificando tablas existentes");
+            // Si falla el Count, las tablas no existen o hay un error
+            Log.Information("  • Tablas encontradas: 0/5 (BD vacía o sin esquema)");
             return false;
         }
     }
