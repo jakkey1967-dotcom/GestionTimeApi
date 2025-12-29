@@ -134,6 +134,10 @@ try
     // Health checks endpoint
     app.MapHealthChecks("/health");
 
+    // ? ENDPOINT RAÍZ - Redirigir a Swagger
+    app.MapGet("/", () => Results.Redirect("/swagger"))
+        .ExcludeFromDescription();
+
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
