@@ -157,9 +157,16 @@ try
     // Health checks endpoint (público)
     app.MapHealthChecks("/health");
 
-    // ✅ ENDPOINT RAÍZ PÚBLICO - Página simple de estado
-    app.MapGet("/", () => 
+    // ✅ ENDPOINT RAÍZ - Muestra información según el entorno
+    app.MapGet("/", async (GestionTimeDbContext db) => 
     {
+        // En Development, mostrar información detallada como antes
+        if (app.Environment.IsDevelopment())
+        {
+            return await GetDiagnosticsPageAsync(db, app);
+        }
+        
+        // En Production, mostrar página simple
         var html = @"
 <!DOCTYPE html>
 <html lang=""es"">
@@ -191,6 +198,12 @@ try
             color: white;
             padding: 40px;
             text-align: center;
+        }
+        .logo {
+            max-width: 300px;
+            height: auto;
+            margin: 0 auto 15px auto;
+            display: block;
         }
         .header h1 {
             font-size: 32px;
@@ -247,12 +260,24 @@ try
             color: #6c757d;
             font-size: 14px;
         }
+        @media (max-width: 600px) {
+            .logo {
+                max-width: 200px;
+            }
+            .header h1 {
+                font-size: 24px;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class=""container"">
         <div class=""header"">
-            <h1>🚀 GestionTime API</h1>
+            <img src=""/images/LogoOscuro.png"" alt=""GestionTime"" class=""logo"" onerror=""this.style.display='none'"" />
+            <h1>GestionTime API</h1>
             <p>Sistema de Gestión de Tiempo y Recursos</p>
         </div>
         <div class=""content"">
@@ -261,6 +286,7 @@ try
             <div class=""links"">
                 <a href=""/swagger"" class=""link-button"">📚 Documentación API</a>
                 <a href=""/health"" class=""link-button secondary"">🏥 Health Check</a>
+                <a href=""/diagnostics"" class=""link-button secondary"">🔒 Diagnósticos</a>
             </div>
         </div>
         <div class=""footer"">
@@ -510,14 +536,10 @@ try
 <body>
     <div class=""container"">
         <div class=""header"">
-            <h1>🔒 Diagnósticos del Sistema</h1>
-            <p>Información Confidencial - Solo Administradores</p>
+            <img src=""/images/LogoOscuro.png"" alt=""GestionTime"" class=""logo"" onerror=""this.style.display='none'"" />
+            <h1>GestionTime API {envBadge}</h1>
+            <p>Sistema de Gestión de Tiempo y Recursos</p>
         </div>
-        
-        <div class=""warning-banner"">
-            ⚠️ ACCESO RESTRINGIDO: Esta página contiene información sensible del sistema
-        </div>
-        
         <div class=""content"">
             <div class=""status-grid"">
                 <div class=""status-card {apiStatusClass}"">
@@ -525,176 +547,56 @@ try
                     <div class=""value"">{apiStatus}</div>
                     <div class=""detail"">Respondiendo solicitudes</div>
                 </div>
-                
                 <div class=""status-card {dbStatusClass}"">
                     <h3>Base de Datos</h3>
                     <div class=""value"">{dbStatus}</div>
                     <div class=""detail"">Latencia: {dbLatency}ms</div>
-                    {(migrationsPending > 0 ? $@"<span class=""badge badge-warning"">⚠️ {migrationsPending} migración(es) pendiente(s)</span>" : $@"<span class=""badge badge-success"">✓ {migrationsApplied} migración(es) aplicada(s)</span>")}
+                    {(migrationsPending > 0 ? $@"<span class=""badge badge-warning"">⚠️ {migrationsPending} pendiente(s)</span>" : $@"<span class=""badge badge-success"">✓ {migrationsApplied} aplicada(s)</span>")}
                 </div>
             </div>
-            
             <div class=""info-grid"">
                 <div class=""info-item"">
                     <label>Versión</label>
                     <div class=""value"">v{version}</div>
                 </div>
-                
                 <div class=""info-item"">
                     <label>Entorno</label>
                     <div class=""value"">{environment}</div>
                 </div>
-                
                 <div class=""info-item"">
                     <label>Tiempo Activo</label>
                     <div class=""value"">{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m</div>
                 </div>
-                
                 <div class=""info-item"">
                     <label>Memoria Usada</label>
                     <div class=""value"">{memoryUsedMB} MB</div>
                 </div>
-                
                 <div class=""info-item"">
                     <label>GC Collections</label>
                     <div class=""value"">{gcGen0}/{gcGen1}/{gcGen2}</div>
                 </div>
-                
                 <div class=""info-item"">
                     <label>Hora del Servidor</label>
                     <div class=""value"">{DateTime.UtcNow:HH:mm:ss} UTC</div>
                 </div>
             </div>
+            <div class=""links"">
+                <a href=""/swagger"" class=""link-button"">📚 Documentación API</a>
+                <a href=""/health"" class=""link-button secondary"">🏥 Health Check</a>
+            </div>
         </div>
-        
         <div class=""footer"">
-            © 2025 GestionTime - Diagnósticos del Sistema<br>
-            <small>Acceso: Solo Administradores • Auto-refresh: 30s</small>
+            © 2025 GestionTime - Todos los derechos reservados<br>
+            <small>Desarrollado por TDK Portal • Auto-refresh: 30s</small>
         </div>
     </div>
-    
     <script>
-        // Auto-refresh cada 30 segundos
         setTimeout(() => location.reload(), 30000);
     </script>
 </body>
 </html>";
 
-        return Results.Content(html, "text/html");
-    })
-    .RequireAuthorization(policy => policy.RequireRole("Admin"))
-    .WithName("SystemDiagnostics")
-    .ExcludeFromDescription();
-    
-    app.MapMethods("/", new[] { "HEAD" }, () => Results.Ok())
-        .ExcludeFromDescription();
-
-    if (app.Environment.IsDevelopment())
-    {
-        app.UseSwagger();
-        app.UseSwaggerUI();
-    }
-    else
-    {
-        // 🔒 En producción: Proteger Swagger con autenticación
-        app.UseSwagger();
-        app.UseSwaggerUI(c =>
-        {
-            c.SwaggerEndpoint("/swagger/v1/swagger.json", "GestionTime API v1");
-            c.RoutePrefix = "swagger";
-            c.DocumentTitle = "GestionTime API - Documentación";
-        });
-        
-        // Middleware para proteger acceso a Swagger en producción
-        app.Use(async (context, next) =>
-        {
-            if (context.Request.Path.StartsWithSegments("/swagger"))
-            {
-                // Verificar si el usuario está autenticado
-                if (!context.User.Identity?.IsAuthenticated ?? true)
-                {
-                    context.Response.StatusCode = 401;
-                    await context.Response.WriteAsync("Acceso denegado: Se requiere autenticación para acceder a la documentación de la API.");
-                    return;
-                }
-                
-                // Verificar si el usuario es Admin
-                if (!context.User.IsInRole("Admin"))
-                {
-                    context.Response.StatusCode = 403;
-                    await context.Response.WriteAsync("Acceso denegado: Solo los administradores pueden acceder a la documentación de la API.");
-                    return;
-                }
-            }
-            
-            await next();
-        });
-    }
-
-    // No usar HTTPS redirect en Render (ellos manejan SSL)
-    if (!app.Environment.IsProduction())
-    {
-        app.UseHttpsRedirection();
-    }
-
-    // Servir archivos estáticos (logos, imágenes)
-    app.UseStaticFiles();
-
-    app.UseCors("WebClient");
-    app.UseAuthentication();
-    app.UseAuthorization();
-
-    app.MapControllers();
-
-    Log.Information("GestionTime API iniciada correctamente en puerto {Port}", port);
-
-    app.Run();
-}
-catch (Exception ex)
-{
-    Log.Fatal(ex, "La aplicación falló al iniciar");
-    throw;
-}
-finally
-{
-    SerilogConfiguration.CloseAndFlush();
+    return Results.Content(html, "text/html");
 }
 
-/// <summary>
-/// Convierte DATABASE_URL de Render (postgresql://...) a formato Npgsql connection string
-/// </summary>
-static string GetConnectionString(IConfiguration configuration)
-{
-    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-    
-    // Si DATABASE_URL existe y es formato URL de Render
-    if (!string.IsNullOrEmpty(databaseUrl) && databaseUrl.StartsWith("postgresql://"))
-    {
-        Log.Information("Detectado DATABASE_URL en formato Render, convirtiendo...");
-        
-        try
-        {
-            var uri = new Uri(databaseUrl);
-            var userInfo = uri.UserInfo.Split(':');
-            
-            var connectionString = $"Host={uri.Host};" +
-                                 $"Port={uri.Port};" +
-                                 $"Database={uri.AbsolutePath.TrimStart('/')};" +
-                                 $"Username={userInfo[0]};" +
-                                 $"Password={userInfo[1]};" +
-                                 $"SslMode=Require;";
-            
-            Log.Information("Connection string convertido exitosamente");
-            return connectionString;
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Error convirtiendo DATABASE_URL, usando connection string de configuración");
-        }
-    }
-    
-    // Fallback: usar connection string de appsettings
-    return configuration.GetConnectionString("Default") 
-           ?? throw new InvalidOperationException("No se encontró connection string");
-}
 
