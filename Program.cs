@@ -126,10 +126,33 @@ try
         options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} respondió {StatusCode} en {Elapsed:0.0000} ms";
     });
 
-    // Seed
-    Log.Information("Ejecutando seed de base de datos...");
-    await GestionTime.Api.Startup.DbSeeder.SeedAsync(app.Services);
-    Log.Information("Seed completado");
+    // Seed con manejo robusto de errores
+    try
+    {
+        Log.Information("🚀 Ejecutando seed de base de datos...");
+        await GestionTime.Api.Startup.DbSeeder.SeedAsync(app.Services);
+        Log.Information("✅ Seed completado exitosamente");
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "❌ Error durante el seed");
+        
+        // No fallar el arranque si es error de BD ya inicializada
+        var message = ex.Message.ToLowerInvariant();
+        var isDbAlreadySetup = message.Contains("already exists") || 
+                               message.Contains("42p07") ||
+                               message.Contains("__efmigrationshistory");
+        
+        if (isDbAlreadySetup)
+        {
+            Log.Warning("⚠️ Base de datos ya inicializada. Continuando arranque...");
+        }
+        else
+        {
+            Log.Fatal(ex, "💥 Error crítico en seed - La aplicación no puede continuar");
+            throw;
+        }
+    }
 
     // Health checks endpoint
     app.MapHealthChecks("/health");
