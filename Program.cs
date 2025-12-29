@@ -1,4 +1,4 @@
-using GestionTime.Api.Logging;
+Ôªøusing GestionTime.Api.Logging;
 using GestionTime.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
 
-// ConfiguraciÛn temprana de Serilog para capturar errores de arranque
+// Configuraci√≥n temprana de Serilog para capturar errores de arranque
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateBootstrapLogger();
@@ -27,7 +27,7 @@ try
     // Controllers
     builder.Services.AddControllers();
 
-    // Health checks (b·sico para compatibilidad con Docker)
+    // Health checks (b√°sico para compatibilidad con Docker)
     builder.Services.AddHealthChecks();
 
     // CORS (para navegador + cookies)
@@ -44,9 +44,9 @@ try
             .AllowCredentials());
     });
 
-    Log.Debug("CORS configurado para orÌgenes: {Origins}", string.Join(", ", corsOrigins));
+    Log.Debug("CORS configurado para or√≠genes: {Origins}", string.Join(", ", corsOrigins));
 
-    // JWT (leÌdo desde cookie "access_token")
+    // JWT (le√≠do desde cookie "access_token")
     var jwtIssuer = builder.Configuration["Jwt:Issuer"]!;
     var jwtAudience = builder.Configuration["Jwt:Audience"]!;
     var jwtKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? builder.Configuration["Jwt:Key"]!;
@@ -88,10 +88,10 @@ try
     // Configurar Identity Options
     builder.Services.Configure<Microsoft.AspNetCore.Identity.IdentityOptions>(options =>
     {
-        // HABILITAR verificaciÛn de email (para testing del sistema de activaciÛn)
+        // HABILITAR verificaci√≥n de email (para testing del sistema de activaci√≥n)
         options.SignIn.RequireConfirmedEmail = true;
         
-        // Relajar requisitos de contraseÒa para desarrollo
+        // Relajar requisitos de contrase√±a para desarrollo
         options.Password.RequireDigit = false;
         options.Password.RequireLowercase = false;
         options.Password.RequireUppercase = false;
@@ -103,7 +103,7 @@ try
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
 
-    // ? DbContext con conversiÛn de DATABASE_URL de Render
+    // ? DbContext con conversi√≥n de DATABASE_URL de Render
     var connectionString = GetConnectionString(builder.Configuration);
     Log.Information("Usando connection string (oculto por seguridad)");
     
@@ -113,7 +113,7 @@ try
     // Memory Cache
     builder.Services.AddMemoryCache();
 
-    // Servicios de email y verificaciÛn
+    // Servicios de email y verificaci√≥n
     builder.Services.AddScoped<GestionTime.Api.Services.ResetTokenService>();
     builder.Services.AddScoped<GestionTime.Api.Services.EmailVerificationTokenService>();
     builder.Services.AddScoped<GestionTime.Api.Services.IEmailService, GestionTime.Api.Services.SmtpEmailService>(); 
@@ -123,7 +123,7 @@ try
     // Request logging middleware de Serilog
     app.UseSerilogRequestLogging(options =>
     {
-        options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} respondiÛ {StatusCode} en {Elapsed:0.0000} ms";
+        options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} respondi√≥ {StatusCode} en {Elapsed:0.0000} ms";
     });
 
     // Seed
@@ -134,24 +134,24 @@ try
     // Health checks endpoint
     app.MapHealthChecks("/health");
 
-    // ? ENDPOINT RAÕZ - P·gina de estado del servicio
+    // ‚úÖ ENDPOINT RA√çZ - P√°gina de estado del servicio
     app.MapGet("/", async (GestionTimeDbContext db) =>
     {
-        var apiStatus = "? Online";
+        var apiStatus = "‚úÖ Online";
         var apiStatusClass = "status-ok";
         
-        var dbStatus = "? Desconectado";
+        var dbStatus = "‚ùå Desconectado";
         var dbStatusClass = "status-error";
         
         try
         {
             await db.Database.CanConnectAsync();
-            dbStatus = "? Conectado";
+            dbStatus = "‚úÖ Conectado";
             dbStatusClass = "status-ok";
         }
         catch
         {
-            dbStatus = "? Error de conexiÛn";
+            dbStatus = "‚ùå Error de conexi√≥n";
         }
 
         var uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime();
@@ -356,7 +356,7 @@ try
         <div class=""header"">
             <img src=""/images/LogoOscuro.png"" alt=""GestionTime"" class=""logo"" onerror=""this.style.display='none'"" />
             <h1>GestionTime API</h1>
-            <p>Sistema de GestiÛn de Tiempo y Recursos</p>
+            <p>Sistema de Gesti√≥n de Tiempo y Recursos</p>
         </div>
         
         <div class=""content"">
@@ -374,7 +374,7 @@ try
             
             <div class=""info-grid"">
                 <div class=""info-item"">
-                    <label>VersiÛn</label>
+                    <label>Versi√≥n</label>
                     <div class=""value"">v{version}</div>
                 </div>
                 
@@ -395,13 +395,13 @@ try
             </div>
             
             <div class=""links"">
-                <a href=""/swagger"" class=""link-button"">?? DocumentaciÛn API</a>
-                <a href=""/health"" class=""link-button secondary"">?? Health Check</a>
+                <a href=""/swagger"" class=""link-button"">üìö Documentaci√≥n API</a>
+                <a href=""/health"" class=""link-button secondary"">üè• Health Check</a>
             </div>
         </div>
         
         <div class=""footer"">
-            © 2025 GestionTime - Todos los derechos reservados<br>
+            ¬© 2025 GestionTime - Todos los derechos reservados<br>
             <small>Desarrollado por TDK Portal</small>
         </div>
     </div>
@@ -427,7 +427,7 @@ try
     }
     else
     {
-        // En producciÛn tambiÈn habilitar Swagger para debugging
+        // En producci√≥n tambi√©n habilitar Swagger para debugging
         app.UseSwagger();
         app.UseSwaggerUI(c =>
         {
@@ -442,7 +442,7 @@ try
         app.UseHttpsRedirection();
     }
 
-    // Servir archivos est·ticos (logos, im·genes)
+    // Servir archivos est√°ticos (logos, im√°genes)
     app.UseStaticFiles();
 
     app.UseCors("WebClient");
@@ -457,7 +457,7 @@ try
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "La aplicaciÛn fallÛ al iniciar");
+    Log.Fatal(ex, "La aplicaci√≥n fall√≥ al iniciar");
     throw;
 }
 finally
@@ -494,12 +494,12 @@ static string GetConnectionString(IConfiguration configuration)
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error convirtiendo DATABASE_URL, usando connection string de configuraciÛn");
+            Log.Error(ex, "Error convirtiendo DATABASE_URL, usando connection string de configuraci√≥n");
         }
     }
     
     // Fallback: usar connection string de appsettings
     return configuration.GetConnectionString("Default") 
-           ?? throw new InvalidOperationException("No se encontrÛ connection string");
+           ?? throw new InvalidOperationException("No se encontr√≥ connection string");
 }
 
