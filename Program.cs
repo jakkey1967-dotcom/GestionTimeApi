@@ -154,208 +154,65 @@ try
         }
     }
 
-    // Health checks endpoint (público)
-    app.MapHealthChecks("/health");
-
-    // ✅ ENDPOINT RAÍZ - Muestra información según el entorno
-    app.MapGet("/", async (GestionTimeDbContext db) => 
+    // ✅ Health checks endpoint con JSON detallado
+    app.MapGet("/health", async (GestionTimeDbContext db) =>
     {
-        // En Development, mostrar información detallada como antes
-        if (app.Environment.IsDevelopment())
+        try
         {
-            return await GetDiagnosticsPageAsync(db, app);
+            var canConnect = await db.Database.CanConnectAsync();
+            var uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime();
+            
+            return Results.Ok(new
+            {
+                status = canConnect ? "OK" : "DEGRADED",
+                timestamp = DateTime.UtcNow,
+                service = "GestionTime API",
+                version = "1.0.0",
+                uptime = $"{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m {uptime.Seconds}s",
+                database = canConnect ? "connected" : "disconnected",
+                environment = app.Environment.EnvironmentName
+            });
         }
-        
-        // En Production, mostrar página simple
-        var html = @"
-<!DOCTYPE html>
-<html lang=""es"">
-<head>
-    <meta charset=""UTF-8"">
-    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
-    <title>GestionTime API</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+        catch (Exception ex)
+        {
+            return Results.Json(new
+            {
+                status = "UNHEALTHY",
+                timestamp = DateTime.UtcNow,
+                service = "GestionTime API",
+                database = "error",
+                error = ex.Message
+            }, statusCode: 503);
         }
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 600px;
-            width: 100%;
-            overflow: hidden;
-        }
-        .header {
-            background: linear-gradient(135deg, #0B8C99 0%, #0A7A85 100%);
-            color: white;
-            padding: 40px;
-            text-align: center;
-        }
-        .logo {
-            max-width: 300px;
-            height: auto;
-            margin: 0 auto 15px auto;
-            display: block;
-        }
-        .header h1 {
-            font-size: 32px;
-            font-weight: 600;
-            margin-bottom: 10px;
-        }
-        .header p {
-            opacity: 0.9;
-            font-size: 16px;
-        }
-        .content {
-            padding: 40px;
-            text-align: center;
-        }
-        .status {
-            display: inline-block;
-            padding: 15px 30px;
-            background: #d4edda;
-            color: #155724;
-            border-radius: 25px;
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 30px;
-        }
-        .links {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .link-button {
-            display: inline-block;
-            padding: 12px 30px;
-            background: linear-gradient(135deg, #0B8C99 0%, #0A7A85 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 25px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(11, 140, 153, 0.3);
-        }
-        .link-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(11, 140, 153, 0.4);
-        }
-        .link-button.secondary {
-            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
-            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
-        }
-        .footer {
-            text-align: center;
-            padding: 20px;
-            background: #f8f9fa;
-            color: #6c757d;
-            font-size: 14px;
-        }
-        @media (max-width: 600px) {
-            .logo {
-                max-width: 200px;
-            }
-            .header h1 {
-                font-size: 24px;
-            }
-            .content {
-                padding: 30px 20px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class=""container"">
-        <div class=""header"">
-            <img src=""/images/LogoOscuro.png"" alt=""GestionTime"" class=""logo"" onerror=""this.style.display='none'"" />
-            <h1>GestionTime API</h1>
-            <p>Sistema de Gestión de Tiempo y Recursos</p>
-        </div>
-        <div class=""content"">
-            <div class=""status"">✅ API Online</div>
-            <p style=""color: #6c757d; margin-bottom: 30px;"">La API está funcionando correctamente</p>
-            <div class=""links"">
-                <a href=""/swagger"" class=""link-button"">📚 Documentación API</a>
-                <a href=""/health"" class=""link-button secondary"">🏥 Health Check</a>
-                <a href=""/diagnostics"" class=""link-button secondary"">🔒 Diagnósticos</a>
-            </div>
-        </div>
-        <div class=""footer"">
-            © 2025 GestionTime - Todos los derechos reservados<br>
-            <small>Desarrollado por TDK Portal</small>
-        </div>
-    </div>
-</body>
-</html>";
-        return Results.Content(html, "text/html");
     })
+    .WithName("HealthCheck")
+    .WithTags("Health")
+    .Produces<object>(200)
+    .Produces<object>(503)
     .ExcludeFromDescription();
 
-    // 🔒 ENDPOINT DE DIAGNÓSTICOS PROTEGIDO - Solo para administradores
-    app.MapGet("/diagnostics", async (GestionTimeDbContext db) =>
+    // ✅ ENDPOINT RAÍZ - Página de diagnósticos del sistema
+    app.MapGet("/", async (GestionTimeDbContext db) =>
     {
         return await GetDiagnosticsPageAsync(db, app);
     })
-    .RequireAuthorization(policy => policy.RequireRole("Admin"))
-    .WithName("SystemDiagnostics")
     .ExcludeFromDescription();
 
+    // HEAD request para health checks de servicios externos
     app.MapMethods("/", new[] { "HEAD" }, () => Results.Ok())
         .ExcludeFromDescription();
 
-    if (app.Environment.IsDevelopment())
+    // Swagger disponible en todos los entornos
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
     {
-        app.UseSwagger();
-        app.UseSwaggerUI();
-    }
-    else
-    {
-        // 🔒 En producción: Proteger Swagger con autenticación
-        app.UseSwagger();
-        app.UseSwaggerUI(c =>
-        {
-            c.SwaggerEndpoint("/swagger/v1/swagger.json", "GestionTime API v1");
-            c.RoutePrefix = "swagger";
-            c.DocumentTitle = "GestionTime API - Documentación";
-        });
-        
-        // Middleware para proteger acceso a Swagger en producción
-        app.Use(async (context, next) =>
-        {
-            if (context.Request.Path.StartsWithSegments("/swagger"))
-            {
-                // Verificar si el usuario está autenticado
-                if (!context.User.Identity?.IsAuthenticated ?? true)
-                {
-                    context.Response.StatusCode = 401;
-                    await context.Response.WriteAsync("Acceso denegado: Se requiere autenticación para acceder a la documentación de la API.");
-                    return;
-                }
-                
-                // Verificar si el usuario es Admin
-                if (!context.User.IsInRole("Admin"))
-                {
-                    context.Response.StatusCode = 403;
-                    await context.Response.WriteAsync("Acceso denegado: Solo los administradores pueden acceder a la documentación de la API.");
-                    return;
-                }
-            }
-            
-            await next();
-        });
-    }
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "GestionTime API v1");
+        c.RoutePrefix = "swagger";
+        c.DocumentTitle = "GestionTime API - Documentación";
+    });
 
-    // No usar HTTPS redirect en Render (ellos manejan SSL)
-    if (!app.Environment.IsProduction())
+    // HTTPS redirect solo en desarrollo local
+    if (app.Environment.IsDevelopment())
     {
         app.UseHttpsRedirection();
     }
@@ -363,6 +220,7 @@ try
     // Servir archivos estáticos (logos, imágenes)
     app.UseStaticFiles();
 
+    // Pipeline de autenticación/autorización
     app.UseCors("WebClient");
     app.UseAuthentication();
     app.UseAuthorization();
@@ -456,7 +314,7 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
     {
         sw.Stop();
         dbLatency = (int)sw.ElapsedMilliseconds;
-        dbStatus = $"❌ Error: {ex.Message.Substring(0, Math.Min(50, ex.Message.Length))}...";
+        dbStatus = $"❌ Error: {ex.Message[..Math.Min(50, ex.Message.Length)]}...";
     }
 
     var process = System.Diagnostics.Process.GetCurrentProcess();
@@ -470,8 +328,8 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
     var gcGen2 = GC.CollectionCount(2);
 
     var envBadge = environment == "Development" 
-        ? "<span style=\"background: #ffc107; color: #000; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🔧 DEVELOPMENT</span>"
-        : "<span style=\"background: #28a745; color: #fff; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🚀 PRODUCTION</span>";
+        ? "<span style=\"background: #ffc107; color: #000; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🔧 DEV</span>"
+        : "<span style=\"background: #28a745; color: #fff; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🚀 PROD</span>";
 
     var html = $@"
 <!DOCTYPE html>
@@ -678,15 +536,15 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
                     <div class=""value"">{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m</div>
                 </div>
                 <div class=""info-item"">
-                    <label>Memoria Usada</label>
+                    <label>Memoria</label>
                     <div class=""value"">{memoryUsedMB} MB</div>
                 </div>
                 <div class=""info-item"">
-                    <label>GC Collections</label>
+                    <label>GC (Gen0/1/2)</label>
                     <div class=""value"">{gcGen0}/{gcGen1}/{gcGen2}</div>
                 </div>
                 <div class=""info-item"">
-                    <label>Hora del Servidor</label>
+                    <label>Hora Server</label>
                     <div class=""value"">{DateTime.UtcNow:HH:mm:ss} UTC</div>
                 </div>
             </div>
@@ -696,7 +554,7 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
             </div>
         </div>
         <div class=""footer"">
-            © 2025 GestionTime - Todos los derechos reservados<br>
+            © {DateTime.Now.Year} GestionTime - Todos los derechos reservados<br>
             <small>Desarrollado por TDK Portal • Auto-refresh: 30s</small>
         </div>
     </div>
@@ -708,6 +566,11 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
 
     return Results.Content(html, "text/html");
 }
+
+
+
+
+
 
 
 
