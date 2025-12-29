@@ -599,4 +599,383 @@ try
     return Results.Content(html, "text/html");
 }
 
+    app.MapMethods("/", new[] { "HEAD" }, () => Results.Ok())
+        .ExcludeFromDescription();
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
+    else
+    {
+        // 🔒 En producción: Proteger Swagger con autenticación
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "GestionTime API v1");
+            c.RoutePrefix = "swagger";
+            c.DocumentTitle = "GestionTime API - Documentación";
+        });
+        
+        // Middleware para proteger acceso a Swagger en producción
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.StartsWithSegments("/swagger"))
+            {
+                // Verificar si el usuario está autenticado
+                if (!context.User.Identity?.IsAuthenticated ?? true)
+                {
+                    context.Response.StatusCode = 401;
+                    await context.Response.WriteAsync("Acceso denegado: Se requiere autenticación para acceder a la documentación de la API.");
+                    return;
+                }
+                
+                // Verificar si el usuario es Admin
+                if (!context.User.IsInRole("Admin"))
+                {
+                    context.Response.StatusCode = 403;
+                    await context.Response.WriteAsync("Acceso denegado: Solo los administradores pueden acceder a la documentación de la API.");
+                    return;
+                }
+            }
+            
+            await next();
+        });
+    }
+
+    // No usar HTTPS redirect en Render (ellos manejan SSL)
+    if (!app.Environment.IsProduction())
+    {
+        app.UseHttpsRedirection();
+    }
+
+    // Servir archivos estáticos (logos, imágenes)
+    app.UseStaticFiles();
+
+    app.UseCors("WebClient");
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    app.MapControllers();
+
+    Log.Information("GestionTime API iniciada correctamente en puerto {Port}", port);
+
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "La aplicación falló al iniciar");
+    throw;
+}
+finally
+{
+    SerilogConfiguration.CloseAndFlush();
+}
+
+/// <summary>
+/// Convierte DATABASE_URL de Render (postgresql://...) a formato Npgsql connection string
+/// </summary>
+static string GetConnectionString(IConfiguration configuration)
+{
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    
+    // Si DATABASE_URL existe y es formato URL de Render
+    if (!string.IsNullOrEmpty(databaseUrl) && databaseUrl.StartsWith("postgresql://"))
+    {
+        Log.Information("Detectado DATABASE_URL en formato Render, convirtiendo...");
+        
+        try
+        {
+            var uri = new Uri(databaseUrl);
+            var userInfo = uri.UserInfo.Split(':');
+            
+            var connectionString = $"Host={uri.Host};" +
+                                 $"Port={uri.Port};" +
+                                 $"Database={uri.AbsolutePath.TrimStart('/')};" +
+                                 $"Username={userInfo[0]};" +
+                                 $"Password={userInfo[1]};" +
+                                 $"SslMode=Require;";
+            
+            Log.Information("Connection string convertido exitosamente");
+            return connectionString;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error convirtiendo DATABASE_URL, usando connection string de configuración");
+        }
+    }
+    
+    // Fallback: usar connection string de appsettings
+    return configuration.GetConnectionString("Default") 
+           ?? throw new InvalidOperationException("No se encontró connection string");
+}
+
+/// <summary>
+/// Genera página de diagnósticos con información del sistema
+/// </summary>
+static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebApplication app)
+{
+    var apiStatus = "✅ Online";
+    var apiStatusClass = "status-ok";
+    
+    var dbStatus = "❌ Desconectado";
+    var dbStatusClass = "status-error";
+    var dbLatency = 0;
+    var migrationsApplied = 0;
+    var migrationsPending = 0;
+    
+    // Verificar Base de Datos CON latencia
+    var sw = System.Diagnostics.Stopwatch.StartNew();
+    try
+    {
+        await db.Database.CanConnectAsync();
+        sw.Stop();
+        dbLatency = (int)sw.ElapsedMilliseconds;
+        
+        var appliedMigrations = await db.Database.GetAppliedMigrationsAsync();
+        var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+        
+        migrationsApplied = appliedMigrations.Count();
+        migrationsPending = pendingMigrations.Count();
+        
+        dbStatus = "✅ Conectado";
+        dbStatusClass = "status-ok";
+    }
+    catch (Exception ex)
+    {
+        sw.Stop();
+        dbLatency = (int)sw.ElapsedMilliseconds;
+        dbStatus = $"❌ Error: {ex.Message.Substring(0, Math.Min(50, ex.Message.Length))}...";
+    }
+
+    var process = System.Diagnostics.Process.GetCurrentProcess();
+    var memoryUsedMB = (int)(process.WorkingSet64 / 1024 / 1024);
+    var uptime = DateTime.UtcNow - process.StartTime.ToUniversalTime();
+    var environment = app.Environment.EnvironmentName;
+    var version = "1.0.0";
+    
+    var gcGen0 = GC.CollectionCount(0);
+    var gcGen1 = GC.CollectionCount(1);
+    var gcGen2 = GC.CollectionCount(2);
+
+    var envBadge = environment == "Development" 
+        ? "<span style=\"background: #ffc107; color: #000; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🔧 DEVELOPMENT</span>"
+        : "<span style=\"background: #28a745; color: #fff; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🚀 PRODUCTION</span>";
+
+    var html = $@"
+<!DOCTYPE html>
+<html lang=""es"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>GestionTime API - Diagnósticos del Sistema</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }}
+        .container {{
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 100%;
+            overflow: hidden;
+        }}
+        .header {{
+            background: linear-gradient(135deg, #0B8C99 0%, #0A7A85 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }}
+        .logo {{
+            max-width: 300px;
+            height: auto;
+            margin: 0 auto 15px auto;
+            display: block;
+        }}
+        .header h1 {{
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }}
+        .header p {{
+            opacity: 0.9;
+            font-size: 16px;
+        }}
+        .content {{
+            padding: 40px;
+        }}
+        .status-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }}
+        .status-card {{
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            border-left: 4px solid #ddd;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }}
+        .status-card:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }}
+        .status-card.status-ok {{
+            border-left-color: #28a745;
+        }}
+        .status-card.status-error {{
+            border-left-color: #dc3545;
+        }}
+        .status-card h3 {{
+            font-size: 14px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }}
+        .status-card .value {{
+            font-size: 24px;
+            font-weight: 600;
+            color: #212529;
+            margin-bottom: 5px;
+        }}
+        .status-card .detail {{
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 8px;
+        }}
+        .info-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }}
+        .info-item {{
+            background: #e9ecef;
+            padding: 15px 20px;
+            border-radius: 8px;
+        }}
+        .info-item label {{
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+            margin-bottom: 5px;
+        }}
+        .info-item .value {{
+            font-size: 16px;
+            font-weight: 600;
+            color: #212529;
+        }}
+        .badge {{
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 5px;
+        }}
+        .badge-success {{
+            background: #d4edda;
+            color: #155724;
+        }}
+        .badge-warning {{
+            background: #fff3cd;
+            color: #856404;
+        }}
+        .footer {{
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #6c757d;
+            font-size: 14px;
+        }}
+        @media (max-width: 600px) {{
+            .header h1 {{
+                font-size: 24px;
+            }}
+            
+            .content {{
+                padding: 30px 20px;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <div class=""header"">
+            <img src=""/images/LogoOscuro.png"" alt=""GestionTime"" class=""logo"" onerror=""this.style.display='none'"" />
+            <h1>GestionTime API {envBadge}</h1>
+            <p>Sistema de Gestión de Tiempo y Recursos</p>
+        </div>
+        <div class=""content"">
+            <div class=""status-grid"">
+                <div class=""status-card {apiStatusClass}"">
+                    <h3>Estado API</h3>
+                    <div class=""value"">{apiStatus}</div>
+                    <div class=""detail"">Respondiendo solicitudes</div>
+                </div>
+                <div class=""status-card {dbStatusClass}"">
+                    <h3>Base de Datos</h3>
+                    <div class=""value"">{dbStatus}</div>
+                    <div class=""detail"">Latencia: {dbLatency}ms</div>
+                    {(migrationsPending > 0 ? $@"<span class=""badge badge-warning"">⚠️ {migrationsPending} pendiente(s)</span>" : $@"<span class=""badge badge-success"">✓ {migrationsApplied} aplicada(s)</span>")}
+                </div>
+            </div>
+            <div class=""info-grid"">
+                <div class=""info-item"">
+                    <label>Versión</label>
+                    <div class=""value"">v{version}</div>
+                </div>
+                <div class=""info-item"">
+                    <label>Entorno</label>
+                    <div class=""value"">{environment}</div>
+                </div>
+                <div class=""info-item"">
+                    <label>Tiempo Activo</label>
+                    <div class=""value"">{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m</div>
+                </div>
+                <div class=""info-item"">
+                    <label>Memoria Usada</label>
+                    <div class=""value"">{memoryUsedMB} MB</div>
+                </div>
+                <div class=""info-item"">
+                    <label>GC Collections</label>
+                    <div class=""value"">{gcGen0}/{gcGen1}/{gcGen2}</div>
+                </div>
+                <div class=""info-item"">
+                    <label>Hora del Servidor</label>
+                    <div class=""value"">{DateTime.UtcNow:HH:mm:ss} UTC</div>
+                </div>
+            </div>
+            <div class=""links"">
+                <a href=""/swagger"" class=""link-button"">📚 Documentación API</a>
+                <a href=""/health"" class=""link-button secondary"">🏥 Health Check</a>
+            </div>
+        </div>
+        <div class=""footer"">
+            © 2025 GestionTime - Todos los derechos reservados<br>
+            <small>Desarrollado por TDK Portal • Auto-refresh: 30s</small>
+        </div>
+    </div>
+    <script>
+        setTimeout(() => location.reload(), 30000);
+    </script>
+</body>
+</html>";
+
+    return Results.Content(html, "text/html");
+}
+
 
