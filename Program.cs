@@ -199,8 +199,10 @@ try
         }}
         
         .logo {{
-            font-size: 48px;
-            margin-bottom: 10px;
+            max-width: 300px;
+            height: auto;
+            margin: 0 auto 15px auto;
+            display: block;
         }}
         
         .header h1 {{
@@ -333,12 +335,26 @@ try
         .pulse {{
             animation: pulse 2s infinite;
         }}
+        
+        @media (max-width: 600px) {{
+            .logo {{
+                max-width: 200px;
+            }}
+            
+            .header h1 {{
+                font-size: 24px;
+            }}
+            
+            .content {{
+                padding: 30px 20px;
+            }}
+        }}
     </style>
 </head>
 <body>
     <div class=""container"">
         <div class=""header"">
-            <div class=""logo"">??</div>
+            <img src=""/images/LogoOscuro.png"" alt=""GestionTime"" class=""logo"" onerror=""this.style.display='none'"" />
             <h1>GestionTime API</h1>
             <p>Sistema de Gestión de Tiempo y Recursos</p>
         </div>
