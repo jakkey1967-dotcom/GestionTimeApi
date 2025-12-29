@@ -134,9 +134,272 @@ try
     // Health checks endpoint
     app.MapHealthChecks("/health");
 
-    // ? ENDPOINT RAÍZ - Redirigir a Swagger (soporta GET y HEAD para health checks de Render)
-    app.MapGet("/", () => Results.Redirect("/swagger"))
-        .ExcludeFromDescription();
+    // ? ENDPOINT RAÍZ - Página de estado del servicio
+    app.MapGet("/", async (GestionTimeDbContext db) =>
+    {
+        var apiStatus = "? Online";
+        var apiStatusClass = "status-ok";
+        
+        var dbStatus = "? Desconectado";
+        var dbStatusClass = "status-error";
+        
+        try
+        {
+            await db.Database.CanConnectAsync();
+            dbStatus = "? Conectado";
+            dbStatusClass = "status-ok";
+        }
+        catch
+        {
+            dbStatus = "? Error de conexión";
+        }
+
+        var uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime();
+        var environment = app.Environment.EnvironmentName;
+        var version = "1.0.0";
+
+        var html = $@"
+<!DOCTYPE html>
+<html lang=""es"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>GestionTime API - Estado del Servicio</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }}
+        
+        .container {{
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            overflow: hidden;
+        }}
+        
+        .header {{
+            background: linear-gradient(135deg, #0B8C99 0%, #0A7A85 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }}
+        
+        .logo {{
+            font-size: 48px;
+            margin-bottom: 10px;
+        }}
+        
+        .header h1 {{
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }}
+        
+        .header p {{
+            opacity: 0.9;
+            font-size: 16px;
+        }}
+        
+        .content {{
+            padding: 40px;
+        }}
+        
+        .status-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }}
+        
+        .status-card {{
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            border-left: 4px solid #ddd;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }}
+        
+        .status-card:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }}
+        
+        .status-card.status-ok {{
+            border-left-color: #28a745;
+        }}
+        
+        .status-card.status-error {{
+            border-left-color: #dc3545;
+        }}
+        
+        .status-card h3 {{
+            font-size: 14px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }}
+        
+        .status-card .value {{
+            font-size: 24px;
+            font-weight: 600;
+            color: #212529;
+        }}
+        
+        .info-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }}
+        
+        .info-item {{
+            background: #e9ecef;
+            padding: 15px 20px;
+            border-radius: 8px;
+        }}
+        
+        .info-item label {{
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+            margin-bottom: 5px;
+        }}
+        
+        .info-item .value {{
+            font-size: 16px;
+            font-weight: 600;
+            color: #212529;
+        }}
+        
+        .links {{
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }}
+        
+        .link-button {{
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #0B8C99 0%, #0A7A85 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(11, 140, 153, 0.3);
+        }}
+        
+        .link-button:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(11, 140, 153, 0.4);
+        }}
+        
+        .link-button.secondary {{
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+        }}
+        
+        .footer {{
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #6c757d;
+            font-size: 14px;
+        }}
+        
+        @keyframes pulse {{
+            0%, 100% {{ opacity: 1; }}
+            50% {{ opacity: 0.5; }}
+        }}
+        
+        .pulse {{
+            animation: pulse 2s infinite;
+        }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <div class=""header"">
+            <div class=""logo"">??</div>
+            <h1>GestionTime API</h1>
+            <p>Sistema de Gestión de Tiempo y Recursos</p>
+        </div>
+        
+        <div class=""content"">
+            <div class=""status-grid"">
+                <div class=""status-card {apiStatusClass}"">
+                    <h3>Estado API</h3>
+                    <div class=""value"">{apiStatus}</div>
+                </div>
+                
+                <div class=""status-card {dbStatusClass}"">
+                    <h3>Base de Datos</h3>
+                    <div class=""value"">{dbStatus}</div>
+                </div>
+            </div>
+            
+            <div class=""info-grid"">
+                <div class=""info-item"">
+                    <label>Versión</label>
+                    <div class=""value"">v{version}</div>
+                </div>
+                
+                <div class=""info-item"">
+                    <label>Entorno</label>
+                    <div class=""value"">{environment}</div>
+                </div>
+                
+                <div class=""info-item"">
+                    <label>Tiempo Activo</label>
+                    <div class=""value"">{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m</div>
+                </div>
+                
+                <div class=""info-item"">
+                    <label>Hora del Servidor</label>
+                    <div class=""value"">{DateTime.UtcNow:HH:mm:ss} UTC</div>
+                </div>
+            </div>
+            
+            <div class=""links"">
+                <a href=""/swagger"" class=""link-button"">?? Documentación API</a>
+                <a href=""/health"" class=""link-button secondary"">?? Health Check</a>
+            </div>
+        </div>
+        
+        <div class=""footer"">
+            © 2025 GestionTime - Todos los derechos reservados<br>
+            <small>Desarrollado por TDK Portal</small>
+        </div>
+    </div>
+    
+    <script>
+        // Auto-refresh cada 30 segundos
+        setTimeout(() => location.reload(), 30000);
+    </script>
+</body>
+</html>";
+
+        return Results.Content(html, "text/html");
+    })
+    .ExcludeFromDescription();
     
     app.MapMethods("/", new[] { "HEAD" }, () => Results.Ok())
         .ExcludeFromDescription();
