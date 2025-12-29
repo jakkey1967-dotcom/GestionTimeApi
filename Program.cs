@@ -157,7 +157,7 @@ try
     // Health checks endpoint
     app.MapHealthChecks("/health");
 
-    // ✅ ENDPOINT RAÍZ - Página de estado del servicio
+    // ✅ ENDPOINT RAÍZ - Página de estado del servicio con diagnósticos avanzados
     app.MapGet("/", async (GestionTimeDbContext db) =>
     {
         var apiStatus = "✅ Online";
@@ -165,21 +165,46 @@ try
         
         var dbStatus = "❌ Desconectado";
         var dbStatusClass = "status-error";
+        var dbLatency = 0;
+        var migrationsApplied = 0;
+        var migrationsPending = 0;
         
+        // ✅ Verificar Base de Datos CON latencia
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             await db.Database.CanConnectAsync();
+            sw.Stop();
+            dbLatency = (int)sw.ElapsedMilliseconds;
+            
+            // Obtener información de migraciones
+            var appliedMigrations = await db.Database.GetAppliedMigrationsAsync();
+            var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+            
+            migrationsApplied = appliedMigrations.Count();
+            migrationsPending = pendingMigrations.Count();
+            
             dbStatus = "✅ Conectado";
             dbStatusClass = "status-ok";
         }
-        catch
+        catch (Exception ex)
         {
-            dbStatus = "❌ Error de conexión";
+            sw.Stop();
+            dbLatency = (int)sw.ElapsedMilliseconds;
+            dbStatus = $"❌ Error: {ex.Message.Substring(0, Math.Min(50, ex.Message.Length))}...";
         }
 
-        var uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime();
+        // ✅ Información del sistema
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        var memoryUsedMB = (int)(process.WorkingSet64 / 1024 / 1024);
+        var uptime = DateTime.UtcNow - process.StartTime.ToUniversalTime();
         var environment = app.Environment.EnvironmentName;
         var version = "1.0.0";
+        
+        // Información de Garbage Collector
+        var gcGen0 = GC.CollectionCount(0);
+        var gcGen1 = GC.CollectionCount(1);
+        var gcGen2 = GC.CollectionCount(2);
 
         var html = $@"
 <!DOCTYPE html>
@@ -209,7 +234,7 @@ try
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 800px;
+            max-width: 900px;
             width: 100%;
             overflow: hidden;
         }}
@@ -271,6 +296,10 @@ try
             border-left-color: #dc3545;
         }}
         
+        .status-card.status-warning {{
+            border-left-color: #ffc107;
+        }}
+        
         .status-card h3 {{
             font-size: 14px;
             color: #6c757d;
@@ -283,11 +312,18 @@ try
             font-size: 24px;
             font-weight: 600;
             color: #212529;
+            margin-bottom: 5px;
+        }}
+        
+        .status-card .detail {{
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 8px;
         }}
         
         .info-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px;
             margin-bottom: 30px;
         }}
@@ -350,6 +386,25 @@ try
             font-size: 14px;
         }}
         
+        .badge {{
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 5px;
+        }}
+        
+        .badge-success {{
+            background: #d4edda;
+            color: #155724;
+        }}
+        
+        .badge-warning {{
+            background: #fff3cd;
+            color: #856404;
+        }}
+        
         @keyframes pulse {{
             0%, 100% {{ opacity: 1; }}
             50% {{ opacity: 0.5; }}
@@ -387,11 +442,14 @@ try
                 <div class=""status-card {apiStatusClass}"">
                     <h3>Estado API</h3>
                     <div class=""value"">{apiStatus}</div>
+                    <div class=""detail"">Respondiendo solicitudes</div>
                 </div>
                 
                 <div class=""status-card {dbStatusClass}"">
                     <h3>Base de Datos</h3>
                     <div class=""value"">{dbStatus}</div>
+                    <div class=""detail"">Latencia: {dbLatency}ms</div>
+                    {(migrationsPending > 0 ? $@"<span class=""badge badge-warning"">⚠️ {migrationsPending} migración(es) pendiente(s)</span>" : $@"<span class=""badge badge-success"">✓ {migrationsApplied} migración(es) aplicada(s)</span>")}
                 </div>
             </div>
             
@@ -412,6 +470,16 @@ try
                 </div>
                 
                 <div class=""info-item"">
+                    <label>Memoria Usada</label>
+                    <div class=""value"">{memoryUsedMB} MB</div>
+                </div>
+                
+                <div class=""info-item"">
+                    <label>GC Collections</label>
+                    <div class=""value"">{gcGen0}/{gcGen1}/{gcGen2}</div>
+                </div>
+                
+                <div class=""info-item"">
                     <label>Hora del Servidor</label>
                     <div class=""value"">{DateTime.UtcNow:HH:mm:ss} UTC</div>
                 </div>
@@ -425,7 +493,7 @@ try
         
         <div class=""footer"">
             © 2025 GestionTime - Todos los derechos reservados<br>
-            <small>Desarrollado por TDK Portal</small>
+            <small>Desarrollado por TDK Portal • Auto-refresh: 30s</small>
         </div>
     </div>
     
