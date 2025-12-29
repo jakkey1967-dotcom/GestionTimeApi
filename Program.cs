@@ -631,3 +631,70 @@ try
         });
     }
 
+    // No usar HTTPS redirect en Render (ellos manejan SSL)
+    if (!app.Environment.IsProduction())
+    {
+        app.UseHttpsRedirection();
+    }
+
+    // Servir archivos estáticos (logos, imágenes)
+    app.UseStaticFiles();
+
+    app.UseCors("WebClient");
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    app.MapControllers();
+
+    Log.Information("GestionTime API iniciada correctamente en puerto {Port}", port);
+
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "La aplicación falló al iniciar");
+    throw;
+}
+finally
+{
+    SerilogConfiguration.CloseAndFlush();
+}
+
+/// <summary>
+/// Convierte DATABASE_URL de Render (postgresql://...) a formato Npgsql connection string
+/// </summary>
+static string GetConnectionString(IConfiguration configuration)
+{
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    
+    // Si DATABASE_URL existe y es formato URL de Render
+    if (!string.IsNullOrEmpty(databaseUrl) && databaseUrl.StartsWith("postgresql://"))
+    {
+        Log.Information("Detectado DATABASE_URL en formato Render, convirtiendo...");
+        
+        try
+        {
+            var uri = new Uri(databaseUrl);
+            var userInfo = uri.UserInfo.Split(':');
+            
+            var connectionString = $"Host={uri.Host};" +
+                                 $"Port={uri.Port};" +
+                                 $"Database={uri.AbsolutePath.TrimStart('/')};" +
+                                 $"Username={userInfo[0]};" +
+                                 $"Password={userInfo[1]};" +
+                                 $"SslMode=Require;";
+            
+            Log.Information("Connection string convertido exitosamente");
+            return connectionString;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error convirtiendo DATABASE_URL, usando connection string de configuración");
+        }
+    }
+    
+    // Fallback: usar connection string de appsettings
+    return configuration.GetConnectionString("Default") 
+           ?? throw new InvalidOperationException("No se encontró connection string");
+}
+
