@@ -1,5 +1,4 @@
-﻿using GestionTime.Domain.Auth;
-using GestionTime.Infrastructure.Persistence;
+﻿using GestionTime.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Serilog;
@@ -8,7 +7,7 @@ namespace GestionTime.Api.Startup;
 
 public static class DbSeeder
 {
-    private static readonly SemaphoreSlim _migrationLock = new(1, 1);
+    private const long MIGRATION_LOCK_ID = 1234567890;
     
     public static async Task SeedAsync(IServiceProvider services)
     {
@@ -28,8 +27,20 @@ public static class DbSeeder
 
             Log.Information("✅ Conexión establecida");
 
-            // Bloquear para evitar múltiples instancias migrando
-            await _migrationLock.WaitAsync(TimeSpan.FromMinutes(2));
+            // Intentar adquirir lock de PostgreSQL
+            var lockAcquired = await TryAcquireAdvisoryLockAsync(db);
+            
+            if (!lockAcquired)
+            {
+                Log.Information("⏳ Otra instancia está migrando. Esperando 5 segundos...");
+                await Task.Delay(5000);
+                
+                await VerifyMigrationsAsync(db);
+                await VerifyExistingDataAsync(db);
+                return;
+            }
+
+            Log.Information("🔒 Lock de migraciones adquirido");
             
             try
             {
@@ -37,17 +48,17 @@ public static class DbSeeder
             }
             finally
             {
-                _migrationLock.Release();
+                await ReleaseAdvisoryLockAsync(db);
+                Log.Information("🔓 Lock liberado");
             }
         }
         catch (Exception ex)
         {
             Log.Error(ex, "❌ Error en proceso de seed");
             
-            // Si es error de tabla duplicada, continuar
             if (IsDuplicateTableError(ex))
             {
-                Log.Warning("⚠️ Tabla de migraciones duplicada - Verificando estado...");
+                Log.Warning("⚠️ Tabla duplicada - Verificando estado...");
                 await VerifyMigrationsAsync(db);
             }
             else
@@ -56,7 +67,6 @@ public static class DbSeeder
             }
         }
 
-        // Verificar datos
         await VerifyExistingDataAsync(db);
     }
 
@@ -66,9 +76,11 @@ public static class DbSeeder
         {
             var appliedMigrations = await db.Database.GetAppliedMigrationsAsync();
             var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+            var allMigrations = db.Database.GetMigrations().ToList();
             
             Log.Information("📊 Estado de migraciones:");
-            Log.Information("  • Aplicadas: {Applied}", appliedMigrations.Count());
+            Log.Information("  • Total en código: {Total}", allMigrations.Count);
+            Log.Information("  • Aplicadas en BD: {Applied}", appliedMigrations.Count());
             Log.Information("  • Pendientes: {Pending}", pendingMigrations.Count());
 
             if (!pendingMigrations.Any())
@@ -77,21 +89,24 @@ public static class DbSeeder
                 return;
             }
 
-            // 🔴 DETECTAR TABLA CORRUPTA: 0 migraciones aplicadas pero tabla existe
+            // 🔴 DETECTAR: Tabla de historial vacía pero BD con datos
             if (!appliedMigrations.Any() && pendingMigrations.Any())
             {
-                Log.Warning("⚠️ Detectado: 0 migraciones aplicadas pero tabla existe");
-                Log.Information("🔧 Intentando limpiar y recrear tabla de migraciones...");
+                Log.Warning("⚠️ Tabla __EFMigrationsHistory vacía detectada");
                 
-                try
+                var tablesExist = await CheckIfTablesExistAsync(db);
+                
+                if (tablesExist)
                 {
-                    // Intentar eliminar la tabla corrupta
-                    await db.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS \"__EFMigrationsHistory\";");
-                    Log.Information("✅ Tabla de migraciones limpiada");
+                    Log.Information("✅ Las tablas ya existen. Registrando migraciones...");
+                    await ForceRegisterMigrationsAsync(db, allMigrations);
+                    Log.Information("✅ Migraciones registradas exitosamente");
+                    return;
                 }
-                catch (Exception ex)
+                else
                 {
-                    Log.Warning(ex, "⚠️ No se pudo limpiar tabla de migraciones, continuando...");
+                    Log.Warning("⚠️ BD vacía. Limpiando tabla de historial corrupta...");
+                    await db.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS \"__EFMigrationsHistory\";");
                 }
             }
 
@@ -101,7 +116,7 @@ public static class DbSeeder
         }
         catch (PostgresException pgEx) when (pgEx.SqlState == "42P07")
         {
-            Log.Warning("⚠️ Error 42P07 (tabla duplicada) capturado");
+            Log.Warning("⚠️ Error 42P07: Tabla duplicada");
             await HandleDuplicateTableErrorAsync(db);
         }
         catch (Exception ex) when (ex.InnerException is PostgresException inner && inner.SqlState == "42P07")
@@ -111,40 +126,115 @@ public static class DbSeeder
         }
     }
 
+    private static async Task<bool> CheckIfTablesExistAsync(GestionTimeDbContext db)
+    {
+        try
+        {
+            // Verificar si las tablas principales existen
+            var query = @"
+                SELECT COUNT(*) 
+                FROM information_schema.tables 
+                WHERE table_schema = 'gestiontime' 
+                AND table_name IN ('users', 'roles', 'tipo', 'grupo', 'cliente')";
+            
+            using var connection = db.Database.GetDbConnection();
+            await connection.OpenAsync();
+            
+            using var command = connection.CreateCommand();
+            command.CommandText = query;
+            
+            var result = await command.ExecuteScalarAsync();
+            var count = Convert.ToInt32(result);
+            
+            Log.Information("  • Tablas encontradas: {Count}/5", count);
+            
+            return count >= 5;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "⚠️ Error verificando tablas existentes");
+            return false;
+        }
+    }
+
+    private static async Task ForceRegisterMigrationsAsync(GestionTimeDbContext db, List<string> migrations)
+    {
+        try
+        {
+            var productVersion = "10.0.1";
+            
+            foreach (var migration in migrations)
+            {
+                var query = @$"
+                    INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
+                    VALUES ('{migration}', '{productVersion}')
+                    ON CONFLICT (""MigrationId"") DO NOTHING";
+                
+                await db.Database.ExecuteSqlRawAsync(query);
+                Log.Information("  ✓ {Migration}", migration);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "❌ Error registrando migraciones");
+            throw;
+        }
+    }
+
+    private static async Task<bool> TryAcquireAdvisoryLockAsync(GestionTimeDbContext db)
+    {
+        try
+        {
+            using var connection = db.Database.GetDbConnection();
+            await connection.OpenAsync();
+            
+            using var command = connection.CreateCommand();
+            command.CommandText = $"SELECT pg_try_advisory_lock({MIGRATION_LOCK_ID})";
+            
+            var result = await command.ExecuteScalarAsync();
+            return Convert.ToBoolean(result);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "⚠️ Error adquiriendo lock");
+            return false;
+        }
+    }
+
+    private static async Task ReleaseAdvisoryLockAsync(GestionTimeDbContext db)
+    {
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                $"SELECT pg_advisory_unlock({MIGRATION_LOCK_ID})");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "⚠️ Error liberando lock");
+        }
+    }
+
     private static async Task HandleDuplicateTableErrorAsync(GestionTimeDbContext db)
     {
         try
         {
-            Log.Information("🔍 Verificando estado real de migraciones...");
-            
-            // Esperar un momento para que otras instancias terminen
-            await Task.Delay(2000);
+            Log.Information("🔍 Esperando 5 segundos...");
+            await Task.Delay(5000);
             
             var pending = await db.Database.GetPendingMigrationsAsync();
             
             if (pending.Any())
             {
-                Log.Warning("⚠️ Hay {Count} migraciones pendientes después del error", pending.Count());
-                Log.Information("🔄 Reintentando aplicar migraciones...");
-                
-                try
-                {
-                    await db.Database.MigrateAsync();
-                    Log.Information("✅ Migraciones aplicadas en segundo intento");
-                }
-                catch
-                {
-                    Log.Error("❌ No se pudieron aplicar migraciones en segundo intento");
-                }
+                Log.Warning("⚠️ Aún hay {Count} migraciones pendientes", pending.Count());
             }
             else
             {
-                Log.Information("✅ Todas las migraciones están aplicadas");
+                Log.Information("✅ Migraciones completadas por otra instancia");
             }
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "⚠️ Error verificando estado post-error, continuando");
+            Log.Warning(ex, "⚠️ Error verificando estado");
         }
     }
 
@@ -156,22 +246,26 @@ public static class DbSeeder
             
             if (pending.Any())
             {
-                Log.Warning("⚠️ Quedan {Count} migraciones pendientes", pending.Count());
+                Log.Warning("⚠️ Migraciones pendientes: {Count}", pending.Count());
+                foreach (var migration in pending)
+                {
+                    Log.Warning("  • {Migration}", migration);
+                }
             }
             else
             {
-                Log.Information("✅ Migraciones verificadas correctamente");
+                Log.Information("✅ Base de datos actualizada");
             }
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "⚠️ No se pudo verificar migraciones");
+            Log.Warning(ex, "⚠️ Error verificando migraciones");
         }
     }
 
     private static async Task VerifyExistingDataAsync(GestionTimeDbContext db)
     {
-        Log.Information("📋 Verificando datos en base de datos...");
+        Log.Information("📋 Verificando datos...");
         
         try
         {
@@ -181,7 +275,7 @@ public static class DbSeeder
             var gruposCount = await db.Grupos.CountAsync(); 
             var clientesCount = await db.Clientes.CountAsync();
             
-            Log.Information("📊 Resumen de datos:");
+            Log.Information("📊 Datos:");
             Log.Information("  • Roles: {Count}", rolesCount);
             Log.Information("  • Usuarios: {Count}", usersCount);
             Log.Information("  • Tipos: {Count}", tiposCount);
@@ -194,21 +288,21 @@ public static class DbSeeder
                 var psantosExists = await db.Users.AnyAsync(u => u.Email == "psantos@global-retail.com");
                 var tecnicoExists = await db.Users.AnyAsync(u => u.Email == "tecnico1@global-retail.com");
                 
-                Log.Information("👥 Usuarios clave:");
-                Log.Information("  • admin@gestiontime.local: {Status}", adminExists ? "✅" : "❌");
-                Log.Information("  • psantos@global-retail.com: {Status}", psantosExists ? "✅" : "❌");
-                Log.Information("  • tecnico1@global-retail.com: {Status}", tecnicoExists ? "✅" : "❌");
+                Log.Information("👥 Usuarios:");
+                Log.Information("  • admin: {Status}", adminExists ? "✅" : "❌");
+                Log.Information("  • psantos: {Status}", psantosExists ? "✅" : "❌");
+                Log.Information("  • tecnico1: {Status}", tecnicoExists ? "✅" : "❌");
             }
             else
             {
-                Log.Warning("⚠️ No hay usuarios en la base de datos");
+                Log.Warning("⚠️ No hay usuarios");
             }
             
             Log.Information("✅ Verificación completada");
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "❌ Error verificando datos: {Message}", ex.Message);
+            Log.Error(ex, "❌ Error verificando datos");
         }
     }
 
