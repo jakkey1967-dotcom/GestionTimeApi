@@ -149,17 +149,28 @@ public class SmtpEmailService : IEmailService
 
             // Crear mensaje
             using var message = new MailMessage();
-            message.From = new MailAddress(_config["Email:From"], _config["Email:FromName"]);
-            message.To.Add(user.Email);
+            
+            var fromEmail = _config["Email:From"] ?? "noreply@gestiontime.com";
+            var fromName = _config["Email:FromName"] ?? "GestionTime";
+            var userEmail = user.Email ?? throw new ArgumentException("El usuario debe tener un email", nameof(user));
+            
+            message.From = new MailAddress(fromEmail, fromName);
+            message.To.Add(userEmail);
             message.Subject = "Activar tu cuenta - GestionTime";
             message.Body = htmlBody;
             message.IsBodyHtml = true;
             message.Priority = MailPriority.High;
 
             // Configurar SMTP
-            using var smtp = new SmtpClient(_config["Email:SmtpHost"], int.Parse(_config["Email:SmtpPort"]))
+            var smtpHost = _config["Email:SmtpHost"] ?? throw new InvalidOperationException("Email:SmtpHost no configurado");
+            var smtpPortStr = _config["Email:SmtpPort"] ?? "587";
+            var smtpPort = int.Parse(smtpPortStr);
+            var smtpUser = _config["Email:SmtpUser"] ?? throw new InvalidOperationException("Email:SmtpUser no configurado");
+            var smtpPassword = _config["Email:SmtpPassword"] ?? throw new InvalidOperationException("Email:SmtpPassword no configurado");
+            
+            using var smtp = new SmtpClient(smtpHost, smtpPort)
             {
-                Credentials = new NetworkCredential(_config["Email:SmtpUser"], _config["Email:SmtpPassword"]),
+                Credentials = new NetworkCredential(smtpUser, smtpPassword),
                 EnableSsl = true,
                 DeliveryMethod = SmtpDeliveryMethod.Network
             };
