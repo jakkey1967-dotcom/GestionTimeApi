@@ -291,9 +291,7 @@ try
         options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} respondió {StatusCode} en {Elapsed:0.0000} ms";
     });
 
-    // Seed con manejo robusto de errores
-    // ⚠️ DESACTIVADO TEMPORALMENTE - Gestión manual de datos
-    /*
+    // 🚀 Seed automático con script SQL completo
     try
     {
         Log.Information("🚀 Ejecutando seed de base de datos...");
@@ -308,7 +306,8 @@ try
         var message = ex.Message.ToLowerInvariant();
         var isDbAlreadySetup = message.Contains("already exists") || 
                                message.Contains("42p07") ||
-                               message.Contains("__efmigrationshistory");
+                               message.Contains("usuario") ||
+                               message.Contains("duplicate");
         
         if (isDbAlreadySetup)
         {
@@ -316,12 +315,9 @@ try
         }
         else
         {
-            Log.Fatal(ex, "💥 Error crítico en seed - La aplicación no puede continuar");
-            throw;
+            Log.Warning("⚠️ Error en seed pero continuando arranque: {Message}", ex.Message);
         }
     }
-    */
-    Log.Warning("⚠️ SEED DESACTIVADO - Gestión manual de datos iniciales");
 
     // ✅ Health checks endpoint con JSON detallado
     app.MapGet("/health", async (GestionTimeDbContext db, GestionTime.Api.Services.ClientConfigurationService clientConfig) =>

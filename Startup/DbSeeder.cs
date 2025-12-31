@@ -1,6 +1,8 @@
 ﻿using GestionTime.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Serilog;
+using System.Text;
 
 namespace GestionTime.Api.Startup;
 
@@ -10,6 +12,7 @@ public static class DbSeeder
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GestionTimeDbContext>();
+        var schemaConfig = scope.ServiceProvider.GetRequiredService<DatabaseSchemaConfig>();
 
         try
         {
@@ -23,123 +26,230 @@ public static class DbSeeder
             }
 
             Log.Information("✅ Conexión establecida");
+            Log.Information("📋 Schema configurado: {Schema}", schemaConfig.Schema);
             
-            // Verificar y crear datos iniciales
-            await VerifyAndSeedDataAsync(db);
+            // Verificar si ya existe usuario admin
+            var adminExists = await CheckAdminExistsAsync(db);
             
-            Log.Information("✅ Verificación de datos completada");
+            if (adminExists)
+            {
+                Log.Information("ℹ️  Usuario admin ya existe, omitiendo seed");
+                return;
+            }
+            
+            // Ejecutar script SQL completo
+            await ExecuteInitializationScriptAsync(db, schemaConfig.Schema);
+            
+            Log.Information("✅ Inicialización completada exitosamente");
         }
         catch (Exception ex)
         {
             Log.Error(ex, "❌ Error en proceso de seed");
-            throw;
+            // No lanzar excepción para no detener el arranque
         }
     }
 
-    private static async Task VerifyAndSeedDataAsync(GestionTimeDbContext db)
+    private static async Task<bool> CheckAdminExistsAsync(GestionTimeDbContext db)
     {
-        Log.Information("📋 Verificando datos...");
-        
         try
         {
-            var rolesCount = await db.Roles.CountAsync();
-            var usersCount = await db.Users.CountAsync();
-            var tiposCount = await db.Tipos.CountAsync();
-            var gruposCount = await db.Grupos.CountAsync(); 
-            var clientesCount = await db.Clientes.CountAsync();
+            return await db.Users.AnyAsync(u => u.Email == "admin@admin.com");
+        }
+        catch
+        {
+            // Si hay error al consultar (tabla no existe, etc), continuar con seed
+            return false;
+        }
+    }
+
+    private static async Task ExecuteInitializationScriptAsync(GestionTimeDbContext db, string schema)
+    {
+        Log.Information("🚀 Ejecutando script de inicialización completa...");
+        
+        // Obtener connection string
+        var connectionString = db.Database.GetConnectionString();
+        
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            Log.Error("❌ No se pudo obtener connection string");
+            return;
+        }
+
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync();
+
+        // Script SQL completo con variables configurables
+        var sql = GenerateInitializationScript(schema);
+
+        try
+        {
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.CommandTimeout = 60; // 60 segundos timeout
             
-            Log.Information("📊 Estado actual:");
-            Log.Information("  • Roles: {Count}", rolesCount);
-            Log.Information("  • Usuarios: {Count}", usersCount);
-            Log.Information("  • Tipos: {Count}", tiposCount);
-            Log.Information("  • Grupos: {Count}", gruposCount);
-            Log.Information("  • Clientes: {Count}", clientesCount);
-
-            // Insertar datos iniciales si no existen
-            if (rolesCount == 0)
-            {
-                Log.Information("📝 Insertando roles iniciales...");
-                await InsertInitialRolesAsync(db);
-            }
-
-            if (usersCount == 0)
-            {
-                Log.Information("📝 Insertando usuario admin...");
-                await InsertInitialUsersAsync(db);
-            }
-
-            // Mostrar usuarios existentes
-            if (usersCount > 0 || await db.Users.AnyAsync())
-            {
-                var adminExists = await db.Users.AnyAsync(u => u.Email == "admin@gestiontime.local");
-                
-                Log.Information("👥 Usuarios:");
-                Log.Information("  • admin@gestiontime.local: {Status}", adminExists ? "✅" : "❌");
-            }
+            await cmd.ExecuteNonQueryAsync();
+            
+            Log.Information("✅ Script ejecutado correctamente");
+            Log.Information("📧 Credenciales: admin@admin.com / Admin@2025");
+        }
+        catch (PostgresException pgEx) when (pgEx.SqlState == "P0001")
+        {
+            // Error controlado desde el script (usuario ya existe)
+            Log.Warning("⚠️  {Message}", pgEx.MessageText);
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "❌ Error verificando/creando datos");
+            Log.Error(ex, "❌ Error ejecutando script de inicialización");
             throw;
         }
     }
 
-    private static async Task InsertInitialRolesAsync(GestionTimeDbContext db)
+    private static string GenerateInitializationScript(string schema)
     {
-        // Verificar si ya existen roles
-        if (await db.Roles.AnyAsync())
-        {
-            Log.Information("  ℹ️ Roles ya existen, omitiendo creación");
-            return;
-        }
-        
-        var roles = new[]
-        {
-            new GestionTime.Domain.Auth.Role { Id = 1, Name = "ADMIN" },
-            new GestionTime.Domain.Auth.Role { Id = 2, Name = "MANAGER" },
-            new GestionTime.Domain.Auth.Role { Id = 3, Name = "USER" }
-        };
-
-        db.Roles.AddRange(roles);
-        await db.SaveChangesAsync();
-        Log.Information("  ✓ 3 roles creados (ADMIN, MANAGER, USER)");
-    }
-
-    private static async Task InsertInitialUsersAsync(GestionTimeDbContext db)
-    {
-        // Verificar si ya existe el usuario admin
-        if (await db.Users.AnyAsync(u => u.Email == "admin@gestiontime.local"))
-        {
-            Log.Information("  ℹ️ Usuario admin ya existe, omitiendo creación");
-            return;
-        }
-        
-        // Hash de la contraseña "admin123"
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword("admin123");
-
-        var adminUser = new GestionTime.Domain.Auth.User
-        {
-            Id = Guid.NewGuid(),
-            Email = "admin@gestiontime.local",
-            PasswordHash = passwordHash,
-            FullName = "Administrador del Sistema",
-            Enabled = true,
-            EmailConfirmed = true
-        };
-
-        db.Users.Add(adminUser);
-        await db.SaveChangesAsync();
-
-        // Asignar rol ADMIN
-        var adminRole = await db.Roles.FirstAsync(r => r.Name == "ADMIN");
-        db.UserRoles.Add(new GestionTime.Domain.Auth.UserRole
-        {
-            UserId = adminUser.Id,
-            RoleId = adminRole.Id
-        });
-
-        await db.SaveChangesAsync();
-        Log.Information("  ✓ Usuario admin creado (admin@gestiontime.local / admin123)");
+        // Script SQL completo idempotente
+        return $@"
+DO $$
+DECLARE
+    v_email VARCHAR(200) := 'admin@admin.com';
+    v_password_plain VARCHAR(100) := 'Admin@2025';
+    v_full_name VARCHAR(200) := 'Administrador del Sistema';
+    v_schema VARCHAR(50) := '{schema}';
+    
+    v_user_id UUID;
+    v_admin_role_id INT;
+    v_password_hash TEXT;
+    v_existing_user_count INT;
+    v_roles_count INT;
+BEGIN
+    -- Establecer schema
+    EXECUTE format('SET search_path TO %I', v_schema);
+    
+    -- Verificar si el usuario ya existe
+    SELECT COUNT(*) INTO v_existing_user_count
+    FROM users
+    WHERE email = v_email;
+    
+    IF v_existing_user_count > 0 THEN
+        RAISE NOTICE '⚠️  El usuario % ya existe', v_email;
+        RETURN;
+    END IF;
+    
+    RAISE NOTICE '📦 Iniciando creación de datos iniciales...';
+    
+    -- 1. CREAR ROLES
+    INSERT INTO roles (name)
+    VALUES 
+        ('ADMIN'),
+        ('EDITOR'),
+        ('USER')
+    ON CONFLICT (name) DO NOTHING;
+    
+    -- 2. CREAR TIPOS DE TRABAJO
+    INSERT INTO tipo (id_tipo, nombre, descripcion)
+    VALUES
+        (1,  'Incidencia',       NULL),
+        (2,  'Instalación',      NULL),
+        (3,  'Aviso',            NULL),
+        (4,  'Petición',         NULL),
+        (5,  'Facturable',       NULL),
+        (6,  'Duda',             NULL),
+        (7,  'Desarrollo',       NULL),
+        (8,  'Tarea',            NULL),
+        (9,  'Ofertado',         NULL),
+        (10, 'Llamada Overlay',  '')
+    ON CONFLICT (id_tipo) DO NOTHING;
+    
+    -- Resetear secuencia de tipo
+    PERFORM setval(pg_get_serial_sequence('tipo', 'id_tipo'), COALESCE((SELECT MAX(id_tipo) FROM tipo), 1));
+    
+    -- 3. CREAR GRUPOS DE TRABAJO
+    INSERT INTO grupo (id_grupo, nombre, descripcion)
+    VALUES
+        (1, 'Administración',  NULL),
+        (2, 'Comercial',       NULL),
+        (3, 'Desarrollo',      NULL),
+        (4, 'Gestión Central', NULL),
+        (5, 'Logística',       NULL),
+        (6, 'Movilidad',       NULL),
+        (7, 'Post-Venta',      NULL),
+        (8, 'Tiendas',         NULL)
+    ON CONFLICT (id_grupo) DO NOTHING;
+    
+    -- Resetear secuencia de grupo
+    PERFORM setval(pg_get_serial_sequence('grupo', 'id_grupo'), COALESCE((SELECT MAX(id_grupo) FROM grupo), 1));
+    
+    -- 4. GENERAR HASH DE CONTRASEÑA (BCrypt)
+    v_password_hash := crypt(v_password_plain, gen_salt('bf', 10));
+    
+    -- 5. CREAR USUARIO ADMINISTRADOR
+    v_user_id := gen_random_uuid();
+    
+    INSERT INTO users (
+        id,
+        email,
+        password_hash,
+        full_name,
+        enabled,
+        email_confirmed,
+        must_change_password,
+        password_changed_at,
+        password_expiration_days
+    )
+    VALUES (
+        v_user_id,
+        v_email,
+        v_password_hash,
+        v_full_name,
+        true,
+        true,
+        false,
+        NOW(),
+        999
+    );
+    
+    -- 6. ASIGNAR ROL ADMIN
+    SELECT id INTO v_admin_role_id
+    FROM roles
+    WHERE name = 'ADMIN';
+    
+    INSERT INTO user_roles (user_id, role_id)
+    VALUES (v_user_id, v_admin_role_id);
+    
+    -- 7. CREAR PERFIL DE USUARIO
+    INSERT INTO user_profiles (
+        id,
+        first_name,
+        last_name,
+        department,
+        position,
+        employee_type,
+        hire_date,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        v_user_id,
+        'Admin',
+        'Sistema',
+        'Administración',
+        'Administrador del Sistema',
+        'Administrador',
+        NOW(),
+        NOW(),
+        NOW()
+    );
+    
+    -- Verificar totales
+    SELECT COUNT(*) INTO v_roles_count FROM roles;
+    
+    RAISE NOTICE '✅ Inicialización completada:';
+    RAISE NOTICE '   👤 Usuario: %', v_email;
+    RAISE NOTICE '   🔑 Password: %', v_password_plain;
+    RAISE NOTICE '   🎭 Roles: %', v_roles_count;
+    RAISE NOTICE '   📋 Tipos: 10';
+    RAISE NOTICE '   👥 Grupos: 8';
+    
+END $$;
+";
     }
 }
 
