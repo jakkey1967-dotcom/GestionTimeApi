@@ -81,7 +81,7 @@ public class ImportSchema
         await ImportFromCSV(exportFolder, connectionString);
     }
 
-    private static async Task<string?> SelectExportFolderInteractive()
+    private static Task<string?> SelectExportFolderInteractive()
     {
         Console.WriteLine("🔍 Buscando carpetas de exportación...");
         Console.WriteLine();
@@ -100,7 +100,7 @@ public class ImportSchema
             Console.WriteLine();
             Console.WriteLine("Especifica manualmente la ruta:");
             Console.Write("> ");
-            return Console.ReadLine()?.Trim();
+            return Task.FromResult(Console.ReadLine()?.Trim());
         }
 
         Console.ForegroundColor = ConsoleColor.Green;
@@ -125,20 +125,20 @@ public class ImportSchema
         var input = Console.ReadLine();
 
         if (string.IsNullOrWhiteSpace(input))
-            return null;
+            return Task.FromResult<string?>(null);
 
         if (int.TryParse(input, out int selection) && selection > 0 && selection <= exportFolders.Count)
         {
-            return exportFolders[selection - 1];
+            return Task.FromResult<string?>(exportFolders[selection - 1]);
         }
 
         Console.ForegroundColor = ConsoleColor.Red;
         Console.WriteLine("❌ Selección inválida");
         Console.ResetColor();
-        return null;
+        return Task.FromResult<string?>(null);
     }
 
-    private static async Task<string?> GetDestinationConnectionString()
+    private static Task<string?> GetDestinationConnectionString()
     {
         Console.WriteLine("Datos de conexión LOCAL:");
         Console.WriteLine();
@@ -165,7 +165,7 @@ public class ImportSchema
         Console.WriteLine();
 
         var connectionUrl = $"postgresql://{username}:{password}@{host}:{port}/{database}";
-        return ConvertToNpgsqlConnectionString(connectionUrl);
+        return Task.FromResult<string?>(ConvertToNpgsqlConnectionString(connectionUrl));
     }
 
     private static string ConvertToNpgsqlConnectionString(string databaseUrl)
