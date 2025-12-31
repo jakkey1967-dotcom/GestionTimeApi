@@ -7,7 +7,18 @@ namespace GestionTime.Infrastructure.Persistence;
 
 public sealed class GestionTimeDbContext : DbContext
 {
-    public GestionTimeDbContext(DbContextOptions<GestionTimeDbContext> options) : base(options) { }
+    private readonly string _schema;
+
+    public GestionTimeDbContext(DbContextOptions<GestionTimeDbContext> options) : base(options)
+    {
+        // Obtener el schema de la configuración (por defecto "gestiontime")
+        _schema = "gestiontime"; // Valor por defecto
+    }
+
+    public GestionTimeDbContext(DbContextOptions<GestionTimeDbContext> options, string schema) : base(options)
+    {
+        _schema = schema;
+    }
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
@@ -42,8 +53,8 @@ public sealed class GestionTimeDbContext : DbContext
         // PostgreSQL 9.4 => SERIAL (no IDENTITY)
         b.UseSerialColumns();
 
-        // Configurar schema personalizado
-        b.HasDefaultSchema("gestiontime");
+        // Configurar schema dinámico desde configuración
+        b.HasDefaultSchema(_schema);
 
         // WORK: catálogos
         b.Entity<Cliente>(e =>

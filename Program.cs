@@ -176,8 +176,20 @@ try
     var connectionString = GetConnectionString(builder.Configuration);
     Log.Information("Usando connection string (oculto por seguridad)");
     
-    builder.Services.AddDbContext<GestionTimeDbContext>(opt =>
-        opt.UseNpgsql(connectionString));
+    // Obtener schema desde configuración (o variable de entorno)
+    var dbSchema = Environment.GetEnvironmentVariable("DB_SCHEMA") 
+                   ?? builder.Configuration["Database:Schema"] 
+                   ?? "gestiontime";
+    
+    Log.Information("Schema de base de datos: {Schema}", dbSchema);
+    
+    builder.Services.AddDbContext<GestionTimeDbContext>((serviceProvider, opt) =>
+    {
+        opt.UseNpgsql(connectionString);
+    });
+    
+    // Configurar el schema en el DbContext mediante DI
+    builder.Services.AddSingleton(new DatabaseSchemaConfig { Schema = dbSchema });
 
     // Memory Cache
     builder.Services.AddMemoryCache();
