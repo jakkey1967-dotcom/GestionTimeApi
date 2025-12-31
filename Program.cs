@@ -520,8 +520,27 @@ try
         app.UseHttpsRedirection();
     }
 
-    // Servir archivos estáticos (logos, imágenes)
-    app.UseStaticFiles();
+    // Servir archivos estáticos según el cliente
+    var clientId = Environment.GetEnvironmentVariable("DB_SCHEMA") 
+                   ?? builder.Configuration["Database:Schema"] 
+                   ?? "default";
+    
+    // Primero intenta servir desde wwwroot-{cliente}, si no existe usa wwwroot común
+    var clientWwwroot = Path.Combine(Directory.GetCurrentDirectory(), $"wwwroot-{clientId}");
+    if (Directory.Exists(clientWwwwroot))
+    {
+        Log.Information("Usando wwwroot específico del cliente: {Path}", clientWwwroot);
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(clientWwwroot),
+            RequestPath = ""
+        });
+    }
+    else
+    {
+        Log.Information("Usando wwwroot común");
+        app.UseStaticFiles();
+    }
 
     // Pipeline de autenticación/autorización
     app.UseCors("WebClient");

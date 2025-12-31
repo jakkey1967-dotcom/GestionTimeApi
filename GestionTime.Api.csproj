@@ -28,11 +28,14 @@
     <ProjectReference Include="GestionTime.Infrastructure\GestionTime.Infrastructure.csproj" />
   </ItemGroup>
 
-  <!-- Incluir explícitamente wwwroot y appsettings -->
+  <!-- Incluir wwwroot y appsettings -->
   <ItemGroup>
+    <!-- wwwroot común para todos los clientes -->
     <Content Include="wwwroot\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    
+    <!-- appsettings -->
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
