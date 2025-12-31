@@ -295,6 +295,8 @@ try
     });
 
     // Seed con manejo robusto de errores
+    // ⚠️ DESACTIVADO TEMPORALMENTE - Gestión manual de datos
+    /*
     try
     {
         Log.Information("🚀 Ejecutando seed de base de datos...");
@@ -321,6 +323,8 @@ try
             throw;
         }
     }
+    */
+    Log.Warning("⚠️ SEED DESACTIVADO - Gestión manual de datos iniciales");
 
     // ✅ Health checks endpoint con JSON detallado
     app.MapGet("/health", async (GestionTimeDbContext db) =>
