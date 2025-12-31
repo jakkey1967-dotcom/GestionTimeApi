@@ -12,15 +12,16 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GestionTime.Infrastructure.Migrations
 {
     [DbContext(typeof(GestionTimeDbContext))]
-    [Migration("20251215183137_WorkInit")]
-    partial class WorkInit
+    [Migration("20251231031613_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.1")
+                .HasDefaultSchema("public")
+                .HasAnnotation("ProductVersion", "8.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseSerialColumns(modelBuilder);
@@ -61,7 +62,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("refresh_tokens", (string)null);
+                    b.ToTable("refresh_tokens", "public");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.Role", b =>
@@ -84,7 +85,7 @@ namespace GestionTime.Infrastructure.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("roles", (string)null);
+                    b.ToTable("roles", "public");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.User", b =>
@@ -100,6 +101,12 @@ namespace GestionTime.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("email");
 
+                    b.Property<bool>("EmailConfirmed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("email_confirmed");
+
                     b.Property<bool>("Enabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -112,6 +119,22 @@ namespace GestionTime.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("full_name");
 
+                    b.Property<bool>("MustChangePassword")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("must_change_password");
+
+                    b.Property<DateTime?>("PasswordChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("password_changed_at");
+
+                    b.Property<int>("PasswordExpirationDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(90)
+                        .HasColumnName("password_expiration_days");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text")
@@ -122,7 +145,93 @@ namespace GestionTime.Infrastructure.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("users", (string)null);
+                    b.ToTable("users", "public");
+                });
+
+            modelBuilder.Entity("GestionTime.Domain.Auth.UserProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("address");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("avatar_url");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("city");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("department");
+
+                    b.Property<string>("EmployeeType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("employee_type");
+
+                    b.Property<string>("FirstName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("first_name");
+
+                    b.Property<DateTime?>("HireDate")
+                        .HasColumnType("date")
+                        .HasColumnName("hire_date");
+
+                    b.Property<string>("LastName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("last_name");
+
+                    b.Property<string>("Mobile")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("mobile");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("phone");
+
+                    b.Property<string>("Position")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("position");
+
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("postal_code");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("user_profiles", "public");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.UserRole", b =>
@@ -139,7 +248,74 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("user_roles", (string)null);
+                    b.ToTable("user_roles", "public");
+                });
+
+            modelBuilder.Entity("GestionTime.Domain.Work.Cliente", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DataHtml")
+                        .HasColumnType("text")
+                        .HasColumnName("data_html");
+
+                    b.Property<DateTime>("DataUpdate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("data_update")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int?>("IdPuntoop")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_puntoop");
+
+                    b.Property<int?>("LocalNum")
+                        .HasColumnType("integer")
+                        .HasColumnName("local_num");
+
+                    b.Property<string>("Nombre")
+                        .HasColumnType("text")
+                        .HasColumnName("nombre");
+
+                    b.Property<string>("NombreComercial")
+                        .HasColumnType("text")
+                        .HasColumnName("nombre_comercial");
+
+                    b.Property<string>("Provincia")
+                        .HasColumnType("text")
+                        .HasColumnName("provincia");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("cliente", "public");
+                });
+
+            modelBuilder.Entity("GestionTime.Domain.Work.Grupo", b =>
+                {
+                    b.Property<int>("IdGrupo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_grupo");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdGrupo"));
+
+                    b.Property<string>("Descripcion")
+                        .HasColumnType("text")
+                        .HasColumnName("descripcion");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("nombre");
+
+                    b.HasKey("IdGrupo");
+
+                    b.ToTable("grupo", "public");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Work.ParteDeTrabajo", b =>
@@ -166,8 +342,8 @@ namespace GestionTime.Infrastructure.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text")
-                        .HasDefaultValue("activo")
-                        .HasColumnName("estado");
+                        .HasColumnName("estado")
+                        .HasDefaultValueSql("'activo'");
 
                     b.Property<DateTime>("FechaTrabajo")
                         .HasColumnType("date")
@@ -222,10 +398,33 @@ namespace GestionTime.Infrastructure.Migrations
                     b.HasIndex("IdUsuario", "FechaTrabajo")
                         .HasDatabaseName("idx_partes_user_fecha");
 
-                    b.ToTable("partesdetrabajo", null, t =>
+                    b.ToTable("partesdetrabajo", "public", t =>
                         {
                             t.HasCheckConstraint("ck_partes_horas_validas", "hora_fin >= hora_inicio");
                         });
+                });
+
+            modelBuilder.Entity("GestionTime.Domain.Work.Tipo", b =>
+                {
+                    b.Property<int>("IdTipo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_tipo");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdTipo"));
+
+                    b.Property<string>("Descripcion")
+                        .HasColumnType("text")
+                        .HasColumnName("descripcion");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("nombre");
+
+                    b.HasKey("IdTipo");
+
+                    b.ToTable("tipo", "public");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.RefreshToken", b =>
@@ -233,6 +432,17 @@ namespace GestionTime.Infrastructure.Migrations
                     b.HasOne("GestionTime.Domain.Auth.User", "User")
                         .WithMany("RefreshTokens")
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GestionTime.Domain.Auth.UserProfile", b =>
+                {
+                    b.HasOne("GestionTime.Domain.Auth.User", "User")
+                        .WithOne("Profile")
+                        .HasForeignKey("GestionTime.Domain.Auth.UserProfile", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -265,6 +475,8 @@ namespace GestionTime.Infrastructure.Migrations
 
             modelBuilder.Entity("GestionTime.Domain.Auth.User", b =>
                 {
+                    b.Navigation("Profile");
+
                     b.Navigation("RefreshTokens");
 
                     b.Navigation("UserRoles");
