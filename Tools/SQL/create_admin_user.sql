@@ -39,7 +39,7 @@ DELETE FROM public.users WHERE email = 'admin@admin.com';
 
 -- PASO 3: Crear usuario admin
 -- Password: rootadmin
--- Hash BCrypt generado: $2a$11$XvP9LqHKZ7YQ3xJ8kP5nK.8YxQJHZzKqP5Zj9fY3QqCKvX5YQqZ8W
+-- Hash BCrypt generado: $2a$11$2HQ7DMD7VJpjRwJBuAiZOec6TEpyPNjEJ4Pt4zdnvkkpN7HLhZMRq
 -- NOTA: Usando TODAS las columnas necesarias (incluye email_confirmed)
 INSERT INTO public.users (
     id, 
@@ -53,7 +53,7 @@ INSERT INTO public.users (
 ) VALUES (
     gen_random_uuid(),
     'admin@admin.com',
-    '$2a$11$XvP9LqHKZ7YQ3xJ8kP5nK.8YxQJHZzKqP5Zj9fY3QqCKvX5YQqZ8W',
+    '$2a$11$2HQ7DMD7VJpjRwJBuAiZOec6TEpyPNjEJ4Pt4zdnvkkpN7HLhZMRq',
     'Administrador del Sistema',
     true,
     true,

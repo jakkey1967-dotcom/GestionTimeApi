@@ -68,6 +68,13 @@ if (args.Length > 0 && args[0] == "execute-sql")
     return;
 }
 
+// Si se invoca con argumentos "verify-password", verificar hash BCrypt
+if (args.Length > 0 && args[0] == "verify-password")
+{
+    await GestionTime.Api.Tools.VerifyPassword.Main(args.Skip(1).ToArray());
+    return;
+}
+
 // Configuración temprana de Serilog para capturar errores de arranque
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
