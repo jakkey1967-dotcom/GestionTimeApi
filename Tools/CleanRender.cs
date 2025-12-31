@@ -1,10 +1,10 @@
-using Npgsql;
+﻿using Npgsql;
 
 namespace GestionTime.Api.Tools;
 
 /// <summary>
 /// Herramienta para limpiar completamente la base de datos de Render
-/// ADVERTENCIA: Esto eliminar� TODAS las tablas y datos
+/// ADVERTENCIA: Esto eliminará TODAS las tablas y datos
 /// Uso: dotnet run -- clean-render
 /// </summary>
 public class CleanRender
@@ -12,24 +12,24 @@ public class CleanRender
     public static async Task Main(string[] args)
     {
         Console.WriteLine();
-        Console.WriteLine("????????????????????????????????????????????????????????????");
-        Console.WriteLine("?       ??  LIMPIEZA COMPLETA DE BASE DE DATOS ??         ?");
-        Console.WriteLine("????????????????????????????????????????????????????????????");
+        Console.WriteLine("╔══════════════════════════════════════════════════════════╗");
+        Console.WriteLine("║       ⚠️  LIMPIEZA COMPLETA DE BASE DE DATOS ⚠️         ║");
+        Console.WriteLine("╚══════════════════════════════════════════════════════════╝");
         Console.WriteLine();
 
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine("??  ADVERTENCIA: Esta operaci�n eliminar� TODAS las tablas y datos");
-        Console.WriteLine("??  de la base de datos de Render.");
+        Console.WriteLine("⚠️  ADVERTENCIA: Esta operación eliminará TODAS las tablas y datos");
+        Console.WriteLine("⚠️  de la base de datos de Render.");
         Console.ResetColor();
         Console.WriteLine();
 
-        Console.Write("�Est�s ABSOLUTAMENTE seguro de continuar? (escribe 'SI ESTOY SEGURO'): ");
+        Console.Write("¿Estás ABSOLUTAMENTE seguro de continuar? (escribe 'SI ESTOY SEGURO'): ");
         var confirmacion = Console.ReadLine()?.Trim();
 
         if (confirmacion != "SI ESTOY SEGURO")
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("\n??  Operaci�n cancelada");
+            Console.WriteLine("\n⚠️  Operación cancelada");
             Console.ResetColor();
             return;
         }
@@ -40,15 +40,15 @@ public class CleanRender
         {
             await using var conn = new NpgsqlConnection(connectionString);
             
-            Console.WriteLine("\n?? Conectando a Render...");
+            Console.WriteLine("\n🔌 Conectando a Render...");
             await conn.OpenAsync();
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("? Conectado");
+            Console.WriteLine("✅ Conectado");
             Console.ResetColor();
             Console.WriteLine();
 
             // 1. Obtener todos los schemas personalizados
-            Console.WriteLine("?? Buscando schemas personalizados...");
+            Console.WriteLine("🔍 Buscando schemas personalizados...");
             var schemasQuery = @"
                 SELECT schema_name 
                 FROM information_schema.schemata 
@@ -68,20 +68,20 @@ public class CleanRender
             if (schemas.Count == 0)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("??  No hay schemas personalizados para limpiar");
+                Console.WriteLine("⚠️  No hay schemas personalizados para limpiar");
                 Console.ResetColor();
                 return;
             }
 
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"?? Encontrados {schemas.Count} schema(s): {string.Join(", ", schemas)}");
+            Console.WriteLine($"📋 Encontrados {schemas.Count} schema(s): {string.Join(", ", schemas)}");
             Console.ResetColor();
             Console.WriteLine();
 
             // 2. Eliminar cada schema y recrearlo
             foreach (var schema in schemas)
             {
-                Console.Write($"???  Limpiando schema '{schema}'... ");
+                Console.Write($"🗑️  Limpiando schema '{schema}'... ");
 
                 try
                 {
@@ -89,38 +89,38 @@ public class CleanRender
                     var dropSchemaCmd = new NpgsqlCommand($"DROP SCHEMA IF EXISTS \"{schema}\" CASCADE", conn);
                     await dropSchemaCmd.ExecuteNonQueryAsync();
 
-                    // Recrear schema vac�o
+                    // Recrear schema vacío
                     var createSchemaCmd = new NpgsqlCommand($"CREATE SCHEMA \"{schema}\"", conn);
                     await createSchemaCmd.ExecuteNonQueryAsync();
 
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("? Limpio");
+                    Console.WriteLine("✅ Limpio");
                     Console.ResetColor();
                 }
                 catch (Exception ex)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"? Error: {ex.Message}");
+                    Console.WriteLine($"❌ Error: {ex.Message}");
                     Console.ResetColor();
                 }
             }
 
             Console.WriteLine();
-            Console.WriteLine("????????????????????????????????????????????????????????????");
+            Console.WriteLine("╔══════════════════════════════════════════════════════════╗");
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("?               ? LIMPIEZA COMPLETADA ?                   ?");
+            Console.WriteLine("║               ✅ LIMPIEZA COMPLETADA ✅                   ║");
             Console.ResetColor();
-            Console.WriteLine("????????????????????????????????????????????????????????????");
+            Console.WriteLine("╚══════════════════════════════════════════════════════════╝");
             Console.WriteLine();
 
-            Console.WriteLine("?? La base de datos est� ahora vac�a y lista para usar");
-            Console.WriteLine("?? Puedes ejecutar tu aplicaci�n para aplicar las migraciones");
+            Console.WriteLine("💡 La base de datos está ahora vacía y lista para usar");
+            Console.WriteLine("💡 Puedes ejecutar tu aplicación para aplicar las migraciones");
             Console.WriteLine();
         }
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"? ERROR: {ex.Message}");
+            Console.WriteLine($"❌ ERROR: {ex.Message}");
             Console.ResetColor();
             Console.WriteLine(ex.StackTrace);
         }

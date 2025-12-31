@@ -42,8 +42,8 @@ public sealed class GestionTimeDbContext : DbContext
         // PostgreSQL 9.4 => SERIAL (no IDENTITY)
         b.UseSerialColumns();
 
-        // Configurar schema por defecto
-        b.HasDefaultSchema("gestiontime");
+        // Configurar schema por defecto (public es el estándar de PostgreSQL)
+        b.HasDefaultSchema("public");
 
         // WORK: catálogos
         b.Entity<Cliente>(e =>
