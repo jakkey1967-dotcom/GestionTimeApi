@@ -1,6 +1,7 @@
 ﻿using GestionTime.Api.Logging;
 using GestionTime.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -209,6 +210,11 @@ try
     
     // ✅ Servicio centralizado de configuración de clientes
     builder.Services.AddSingleton<GestionTime.Api.Services.ClientConfigurationService>();
+    
+    // ✅ Data Protection - Persistir claves en PostgreSQL
+    builder.Services.AddDataProtection()
+        .PersistKeysToDbContext<GestionTimeDbContext>()
+        .SetApplicationName("GestionTimeApi");
 
     var app = builder.Build();
 

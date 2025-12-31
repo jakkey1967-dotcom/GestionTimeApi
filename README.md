@@ -1,31 +1,31 @@
-# GestionTime API ??
+Ôªø# GestionTime API ??
 
-API RESTful para el sistema de gestiÛn de tiempo y partes de trabajo, desarrollada con .NET 8 y PostgreSQL.
+API RESTful para el sistema de gesti√≥n de tiempo y partes de trabajo, desarrollada con .NET 8 y PostgreSQL.
 
-## ?? CaracterÌsticas
+## ?? Caracter√≠sticas
 
-- ? **AutenticaciÛn JWT** con refresh tokens
+- ? **Autenticaci√≥n JWT** con refresh tokens
 - ? **Sistema de roles** (ADMIN, USER)
-- ? **GestiÛn de partes de trabajo** completa
-- ? **Cat·logos** (Clientes, Grupos, Tipos)
-- ? **Cambio obligatorio de contraseÒas**
-- ? **RecuperaciÛn de contraseÒas** por email
+- ? **Gesti√≥n de partes de trabajo** completa
+- ? **Cat√°logos** (Clientes, Grupos, Tipos)
+- ? **Cambio obligatorio de contrase√±as**
+- ? **Recuperaci√≥n de contrase√±as** por email
 - ? **Logging estructurado** con Serilog
-- ? **DocumentaciÛn autom·tica** con Swagger
+- ? **Documentaci√≥n autom√°tica** con Swagger
 - ? **Health checks** para monitoreo
 
-## ??? TecnologÌas
+## ??? Tecnolog√≠as
 
 - **.NET 8** - Framework principal
 - **ASP.NET Core** - Web API
 - **Entity Framework Core** - ORM
 - **PostgreSQL** - Base de datos
-- **JWT** - AutenticaciÛn
-- **BCrypt** - Hash de contraseÒas
+- **JWT** - Autenticaci√≥n
+- **BCrypt** - Hash de contrase√±as
 - **Serilog** - Logging
-- **Swagger** - DocumentaciÛn API
+- **Swagger** - Documentaci√≥n API
 
-## ?? Arranque R·pido
+## ?? Arranque R√°pido
 
 ### Prerrequisitos
 
@@ -40,15 +40,15 @@ git clone https://github.com/jakkey1967-dotcom/GestionTimeApi.git
 cd GestionTimeApi
 ```
 
-### 2. ConfiguraciÛn
+### 2. Configuraci√≥n
 
-Copia y ajusta el archivo de configuraciÛn:
+Copia y ajusta el archivo de configuraci√≥n:
 
 ```bash
 cp appsettings.json appsettings.Development.json
 ```
 
-Edita `appsettings.Development.json` con tu configuraciÛn local.
+Edita `appsettings.Development.json` con tu configuraci√≥n local.
 
 ### 3. Arranque (Windows)
 
@@ -82,7 +82,7 @@ Esto levanta:
 - PostgreSQL en puerto 5433
 - PgAdmin en puerto 5050
 
-### ProducciÛn con Docker
+### Producci√≥n con Docker
 
 ```bash
 # Construir imagen
@@ -98,26 +98,26 @@ docker run -d \
 
 ## ?? API Endpoints
 
-### AutenticaciÛn
+### Autenticaci√≥n
 
-| MÈtodo | Endpoint | DescripciÛn |
+| M√©todo | Endpoint | Descripci√≥n |
 |--------|----------|-------------|
 | POST | `/api/v1/auth/login` | Login con email/password |
-| POST | `/api/v1/auth/logout` | Cerrar sesiÛn |
+| POST | `/api/v1/auth/logout` | Cerrar sesi√≥n |
 | POST | `/api/v1/auth/refresh` | Renovar tokens |
-| GET | `/api/v1/auth/me` | InformaciÛn del usuario |
+| GET | `/api/v1/auth/me` | Informaci√≥n del usuario |
 
-### GestiÛn de ContraseÒas
+### Gesti√≥n de Contrase√±as
 
-| MÈtodo | Endpoint | DescripciÛn |
+| M√©todo | Endpoint | Descripci√≥n |
 |--------|----------|-------------|
-| POST | `/api/v1/auth/forgot-password` | Solicitar cÛdigo recuperaciÛn |
-| POST | `/api/v1/auth/reset-password` | Resetear con cÛdigo |
+| POST | `/api/v1/auth/forgot-password` | Solicitar c√≥digo recuperaci√≥n |
+| POST | `/api/v1/auth/reset-password` | Resetear con c√≥digo |
 | POST | `/api/v1/auth/change-password` | Cambio obligatorio |
 
 ### Partes de Trabajo
 
-| MÈtodo | Endpoint | DescripciÛn |
+| M√©todo | Endpoint | Descripci√≥n |
 |--------|----------|-------------|
 | GET | `/api/v1/partes` | Listar partes |
 | GET | `/api/v1/partes/{id}` | Obtener parte |
@@ -125,27 +125,27 @@ docker run -d \
 | PUT | `/api/v1/partes/{id}` | Actualizar parte |
 | DELETE | `/api/v1/partes/{id}` | Eliminar parte |
 
-### Cat·logos
+### Cat√°logos
 
-| MÈtodo | Endpoint | DescripciÛn |
+| M√©todo | Endpoint | Descripci√≥n |
 |--------|----------|-------------|
 | GET | `/api/v1/clientes` | Listar clientes |
 | GET | `/api/v1/grupos` | Listar grupos |
 | GET | `/api/v1/tipos` | Listar tipos |
 
-## ?? ConfiguraciÛn
+## ?? Configuraci√≥n
 
 ### Variables de Entorno
 
-| Variable | DescripciÛn | Ejemplo |
+| Variable | Descripci√≥n | Ejemplo |
 |----------|-------------|---------|
-| `ASPNETCORE_ENVIRONMENT` | Entorno de ejecuciÛn | `Development` |
-| `ConnectionStrings__Default` | Cadena de conexiÛn BD | `Host=localhost;Database=...` |
+| `ASPNETCORE_ENVIRONMENT` | Entorno de ejecuci√≥n | `Development` |
+| `ConnectionStrings__Default` | Cadena de conexi√≥n BD | `Host=localhost;Database=...` |
 | `Jwt__Key` | Clave secreta JWT | `tu-clave-secreta-aqui` |
 
 ### Base de Datos
 
-Las migraciones se aplican autom·ticamente al iniciar. Para aplicarlas manualmente:
+Las migraciones se aplican autom√°ticamente al iniciar. Para aplicarlas manualmente:
 
 ```bash
 dotnet ef database update
@@ -155,7 +155,7 @@ dotnet ef database update
 
 El sistema incluye datos iniciales:
 - Usuarios de prueba con roles
-- Cat·logos b·sicos (tipos, grupos, clientes)
+- Cat√°logos b√°sicos (tipos, grupos, clientes)
 
 Credenciales por defecto:
 - **Admin:** `admin@gestiontime.local` / `admin123`
@@ -173,15 +173,15 @@ curl https://localhost:2501/health
 
 Los logs se almacenan en:
 - **Desarrollo:** `C:\GestionTime\src\GestionTime.Api\logs`
-- **ProducciÛn:** `/app/logs` (Docker)
+- **Producci√≥n:** `/app/logs` (Docker)
 
 ## ?? Testing
 
-### ? VerificaciÛn R·pida
+### ? Verificaci√≥n R√°pida
 
-DespuÈs de arrancar la API, puedes verificar que funciona:
+Despu√©s de arrancar la API, puedes verificar que funciona:
 
-#### Autom·tico (Recomendado)
+#### Autom√°tico (Recomendado)
 
 ```bash
 # Linux/macOS
@@ -209,11 +209,11 @@ curl -X POST https://localhost:2501/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@gestiontime.local","password":"admin123"}'
 
-# Obtener tipos (sin autenticaciÛn)
+# Obtener tipos (sin autenticaci√≥n)
 curl -k https://localhost:2501/api/v1/tipos
 ```
 
-### ?? VerificaciÛn desde GitHub
+### ?? Verificaci√≥n desde GitHub
 
 Si clonas el repositorio desde GitHub:
 
@@ -231,11 +231,11 @@ start-dev.bat    # Windows
 test-api.bat     # Windows
 ```
 
-### ?? CI/CD Autom·tico
+### ?? CI/CD Autom√°tico
 
 El repositorio incluye GitHub Actions que:
-- ? Compila autom·ticamente en cada push
-- ? Ejecuta pruebas de integraciÛn
+- ? Compila autom√°ticamente en cada push
+- ? Ejecuta pruebas de integraci√≥n
 - ? Construye imagen Docker
 - ? Verifica que la API funciona correctamente
 
@@ -243,10 +243,10 @@ Ver estado en: [Actions tab](https://github.com/jakkey1967-dotcom/GestionTimeApi
 
 ## ?? Seguridad
 
-- **AutenticaciÛn:** JWT con refresh tokens en cookies HttpOnly
-- **AutorizaciÛn:** Basada en roles (ADMIN, USER)
-- **ContraseÒas:** Hasheadas con BCrypt
-- **CORS:** Configurado para orÌgenes especÌficos
+- **Autenticaci√≥n:** JWT con refresh tokens en cookies HttpOnly
+- **Autorizaci√≥n:** Basada en roles (ADMIN, USER)
+- **Contrase√±as:** Hasheadas con BCrypt
+- **CORS:** Configurado para or√≠genes espec√≠ficos
 - **Headers de seguridad:** HTTPS, HSTS, etc.
 
 ## ?? Logging
@@ -254,11 +254,11 @@ Ver estado en: [Actions tab](https://github.com/jakkey1967-dotcom/GestionTimeApi
 El sistema utiliza logging estructurado con niveles:
 
 - **Information:** Operaciones normales
-- **Warning:** Situaciones anÛmalas no crÌticas
-- **Error:** Errores que requieren atenciÛn
-- **Debug:** InformaciÛn detallada para desarrollo
+- **Warning:** Situaciones an√≥malas no cr√≠ticas
+- **Error:** Errores que requieren atenci√≥n
+- **Debug:** Informaci√≥n detallada para desarrollo
 
-## ?? ContribuciÛn
+## ?? Contribuci√≥n
 
 1. Fork del repositorio
 2. Crear rama de feature (`git checkout -b feature/nueva-funcionalidad`)
@@ -268,16 +268,16 @@ El sistema utiliza logging estructurado con niveles:
 
 ## ?? Soporte
 
-- **DocumentaciÛn:** https://localhost:2501/swagger
+- **Documentaci√≥n:** https://localhost:2501/swagger
 - **Issues:** [GitHub Issues](https://github.com/jakkey1967-dotcom/GestionTimeApi/issues)
 - **Email:** soporte@gestiontime.com
 
 ## ?? Licencia
 
-Este proyecto est· bajo la Licencia MIT. Ver `LICENSE` para m·s detalles.
+Este proyecto est√° bajo la Licencia MIT. Ver `LICENSE` para m√°s detalles.
 
 ---
 
-**?? Estado del Proyecto:** ? ProducciÛn Ready
+**?? Estado del Proyecto:** ? Producci√≥n Ready
 
-**?? ⁄ltima ActualizaciÛn:** Diciembre 2024
+**?? √öltima Actualizaci√≥n:** Diciembre 2024

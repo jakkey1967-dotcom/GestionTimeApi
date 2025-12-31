@@ -1,11 +1,12 @@
 ﻿using GestionTime.Domain.Auth;
 using GestionTime.Domain.Work;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace GestionTime.Infrastructure.Persistence;
 
-public sealed class GestionTimeDbContext : DbContext
+public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
 {
     private readonly string _schema;
 
@@ -31,6 +32,9 @@ public sealed class GestionTimeDbContext : DbContext
     public DbSet<Grupo> Grupos => Set<Grupo>();
     public DbSet<Tipo> Tipos => Set<Tipo>();
     public DbSet<ParteDeTrabajo> PartesDeTrabajo => Set<ParteDeTrabajo>();
+    
+    // ✅ Data Protection Keys
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
