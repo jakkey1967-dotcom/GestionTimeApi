@@ -332,14 +332,45 @@ try
                                 ?? builder.Configuration["Database:Schema"] 
                                 ?? "unknown";
             
+            // Leer nombre del cliente desde clients.config.json
+            var clientName = currentSchema; // Por defecto, usar el ID
+            try
+            {
+                var configPath = Path.Combine(Directory.GetCurrentDirectory(), "clients.config.json");
+                if (File.Exists(configPath))
+                {
+                    var configJson = await File.ReadAllTextAsync(configPath);
+                    var config = System.Text.Json.JsonDocument.Parse(configJson);
+                    
+                    if (config.RootElement.TryGetProperty("Clients", out var clients))
+                    {
+                        foreach (var client in clients.EnumerateArray())
+                        {
+                            if (client.TryGetProperty("Id", out var id) && 
+                                id.GetString() == currentSchema &&
+                                client.TryGetProperty("Name", out var name))
+                            {
+                                clientName = name.GetString() ?? currentSchema;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Si falla la lectura del config, usar el schema como nombre
+            }
+            
             return Results.Ok(new
             {
                 status = canConnect ? "OK" : "DEGRADED",
                 timestamp = DateTime.UtcNow,
                 service = "GestionTime API",
                 version = "1.0.0",
-                client = currentSchema,  // ✅ Nombre del cliente/schema
-                schema = currentSchema,  // ✅ Schema de BD
+                client = clientName,         // ✅ Nombre descriptivo del cliente
+                clientId = currentSchema,    // ✅ ID técnico del cliente
+                schema = currentSchema,      // ✅ Schema de BD
                 uptime = $"{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m {uptime.Seconds}s",
                 database = canConnect ? "connected" : "disconnected",
                 environment = app.Environment.EnvironmentName
