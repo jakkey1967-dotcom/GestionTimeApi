@@ -61,6 +61,13 @@ if (args.Length > 0 && args[0] == "seed-admin")
     return;
 }
 
+// Si se invoca con argumentos "execute-sql", ejecutar script SQL en Render
+if (args.Length > 0 && args[0] == "execute-sql")
+{
+    await GestionTime.Api.Tools.ExecuteSql.Main(args.Skip(1).ToArray());
+    return;
+}
+
 // Configuración temprana de Serilog para capturar errores de arranque
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
