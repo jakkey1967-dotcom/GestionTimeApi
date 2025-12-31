@@ -183,12 +183,12 @@ try
     var connectionString = GetConnectionString(builder.Configuration);
     Log.Information("Usando connection string (oculto por seguridad)");
     
-    // Obtener schema desde configuración (o variable de entorno)
-    var dbSchema = Environment.GetEnvironmentVariable("DB_SCHEMA") 
-                   ?? builder.Configuration["Database:Schema"] 
-                   ?? "gestiontime";
+    // ✅ Crear servicio de configuración de cliente temporal para obtener schema
+    var tempClientConfig = new GestionTime.Api.Services.ClientConfigurationService(builder.Configuration, builder.Environment);
+    var dbSchema = tempClientConfig.GetDatabaseSchema();
     
     Log.Information("Schema de base de datos: {Schema}", dbSchema);
+    Log.Information("Cliente: {ClientName}", tempClientConfig.GetClientName());
     
     builder.Services.AddDbContext<GestionTimeDbContext>((serviceProvider, opt) =>
     {
@@ -204,7 +204,10 @@ try
     // Servicios de email y verificación
     builder.Services.AddScoped<GestionTime.Api.Services.ResetTokenService>();
     builder.Services.AddScoped<GestionTime.Api.Services.EmailVerificationTokenService>();
-    builder.Services.AddScoped<GestionTime.Api.Services.IEmailService, GestionTime.Api.Services.SmtpEmailService>(); 
+    builder.Services.AddScoped<GestionTime.Api.Services.IEmailService, GestionTime.Api.Services.SmtpEmailService>();
+    
+    // ✅ Servicio centralizado de configuración de clientes
+    builder.Services.AddSingleton<GestionTime.Api.Services.ClientConfigurationService>();
 
     var app = builder.Build();
 
@@ -320,47 +323,15 @@ try
     Log.Warning("⚠️ SEED DESACTIVADO - Gestión manual de datos iniciales");
 
     // ✅ Health checks endpoint con JSON detallado
-    app.MapGet("/health", async (GestionTimeDbContext db) =>
+    app.MapGet("/health", async (GestionTimeDbContext db, GestionTime.Api.Services.ClientConfigurationService clientConfig) =>
     {
         try
         {
             var canConnect = await db.Database.CanConnectAsync();
             var uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime();
             
-            // Obtener el schema actual desde la variable de entorno o configuración
-            var currentSchema = Environment.GetEnvironmentVariable("DB_SCHEMA") 
-                                ?? builder.Configuration["Database:Schema"] 
-                                ?? "unknown";
-            
-            // Leer nombre del cliente desde clients.config.json
-            var clientName = currentSchema; // Por defecto, usar el ID
-            try
-            {
-                var configPath = Path.Combine(Directory.GetCurrentDirectory(), "clients.config.json");
-                if (File.Exists(configPath))
-                {
-                    var configJson = await File.ReadAllTextAsync(configPath);
-                    var config = System.Text.Json.JsonDocument.Parse(configJson);
-                    
-                    if (config.RootElement.TryGetProperty("Clients", out var clients))
-                    {
-                        foreach (var client in clients.EnumerateArray())
-                        {
-                            if (client.TryGetProperty("Id", out var id) && 
-                                id.GetString() == currentSchema &&
-                                client.TryGetProperty("Name", out var name))
-                            {
-                                clientName = name.GetString() ?? currentSchema;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Si falla la lectura del config, usar el schema como nombre
-            }
+            // Usar servicio centralizado para obtener configuración del cliente
+            var currentClient = clientConfig.GetCurrentClient();
             
             return Results.Ok(new
             {
@@ -368,9 +339,9 @@ try
                 timestamp = DateTime.UtcNow,
                 service = "GestionTime API",
                 version = "1.0.0",
-                client = clientName,         // ✅ Nombre descriptivo del cliente
-                clientId = currentSchema,    // ✅ ID técnico del cliente
-                schema = currentSchema,      // ✅ Schema de BD
+                client = currentClient.Name,        // ✅ Nombre descriptivo del cliente
+                clientId = currentClient.Id,        // ✅ ID técnico del cliente
+                schema = clientConfig.GetDatabaseSchema(),  // ✅ Schema de BD
                 uptime = $"{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m {uptime.Seconds}s",
                 database = canConnect ? "connected" : "disconnected",
                 environment = app.Environment.EnvironmentName
@@ -395,7 +366,7 @@ try
     .ExcludeFromDescription();
 
     // ✅ ENDPOINT RAÍZ - Muestra información según el entorno
-    app.MapGet("/", async (GestionTimeDbContext db) =>
+    app.MapGet("/", async (GestionTimeDbContext db, GestionTime.Api.Services.ClientConfigurationService clientConfig) =>
     {
         // En Development, mostrar diagnósticos completos
         if (app.Environment.IsDevelopment())
@@ -403,19 +374,8 @@ try
             return await GetDiagnosticsPageAsync(db, app);
         }
         
-        // Obtener cliente actual
-        var currentClient = Environment.GetEnvironmentVariable("DB_SCHEMA") 
-                            ?? builder.Configuration["Database:Schema"] 
-                            ?? "pss_dvnx";
-        
-        // Configurar logo según cliente
-        var logoPath = currentClient switch
-        {
-            "pss_dvnx" => "/images/pss_dvnx_logo.png",
-            "cliente_abc" => "/images/cliente_abc_logo.png",
-            "cliente_xyz" => "/images/cliente_xyz_logo.png",
-            _ => "/images/LogoOscuro.png"
-        };
+        // Usar servicio centralizado para obtener logo
+        var logoPath = clientConfig.GetLogoPath();
         
         // En Production, mostrar página simple y segura
         var html = $@"
@@ -565,15 +525,12 @@ try
         app.UseHttpsRedirection();
     }
 
-    // Servir archivos estáticos según el cliente
-    var clientId = Environment.GetEnvironmentVariable("DB_SCHEMA") 
-                   ?? builder.Configuration["Database:Schema"] 
-                   ?? "default";
+    // Servir archivos estáticos según el cliente usando servicio centralizado
+    var clientConfigService = app.Services.GetRequiredService<GestionTime.Api.Services.ClientConfigurationService>();
     
-    // Primero intenta servir desde wwwroot-{cliente}, si no existe usa wwwroot común
-    var clientWwwroot = Path.Combine(Directory.GetCurrentDirectory(), $"wwwroot-{clientId}");
-    if (Directory.Exists(clientWwwroot))
+    if (clientConfigService.HasClientSpecificWwwroot())
     {
+        var clientWwwroot = clientConfigService.GetClientWwwrootPath();
         Log.Information("Usando wwwroot específico del cliente: {Path}", clientWwwroot);
         app.UseStaticFiles(new StaticFileOptions
         {
