@@ -32,6 +32,35 @@ public class DeployToRender
 
         try
         {
+            // PASO 0: Preguntar si limpiar BD
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("⚠️  ¿Deseas limpiar la base de datos de Render primero? (s/N): ");
+            Console.ResetColor();
+            Console.Write("> ");
+            var cleanDb = Console.ReadLine()?.Trim().ToLowerInvariant();
+            
+            if (cleanDb == "s" || cleanDb == "si" || cleanDb == "y" || cleanDb == "yes")
+            {
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("🗑️ LIMPIANDO BASE DE DATOS...");
+                Console.ResetColor();
+                
+                if (!await CleanDatabase(log))
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("❌ Error limpiando base de datos");
+                    Console.ResetColor();
+                    SaveLog(log.ToString());
+                    return;
+                }
+                
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("✅ Base de datos limpiada");
+                Console.ResetColor();
+                Console.WriteLine();
+            }
+
             // PASO 1: Verificar estado Git
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine("📋 PASO 1: Verificando repositorio Git...");
@@ -49,7 +78,7 @@ public class DeployToRender
             Console.WriteLine("📦 PASO 2: Commit y Push a GitHub...");
             Console.ResetColor();
             
-            var commitMessage = args.Length > 0 ? string.Join(" ", args) : "Deploy: Update application";
+            var commitMessage = args.Length > 0 ? string.Join(" ", args) : "deploy: Update application";
             if (!await CommitAndPush(commitMessage, log))
             {
                 SaveLog(log.ToString());
@@ -59,7 +88,7 @@ public class DeployToRender
             // PASO 3: Verificar estado de Render
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("🔍 PASO 3: Verificando estado de Render...");
+            Console.WriteLine("🔍 PASO 3: Verificando estado actual de Render...");
             Console.ResetColor();
             
             await CheckRenderStatus(log);
@@ -67,10 +96,19 @@ public class DeployToRender
             // PASO 4: Esperar deployment
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("⏳ PASO 4: Esperando deployment (esto puede tardar 5-7 minutos)...");
+            Console.WriteLine("⏳ PASO 4: Esperando deployment (esto puede tardar 5-10 minutos)...");
             Console.ResetColor();
             
             var deployed = await WaitForDeployment(log);
+
+            if (!deployed)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine();
+                Console.WriteLine("❌ El deployment no se completó en el tiempo esperado.");
+                Console.WriteLine("💡 Verifica el estado en: https://dashboard.render.com");
+                Console.ResetColor();
+            }
 
             // PASO 5: Verificar base de datos
             Console.WriteLine();
@@ -142,6 +180,68 @@ public class DeployToRender
             log.AppendLine(ex.ToString());
             
             SaveLog(log.ToString());
+        }
+    }
+
+    private static async Task<bool> CleanDatabase(StringBuilder log)
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(RenderConnectionString);
+            await conn.OpenAsync();
+
+            Console.WriteLine("  🔌 Conectado a Render");
+
+            // Obtener schemas
+            var schemasQuery = @"
+                SELECT schema_name 
+                FROM information_schema.schemata 
+                WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+                ORDER BY schema_name";
+
+            var schemas = new List<string>();
+            await using (var cmd = new NpgsqlCommand(schemasQuery, conn))
+            await using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    schemas.Add(reader.GetString(0));
+                }
+            }
+
+            if (schemas.Count == 0)
+            {
+                Console.WriteLine("  ℹ️ No hay schemas para limpiar");
+                log.AppendLine("BD ya estaba limpia");
+                return true;
+            }
+
+            // Limpiar cada schema
+            foreach (var schema in schemas)
+            {
+                Console.Write($"  🗑️ Limpiando schema '{schema}'... ");
+
+                var dropSchemaCmd = new NpgsqlCommand($"DROP SCHEMA IF EXISTS \"{schema}\" CASCADE", conn);
+                await dropSchemaCmd.ExecuteNonQueryAsync();
+
+                var createSchemaCmd = new NpgsqlCommand($"CREATE SCHEMA \"{schema}\"", conn);
+                await createSchemaCmd.ExecuteNonQueryAsync();
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("✅");
+                Console.ResetColor();
+            }
+
+            log.AppendLine($"BD limpiada: {schemas.Count} schema(s)");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"❌ Error: {ex.Message}");
+            Console.ResetColor();
+            log.AppendLine($"ERROR limpiando BD: {ex.Message}");
+            return false;
         }
     }
 
