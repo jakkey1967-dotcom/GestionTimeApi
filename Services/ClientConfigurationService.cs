@@ -10,13 +10,18 @@ public class ClientConfigurationService
 {
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
-    private ClientConfig? _clientConfig;
+    private readonly ILogger<ClientConfigurationService> _logger;
+    private ClientConfigRoot? _clientConfigRoot;
     private readonly object _lock = new();
 
-    public ClientConfigurationService(IConfiguration configuration, IWebHostEnvironment environment)
+    public ClientConfigurationService(
+        IConfiguration configuration, 
+        IWebHostEnvironment environment,
+        ILogger<ClientConfigurationService> logger)
     {
         _configuration = configuration;
         _environment = environment;
+        _logger = logger;
     }
 
     /// <summary>
@@ -37,14 +42,30 @@ public class ClientConfigurationService
         var clientId = GetClientId();
         var allClients = GetAllClients();
         
-        return allClients.FirstOrDefault(c => c.Id == clientId)
-               ?? new ClientConfig
-               {
-                   Id = clientId,
-                   Name = clientId,
-                   ApiUrl = _configuration["ApiUrl"] ?? "",
-                   Logo = "LogoOscuro.png"
-               };
+        var client = allClients.FirstOrDefault(c => c.Id == clientId);
+        
+        if (client == null)
+        {
+            _logger.LogWarning("Cliente '{ClientId}' no encontrado, usando configuración por defecto", clientId);
+            
+            return new ClientConfig
+            {
+                Id = clientId,
+                Name = clientId,
+                ApiUrl = _configuration["ApiUrl"] ?? "",
+                Logo = "LogoOscuro.png",
+                Database = new DatabaseConfig { Schema = clientId },
+                Jwt = new JwtConfig(),
+                Cors = new CorsConfig(),
+                Email = new EmailConfig(),
+                Features = new FeaturesConfig(),
+                Branding = new BrandingConfig { CompanyName = clientId },
+                ContactInfo = new ContactInfoConfig(),
+                Limits = new LimitsConfig()
+            };
+        }
+
+        return client;
     }
 
     /// <summary>
@@ -52,13 +73,13 @@ public class ClientConfigurationService
     /// </summary>
     public List<ClientConfig> GetAllClients()
     {
-        if (_clientConfig != null)
-            return _clientConfig.Clients;
+        if (_clientConfigRoot?.Clients != null)
+            return _clientConfigRoot.Clients;
 
         lock (_lock)
         {
-            if (_clientConfig != null)
-                return _clientConfig.Clients;
+            if (_clientConfigRoot?.Clients != null)
+                return _clientConfigRoot.Clients;
 
             try
             {
@@ -66,43 +87,62 @@ public class ClientConfigurationService
                 
                 if (!File.Exists(configPath))
                 {
-                    // Configuración por defecto si no existe el archivo
-                    _clientConfig = new ClientConfig
-                    {
-                        Clients = new List<ClientConfig>
-                        {
-                            new ClientConfig
-                            {
-                                Id = "pss_dvnx",
-                                Name = "GestionTime Global-retail.com",
-                                ApiUrl = "https://gestiontimeapi.onrender.com",
-                                Logo = "pss_dvnx_logo.png"
-                            }
-                        }
-                    };
-                    return _clientConfig.Clients;
+                    _logger.LogWarning("Archivo clients.config.json no encontrado en: {Path}", configPath);
+                    return GetDefaultClients();
                 }
 
+                _logger.LogInformation("Cargando clients.config.json desde: {Path}", configPath);
+                
                 var json = File.ReadAllText(configPath);
+                
                 var options = new JsonSerializerOptions
                 {
-                    PropertyNameCaseInsensitive = true
+                    PropertyNameCaseInsensitive = true,
+                    AllowTrailingCommas = true,
+                    ReadCommentHandling = JsonCommentHandling.Skip
                 };
 
-                _clientConfig = JsonSerializer.Deserialize<ClientConfig>(json, options);
+                _clientConfigRoot = JsonSerializer.Deserialize<ClientConfigRoot>(json, options);
                 
-                if (_clientConfig?.Clients == null || _clientConfig.Clients.Count == 0)
+                if (_clientConfigRoot?.Clients == null || _clientConfigRoot.Clients.Count == 0)
                 {
-                    throw new InvalidOperationException("No se encontraron clientes configurados en clients.config.json");
+                    _logger.LogError("No se encontraron clientes en clients.config.json");
+                    return GetDefaultClients();
                 }
 
-                return _clientConfig.Clients;
+                _logger.LogInformation("✅ Cargados {Count} clientes desde clients.config.json", _clientConfigRoot.Clients.Count);
+                return _clientConfigRoot.Clients;
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException($"Error al cargar clients.config.json: {ex.Message}", ex);
+                _logger.LogError(ex, "❌ Error al cargar clients.config.json");
+                return GetDefaultClients();
             }
         }
+    }
+
+    private List<ClientConfig> GetDefaultClients()
+    {
+        _logger.LogWarning("Usando configuración por defecto de clientes");
+        
+        return new List<ClientConfig>
+        {
+            new ClientConfig
+            {
+                Id = "pss_dvnx",
+                Name = "GestionTime Global-retail.com",
+                ApiUrl = "https://gestiontimeapi.onrender.com",
+                Logo = "pss_dvnx_logo.png",
+                Database = new DatabaseConfig { Schema = "pss_dvnx" },
+                Jwt = new JwtConfig(),
+                Cors = new CorsConfig(),
+                Email = new EmailConfig(),
+                Features = new FeaturesConfig(),
+                Branding = new BrandingConfig { CompanyName = "GestionTime Global-retail.com" },
+                ContactInfo = new ContactInfoConfig(),
+                Limits = new LimitsConfig()
+            }
+        };
     }
 
     /// <summary>
@@ -407,6 +447,15 @@ public class ClientConfigurationService
 }
 
 /// <summary>
+/// Modelo raíz del archivo clients.config.json
+/// </summary>
+public class ClientConfigRoot
+{
+    public ClientConfig? Defaults { get; set; }
+    public List<ClientConfig> Clients { get; set; } = new();
+}
+
+/// <summary>
 /// Modelo de configuración del cliente
 /// </summary>
 public class ClientConfig
@@ -415,9 +464,6 @@ public class ClientConfig
     public string Name { get; set; } = string.Empty;
     public string ApiUrl { get; set; } = string.Empty;
     public string Logo { get; set; } = string.Empty;
-    
-    // Para deserializar el array de clientes
-    public List<ClientConfig> Clients { get; set; } = new();
     
     // Configuración de base de datos
     public DatabaseConfig Database { get; set; } = new();
