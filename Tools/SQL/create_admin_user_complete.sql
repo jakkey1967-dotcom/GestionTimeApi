@@ -149,9 +149,14 @@ BEGIN
     
     -- ==================== 4. GENERAR HASH DE CONTRASEÑA ====================
     -- ⚠️ IMPORTANTE: Este script usa crypt() con bcrypt
-    -- Si tu PostgreSQL no tiene pgcrypto, descomenta la siguiente línea:
-    -- CREATE EXTENSION IF NOT EXISTS pgcrypto;
+    -- Crear extensión pgcrypto si no existe (requerido para gen_salt y crypt)
     
+    RAISE NOTICE '🔐 Verificando extensión pgcrypto...';
+    
+    -- Crear extensión pgcrypto si no existe
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+    
+    RAISE NOTICE '✅ Extensión pgcrypto disponible';
     RAISE NOTICE '🔐 Generando hash BCrypt de contraseña...';
     
     -- Usar bcrypt para el hash (compatible con BCrypt.Net en C#)
