@@ -182,9 +182,7 @@ try
 
     var app = builder.Build();
 
-    // 🔧 Aplicar migraciones automáticamente (Development y Production)
-    // ⚠️ DESACTIVADO: Migraciones manuales solamente
-    /*
+    // 🔧 Aplicar migraciones automáticamente
     try
     {
         Log.Information("🔧 Verificando estado de base de datos...");
@@ -193,7 +191,6 @@ try
         {
             var db = scope.ServiceProvider.GetRequiredService<GestionTimeDbContext>();
             
-            // Verificar si puede conectar
             var canConnect = await db.Database.CanConnectAsync();
             if (!canConnect)
             {
@@ -203,7 +200,6 @@ try
             
             Log.Information("✅ Conexión a BD establecida");
             
-            // Verificar migraciones pendientes
             var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
             
             if (pendingMigrations.Any())
@@ -214,29 +210,8 @@ try
                     Log.Information("  • {Migration}", migration);
                 }
                 
-                try
-                {
-                    await db.Database.MigrateAsync();
-                    Log.Information("✅ Migraciones aplicadas correctamente");
-                }
-                catch (InvalidOperationException ex) when (ex.Message.Contains("Cannot set default value"))
-                {
-                    Log.Warning("⚠️ Error de migración con valor por defecto: {Message}", ex.Message);
-                    Log.Information("🔄 Verificando si la base de datos está operativa...");
-                    
-                    // Verificar que la BD sigue siendo accesible
-                    var stillConnected = await db.Database.CanConnectAsync();
-                    if (stillConnected)
-                    {
-                        Log.Warning("⚠️ Base de datos operativa. Continuando sin aplicar migraciones.");
-                        Log.Information("💡 Acción requerida: Revisa las configuraciones de Entity Framework.");
-                        Log.Information("💡 Busca 'HasDefaultValue' y cángialo por 'HasDefaultValueSql' para strings.");
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
+                await db.Database.MigrateAsync();
+                Log.Information("✅ Migraciones aplicadas correctamente");
             }
             else
             {
@@ -247,58 +222,6 @@ try
     catch (Exception ex)
     {
         Log.Error(ex, "❌ ERROR verificando/aplicando migraciones");
-        
-        // Intentar verificar si la BD está operativa antes de fallar completamente
-        try
-        {
-            using var scope = app.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<GestionTimeDbContext>();
-            var canConnect = await db.Database.CanConnectAsync();
-            
-            if (canConnect)
-            {
-                Log.Warning("⚠️ Error en migraciones pero la BD está conectada. Continuando arranque...");
-                Log.Information("💡 La aplicación funcionará con el esquema actual de la base de datos.");
-            }
-            else
-            {
-                Log.Fatal("💥 Base de datos inaccesible. No se puede continuar.");
-                throw;
-            }
-        }
-        catch (Exception fallbackEx)
-        {
-            Log.Fatal(fallbackEx, "💥 No se pudo verificar el estado de la base de datos");
-            throw;
-        }
-    }
-    */
-
-    // ✅ Verificación simple de conexión (sin migraciones automáticas)
-    try
-    {
-        Log.Information("🔧 Verificando conexión a base de datos...");
-        
-        using (var scope = app.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<GestionTimeDbContext>();
-            var canConnect = await db.Database.CanConnectAsync();
-            
-            if (canConnect)
-            {
-                Log.Information("✅ Conexión a BD establecida");
-                Log.Warning("⚠️ Migraciones automáticas DESACTIVADAS - Gestión manual de BD");
-            }
-            else
-            {
-                Log.Error("❌ No se puede conectar a la base de datos");
-                throw new Exception("No se puede conectar a la base de datos");
-            }
-        }
-    }
-    catch (Exception ex)
-    {
-        Log.Fatal(ex, "💥 Error conectando a la base de datos");
         throw;
     }
 
