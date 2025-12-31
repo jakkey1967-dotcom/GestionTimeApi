@@ -46,6 +46,14 @@ if (args.Length > 0 && args[0] == "clean-render")
     return;
 }
 
+// Si se invoca con argumentos "deploy-render", deployment automatizado completo
+if (args.Length > 0 && args[0] == "deploy-render")
+{
+    var schemaArgs = args.Skip(1).ToArray();
+    await GestionTime.Api.Tools.DeployToRender.Main(schemaArgs);
+    return;
+}
+
 // Configuración temprana de Serilog para capturar errores de arranque
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
