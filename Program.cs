@@ -169,6 +169,8 @@ try
     var app = builder.Build();
 
     // 🔧 Aplicar migraciones automáticamente (Development y Production)
+    // ⚠️ DESACTIVADO: Migraciones manuales solamente
+    /*
     try
     {
         Log.Information("🔧 Verificando estado de base de datos...");
@@ -255,6 +257,35 @@ try
             Log.Fatal(fallbackEx, "💥 No se pudo verificar el estado de la base de datos");
             throw;
         }
+    }
+    */
+
+    // ✅ Verificación simple de conexión (sin migraciones automáticas)
+    try
+    {
+        Log.Information("🔧 Verificando conexión a base de datos...");
+        
+        using (var scope = app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GestionTimeDbContext>();
+            var canConnect = await db.Database.CanConnectAsync();
+            
+            if (canConnect)
+            {
+                Log.Information("✅ Conexión a BD establecida");
+                Log.Warning("⚠️ Migraciones automáticas DESACTIVADAS - Gestión manual de BD");
+            }
+            else
+            {
+                Log.Error("❌ No se puede conectar a la base de datos");
+                throw new Exception("No se puede conectar a la base de datos");
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Log.Fatal(ex, "💥 Error conectando a la base de datos");
+        throw;
     }
 
     // Request logging middleware de Serilog
