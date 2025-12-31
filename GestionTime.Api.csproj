@@ -5,6 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Suprimir warning CS7022 para herramientas con múltiples Main() -->
     <NoWarn>$(NoWarn);CS7022</NoWarn>
+    <!-- Deshabilitar inclusión automática de Content para evitar duplicados -->
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
   </PropertyGroup>
 
   <ItemGroup>
