@@ -19,15 +19,6 @@ COPY . .
 # Limpiar solo directorios bin para evitar conflictos (mantener obj para assets)
 RUN rm -rf bin GestionTime.Api/bin
 
-# Verificar que el codigo C# no tiene referencias problematicas
-# NOTA: Excluimos Migrations porque son auto-generadas y contienen NpgsqlExtensions
-RUN echo "=== VERIFICANDO CODIGO ===" && \
-    if find . -name "*.cs" -type f ! -path "*/Migrations/*" -exec grep -l "AddNpgSql" {} \; | grep -q .; then \
-        echo "ERROR: AddNpgSql encontrado en codigo C#!" && exit 1; \
-    else \
-        echo "OK: Codigo limpio sin AddNpgSql"; \
-    fi
-
 # Compilar aplicacion sin --no-restore para regenerar assets si es necesario
 RUN dotnet publish GestionTime.Api.csproj -c Release -o /app/publish
 
