@@ -541,7 +541,7 @@ try
     
     // Primero intenta servir desde wwwroot-{cliente}, si no existe usa wwwroot común
     var clientWwwroot = Path.Combine(Directory.GetCurrentDirectory(), $"wwwroot-{clientId}");
-    if (Directory.Exists(clientWwwwroot))
+    if (Directory.Exists(clientWwwroot))
     {
         Log.Information("Usando wwwroot específico del cliente: {Path}", clientWwwroot);
         app.UseStaticFiles(new StaticFileOptions
