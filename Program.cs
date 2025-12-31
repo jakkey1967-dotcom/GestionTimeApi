@@ -54,6 +54,13 @@ if (args.Length > 0 && args[0] == "deploy-render")
     return;
 }
 
+// Si se invoca con argumentos "seed-admin", crear usuario admin en Render
+if (args.Length > 0 && args[0] == "seed-admin")
+{
+    await GestionTime.Api.Tools.SeedAdminUser.Main(args.Skip(1).ToArray());
+    return;
+}
+
 // Configuración temprana de Serilog para capturar errores de arranque
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
