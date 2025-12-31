@@ -10,15 +10,13 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
 {
     private readonly string _schema;
 
-    public GestionTimeDbContext(DbContextOptions<GestionTimeDbContext> options) : base(options)
+    // Constructor para runtime (con DI completo)
+    public GestionTimeDbContext(
+        DbContextOptions<GestionTimeDbContext> options, 
+        DatabaseSchemaConfig? schemaConfig = null) 
+        : base(options)
     {
-        // Obtener el schema de la configuración (por defecto "gestiontime")
-        _schema = "gestiontime"; // Valor por defecto
-    }
-
-    public GestionTimeDbContext(DbContextOptions<GestionTimeDbContext> options, string schema) : base(options)
-    {
-        _schema = schema;
+        _schema = schemaConfig?.Schema ?? "pss_dvnx";
     }
 
     public DbSet<User> Users => Set<User>();
@@ -265,6 +263,13 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             
             // Check constraint para horas válidas
             e.ToTable(t => t.HasCheckConstraint("ck_partes_horas_validas", "hora_fin >= hora_inicio"));
+        });
+        
+        // ✅ Configurar DataProtectionKeys con schema dinámico
+        b.Entity<DataProtectionKey>(e =>
+        {
+            e.ToTable("DataProtectionKeys");
+            e.HasKey(x => x.Id);
         });
     }
 
