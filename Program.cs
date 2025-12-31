@@ -75,6 +75,13 @@ if (args.Length > 0 && args[0] == "verify-password")
     return;
 }
 
+// Si se invoca con argumentos "backup-client", hacer backup completo
+if (args.Length > 0 && args[0] == "backup-client")
+{
+    await GestionTime.Api.Tools.BackupClient.Main(args.Skip(1).ToArray());
+    return;
+}
+
 // Configuración temprana de Serilog para capturar errores de arranque
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
