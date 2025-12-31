@@ -183,12 +183,13 @@ try
     var connectionString = GetConnectionString(builder.Configuration);
     Log.Information("Usando connection string (oculto por seguridad)");
     
-    // ✅ Crear servicio de configuración de cliente temporal para obtener schema
-    var tempClientConfig = new GestionTime.Api.Services.ClientConfigurationService(builder.Configuration, builder.Environment);
-    var dbSchema = tempClientConfig.GetDatabaseSchema();
+    // ✅ Obtener schema desde variable de entorno o configuración
+    // No usar el servicio aquí porque aún no está registrado en DI
+    var dbSchema = Environment.GetEnvironmentVariable("DB_SCHEMA") 
+                   ?? builder.Configuration["Database:Schema"] 
+                   ?? "pss_dvnx";
     
     Log.Information("Schema de base de datos: {Schema}", dbSchema);
-    Log.Information("Cliente: {ClientName}", tempClientConfig.GetClientName());
     
     builder.Services.AddDbContext<GestionTimeDbContext>((serviceProvider, opt) =>
     {
