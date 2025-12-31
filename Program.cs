@@ -339,12 +339,25 @@ try
                 timestamp = DateTime.UtcNow,
                 service = "GestionTime API",
                 version = "1.0.0",
-                client = currentClient.Name,        // ✅ Nombre descriptivo del cliente
-                clientId = currentClient.Id,        // ✅ ID técnico del cliente
-                schema = clientConfig.GetDatabaseSchema(),  // ✅ Schema de BD
+                client = currentClient.Name,                    // ✅ Nombre descriptivo
+                clientId = currentClient.Id,                    // ✅ ID técnico
+                schema = clientConfig.GetDatabaseSchema(),      // ✅ Schema de BD
+                environment = app.Environment.EnvironmentName,  // ✅ Development/Production
                 uptime = $"{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m {uptime.Seconds}s",
                 database = canConnect ? "connected" : "disconnected",
-                environment = app.Environment.EnvironmentName
+                
+                // ✅ Información adicional de configuración
+                configuration = new
+                {
+                    jwtAccessMinutes = clientConfig.GetJwtConfig().AccessMinutes,
+                    jwtRefreshDays = clientConfig.GetJwtConfig().RefreshDays,
+                    emailConfirmationRequired = clientConfig.RequiresEmailConfirmation(),
+                    selfRegistrationAllowed = clientConfig.AllowsSelfRegistration(),
+                    passwordExpirationDays = clientConfig.GetPasswordExpirationDays(),
+                    maxUsers = clientConfig.GetMaxUsersAllowed(),
+                    maxStorageGB = clientConfig.GetMaxStorageGB(),
+                    corsOriginsCount = clientConfig.GetCorsOrigins().Length
+                }
             });
         }
         catch (Exception ex)

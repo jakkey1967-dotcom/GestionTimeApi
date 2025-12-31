@@ -1,4 +1,62 @@
 ﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GestionTime Multi-Tenant Configuration",
+  "description": "Configuración centralizada de clientes multi-tenant con valores por defecto",
+  
+  "Defaults": {
+    "Database": {
+      "Schema": "gestiontime",
+      "ConnectionString": "${DATABASE_URL}"
+    },
+    "Jwt": {
+      "Issuer": "GestionTime",
+      "Audience": "GestionTime.Api",
+      "Key": "${JWT_SECRET_KEY}",
+      "AccessMinutes": 15,
+      "RefreshDays": 14
+    },
+    "Cors": {
+      "Origins": [
+        "https://localhost:5173",
+        "http://localhost:5173"
+      ]
+    },
+    "Email": {
+      "SmtpHost": "${SMTP_HOST}",
+      "SmtpPort": 587,
+      "SmtpUser": "${SMTP_USER}",
+      "SmtpPassword": "${SMTP_PASSWORD}",
+      "From": "noreply@gestiontime.app",
+      "FromName": "GestionTime",
+      "EnableSsl": true
+    },
+    "Features": {
+      "RequireEmailConfirmation": true,
+      "AllowSelfRegistration": false,
+      "PasswordExpirationDays": 90,
+      "MaxLoginAttempts": 5,
+      "LockoutMinutes": 30
+    },
+    "Branding": {
+      "CompanyName": "GestionTime",
+      "PrimaryColor": "#0B8C99",
+      "SecondaryColor": "#0A7A85",
+      "LogoDark": "LogoOscuro.png",
+      "LogoLight": "LogoClaro.png",
+      "Favicon": "favicon.ico"
+    },
+    "ContactInfo": {
+      "SupportEmail": "soporte@gestiontime.app",
+      "SupportPhone": "",
+      "Address": ""
+    },
+    "Limits": {
+      "MaxUsersPerTenant": 100,
+      "MaxStorageGB": 50,
+      "MaxApiRequestsPerMinute": 1000
+    }
+  },
+  
   "Clients": [
     {
       "Id": "pss_dvnx",
