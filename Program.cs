@@ -327,12 +327,19 @@ try
             var canConnect = await db.Database.CanConnectAsync();
             var uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime();
             
+            // Obtener el schema actual desde la variable de entorno o configuración
+            var currentSchema = Environment.GetEnvironmentVariable("DB_SCHEMA") 
+                                ?? builder.Configuration["Database:Schema"] 
+                                ?? "unknown";
+            
             return Results.Ok(new
             {
                 status = canConnect ? "OK" : "DEGRADED",
                 timestamp = DateTime.UtcNow,
                 service = "GestionTime API",
                 version = "1.0.0",
+                client = currentSchema,  // ✅ Nombre del cliente/schema
+                schema = currentSchema,  // ✅ Schema de BD
                 uptime = $"{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m {uptime.Seconds}s",
                 database = canConnect ? "connected" : "disconnected",
                 environment = app.Environment.EnvironmentName
