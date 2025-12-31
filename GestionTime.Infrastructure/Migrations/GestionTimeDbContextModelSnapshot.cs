@@ -17,7 +17,7 @@ namespace GestionTime.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("public")
+                .HasDefaultSchema("gestiontime")
                 .HasAnnotation("ProductVersion", "8.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -59,7 +59,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("refresh_tokens", "public");
+                    b.ToTable("refresh_tokens", "gestiontime");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.Role", b =>
@@ -82,7 +82,7 @@ namespace GestionTime.Infrastructure.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("roles", "public");
+                    b.ToTable("roles", "gestiontime");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.User", b =>
@@ -142,7 +142,7 @@ namespace GestionTime.Infrastructure.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("users", "public");
+                    b.ToTable("users", "gestiontime");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.UserProfile", b =>
@@ -228,7 +228,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("user_profiles", "public");
+                    b.ToTable("user_profiles", "gestiontime");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.UserRole", b =>
@@ -245,7 +245,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("user_roles", "public");
+                    b.ToTable("user_roles", "gestiontime");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Work.Cliente", b =>
@@ -289,7 +289,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("cliente", "public");
+                    b.ToTable("cliente", "gestiontime");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Work.Grupo", b =>
@@ -312,7 +312,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasKey("IdGrupo");
 
-                    b.ToTable("grupo", "public");
+                    b.ToTable("grupo", "gestiontime");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Work.ParteDeTrabajo", b =>
@@ -395,7 +395,7 @@ namespace GestionTime.Infrastructure.Migrations
                     b.HasIndex("IdUsuario", "FechaTrabajo")
                         .HasDatabaseName("idx_partes_user_fecha");
 
-                    b.ToTable("partesdetrabajo", "public", t =>
+                    b.ToTable("partesdetrabajo", "gestiontime", t =>
                         {
                             t.HasCheckConstraint("ck_partes_horas_validas", "hora_fin >= hora_inicio");
                         });
@@ -421,7 +421,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasKey("IdTipo");
 
-                    b.ToTable("tipo", "public");
+                    b.ToTable("tipo", "gestiontime");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.RefreshToken", b =>
