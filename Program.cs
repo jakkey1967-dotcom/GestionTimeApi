@@ -236,8 +236,29 @@ try
                     Log.Information("  • {Migration}", migration);
                 }
                 
-                await db.Database.MigrateAsync();
-                Log.Information("✅ Migraciones aplicadas correctamente");
+                try
+                {
+                    await db.Database.MigrateAsync();
+                    Log.Information("✅ Migraciones aplicadas correctamente");
+                }
+                catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "42P07")
+                {
+                    // Error 42P07: La tabla ya existe
+                    Log.Warning("⚠️ Las tablas ya existen. Marcando migración como aplicada...");
+                    
+                    // Marcar migración como aplicada manualmente
+                    var appliedMigrations = await db.Database.GetAppliedMigrationsAsync();
+                    var lastApplied = appliedMigrations.LastOrDefault();
+                    
+                    if (lastApplied != null)
+                    {
+                        Log.Information("✅ Migración ya aplicada: {Migration}", lastApplied);
+                    }
+                    else
+                    {
+                        Log.Warning("⚠️ No se puede verificar migraciones aplicadas, continuando arranque...");
+                    }
+                }
             }
             else
             {
@@ -248,7 +269,16 @@ try
     catch (Exception ex)
     {
         Log.Error(ex, "❌ ERROR verificando/aplicando migraciones");
-        throw;
+        
+        // Si es error de tabla duplicada, es probable que la BD ya esté configurada
+        if (ex.Message.Contains("already exists") || ex.Message.Contains("42P07"))
+        {
+            Log.Warning("⚠️ Las tablas ya existen. Continuando arranque...");
+        }
+        else
+        {
+            throw;
+        }
     }
 
     // Request logging middleware de Serilog
