@@ -4,19 +4,199 @@
       "Id": "pss_dvnx",
       "Name": "GestionTime Global-retail.com",
       "ApiUrl": "https://gestiontimeapi.onrender.com",
-      "Logo": "pss_dvnx_logo.png"
+      "Logo": "pss_dvnx_logo.png",
+      
+      "Database": {
+        "Schema": "pss_dvnx",
+        "ConnectionString": "${DATABASE_URL}"
+      },
+      
+      "Jwt": {
+        "Issuer": "GestionTime",
+        "Audience": "GestionTime.Api",
+        "Key": "${JWT_SECRET_KEY}",
+        "AccessMinutes": 15,
+        "RefreshDays": 14
+      },
+      
+      "Cors": {
+        "Origins": [
+          "https://gestiontime-pss-dvnx.app",
+          "https://localhost:5173",
+          "http://localhost:5173"
+        ]
+      },
+      
+      "Email": {
+        "SmtpHost": "${SMTP_HOST}",
+        "SmtpPort": 587,
+        "SmtpUser": "${SMTP_USER}",
+        "SmtpPassword": "${SMTP_PASSWORD}",
+        "From": "noreply@global-retail.com",
+        "FromName": "GestionTime Global-retail.com",
+        "EnableSsl": true
+      },
+      
+      "Features": {
+        "RequireEmailConfirmation": true,
+        "AllowSelfRegistration": false,
+        "PasswordExpirationDays": 90,
+        "MaxLoginAttempts": 5,
+        "LockoutMinutes": 30
+      },
+      
+      "Branding": {
+        "CompanyName": "GestionTime Global-retail.com",
+        "PrimaryColor": "#0B8C99",
+        "SecondaryColor": "#0A7A85",
+        "LogoDark": "pss_dvnx_logo.png",
+        "LogoLight": "pss_dvnx_logo_light.png",
+        "Favicon": "favicon-pss-dvnx.ico"
+      },
+      
+      "ContactInfo": {
+        "SupportEmail": "soporte@global-retail.com",
+        "SupportPhone": "+34 900 123 456",
+        "Address": "Calle Principal 123, Madrid, España"
+      },
+      
+      "Limits": {
+        "MaxUsersPerTenant": 100,
+        "MaxStorageGB": 50,
+        "MaxApiRequestsPerMinute": 1000
+      }
     },
     {
       "Id": "cliente_abc",
       "Name": "Cliente ABC",
       "ApiUrl": "https://gestiontimeapi-abc.onrender.com",
-      "Logo": "cliente_abc_logo.png"
+      "Logo": "cliente_abc_logo.png",
+      
+      "Database": {
+        "Schema": "cliente_abc",
+        "ConnectionString": "${DATABASE_URL}"
+      },
+      
+      "Jwt": {
+        "Issuer": "GestionTime",
+        "Audience": "GestionTime.Api",
+        "Key": "${JWT_SECRET_KEY}",
+        "AccessMinutes": 30,
+        "RefreshDays": 7
+      },
+      
+      "Cors": {
+        "Origins": [
+          "https://gestiontime-abc.app",
+          "https://localhost:5173",
+          "http://localhost:5173"
+        ]
+      },
+      
+      "Email": {
+        "SmtpHost": "${SMTP_HOST}",
+        "SmtpPort": 587,
+        "SmtpUser": "${SMTP_USER}",
+        "SmtpPassword": "${SMTP_PASSWORD}",
+        "From": "noreply@clienteabc.com",
+        "FromName": "Cliente ABC - GestionTime",
+        "EnableSsl": true
+      },
+      
+      "Features": {
+        "RequireEmailConfirmation": false,
+        "AllowSelfRegistration": true,
+        "PasswordExpirationDays": 60,
+        "MaxLoginAttempts": 3,
+        "LockoutMinutes": 15
+      },
+      
+      "Branding": {
+        "CompanyName": "Cliente ABC",
+        "PrimaryColor": "#2563EB",
+        "SecondaryColor": "#1E40AF",
+        "LogoDark": "cliente_abc_logo.png",
+        "LogoLight": "cliente_abc_logo_light.png",
+        "Favicon": "favicon-abc.ico"
+      },
+      
+      "ContactInfo": {
+        "SupportEmail": "soporte@clienteabc.com",
+        "SupportPhone": "+34 900 987 654",
+        "Address": "Av. Secundaria 456, Barcelona, España"
+      },
+      
+      "Limits": {
+        "MaxUsersPerTenant": 50,
+        "MaxStorageGB": 25,
+        "MaxApiRequestsPerMinute": 500
+      }
     },
     {
       "Id": "cliente_xyz",
       "Name": "Cliente XYZ",
       "ApiUrl": "https://gestiontimeapi-xyz.onrender.com",
-      "Logo": "cliente_xyz_logo.png"
+      "Logo": "cliente_xyz_logo.png",
+      
+      "Database": {
+        "Schema": "cliente_xyz",
+        "ConnectionString": "${DATABASE_URL}"
+      },
+      
+      "Jwt": {
+        "Issuer": "GestionTime",
+        "Audience": "GestionTime.Api",
+        "Key": "${JWT_SECRET_KEY}",
+        "AccessMinutes": 20,
+        "RefreshDays": 10
+      },
+      
+      "Cors": {
+        "Origins": [
+          "https://gestiontime-xyz.app",
+          "https://localhost:5173",
+          "http://localhost:5173"
+        ]
+      },
+      
+      "Email": {
+        "SmtpHost": "${SMTP_HOST}",
+        "SmtpPort": 587,
+        "SmtpUser": "${SMTP_USER}",
+        "SmtpPassword": "${SMTP_PASSWORD}",
+        "From": "noreply@clientexyz.com",
+        "FromName": "Cliente XYZ - GestionTime",
+        "EnableSsl": true
+      },
+      
+      "Features": {
+        "RequireEmailConfirmation": true,
+        "AllowSelfRegistration": false,
+        "PasswordExpirationDays": 120,
+        "MaxLoginAttempts": 10,
+        "LockoutMinutes": 60
+      },
+      
+      "Branding": {
+        "CompanyName": "Cliente XYZ",
+        "PrimaryColor": "#10B981",
+        "SecondaryColor": "#059669",
+        "LogoDark": "cliente_xyz_logo.png",
+        "LogoLight": "cliente_xyz_logo_light.png",
+        "Favicon": "favicon-xyz.ico"
+      },
+      
+      "ContactInfo": {
+        "SupportEmail": "soporte@clientexyz.com",
+        "SupportPhone": "+34 900 555 777",
+        "Address": "Plaza Mayor 789, Valencia, España"
+      },
+      
+      "Limits": {
+        "MaxUsersPerTenant": 200,
+        "MaxStorageGB": 100,
+        "MaxApiRequestsPerMinute": 2000
+      }
     }
   ]
 }
