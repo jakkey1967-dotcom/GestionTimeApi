@@ -535,24 +535,40 @@ try
         app.UseHttpsRedirection();
     }
 
-    // Servir archivos estáticos según el cliente usando servicio centralizado
+    // ✅ Servir archivos estáticos con prioridad por cliente
     var clientConfigService = app.Services.GetRequiredService<GestionTime.Api.Services.ClientConfigurationService>();
     
     if (clientConfigService.HasClientSpecificWwwroot())
     {
         var clientWwwroot = clientConfigService.GetClientWwwrootPath();
-        Log.Information("Usando wwwroot específico del cliente: {Path}", clientWwwroot);
+        var clientWwwrootFullPath = Path.GetFullPath(clientWwwroot);
+        
+        Log.Information("Configurando archivos estáticos:");
+        Log.Information("  1️⃣ Prioridad: {ClientPath} (cliente específico)", clientWwwrootFullPath);
+        
+        // 1. PRIMERO: Archivos específicos del cliente (prioridad alta)
         app.UseStaticFiles(new StaticFileOptions
         {
-            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(clientWwwroot),
-            RequestPath = ""
+            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(clientWwwrootFullPath),
+            RequestPath = "",
+            OnPrepareResponse = ctx =>
+            {
+                // Log para debug: qué archivo se sirve desde dónde
+                Log.Debug("Sirviendo desde cliente: {Path}", ctx.File.PhysicalPath);
+            }
         });
+        
+        Log.Information("  2️⃣ Fallback: wwwroot (archivos comunes)");
     }
-    else
+    
+    // 2. SIEMPRE: Archivos comunes (fallback para todos los clientes)
+    app.UseStaticFiles(new StaticFileOptions
     {
-        Log.Information("Usando wwwroot común");
-        app.UseStaticFiles();
-    }
+        OnPrepareResponse = ctx =>
+        {
+            Log.Debug("Sirviendo desde común: {Path}", ctx.File.PhysicalPath);
+        }
+    });
 
     // Pipeline de autenticación/autorización
     app.UseCors("WebClient");
