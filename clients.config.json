@@ -2,7 +2,7 @@
   "Clients": [
     {
       "Id": "pss_dvnx",
-      "Name": "PSS DVNX",
+      "Name": "GestionTime Global-retail.com",
       "ApiUrl": "https://gestiontimeapi.onrender.com",
       "Logo": "pss_dvnx_logo.png"
     },
