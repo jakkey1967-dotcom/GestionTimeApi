@@ -128,7 +128,8 @@ public class AdminUsersController : ControllerBase
             Email = email,
             FullName = req.FullName.Trim(),
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
-            Enabled = true
+            Enabled = true,
+            EmailConfirmed = true  // ✅ Usuarios creados por admin están pre-confirmados
         };
 
         await using var tx = await db.Database.BeginTransactionAsync();
