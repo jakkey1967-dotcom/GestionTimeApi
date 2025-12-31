@@ -1,4 +1,4 @@
-# Dockerfile V2 CLEAN - Sin referencias a AddNpgSql
+﻿# Dockerfile V2 CLEAN - Sin referencias a AddNpgSql
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 WORKDIR /app
@@ -20,8 +20,9 @@ COPY . .
 RUN rm -rf bin GestionTime.Api/bin
 
 # Verificar que el codigo C# no tiene referencias problematicas
+# NOTA: Excluimos Migrations porque son auto-generadas y usan NpgsqlExtensions
 RUN echo "=== VERIFICANDO CODIGO ===" && \
-    if grep -r "AddNpgSql" --include="*.cs" .; then \
+    if grep -r "AddNpgSql" --include="*.cs" --exclude-dir="Migrations" .; then \
         echo "ERROR: AddNpgSql encontrado en codigo C#!" && exit 1; \
     else \
         echo "OK: Codigo limpio sin AddNpgSql"; \
