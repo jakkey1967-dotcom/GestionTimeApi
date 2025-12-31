@@ -40,19 +40,25 @@ DELETE FROM public.users WHERE email = 'admin@admin.com';
 -- PASO 3: Crear usuario admin
 -- Password: rootadmin
 -- Hash BCrypt generado: $2a$11$XvP9LqHKZ7YQ3xJ8kP5nK.8YxQJHZzKqP5Zj9fY3QqCKvX5YQqZ8W
--- NOTA: Solo usando las 5 columnas que existen en Render (id, email, password_hash, full_name, enabled)
+-- NOTA: Usando TODAS las columnas necesarias (incluye email_confirmed)
 INSERT INTO public.users (
     id, 
     email, 
     password_hash, 
     full_name, 
-    enabled
+    enabled,
+    email_confirmed,
+    must_change_password,
+    password_expiration_days
 ) VALUES (
     gen_random_uuid(),
     'admin@admin.com',
     '$2a$11$XvP9LqHKZ7YQ3xJ8kP5nK.8YxQJHZzKqP5Zj9fY3QqCKvX5YQqZ8W',
     'Administrador del Sistema',
-    true
+    true,
+    true,
+    false,
+    90
 );
 
 -- PASO 4: Asignar rol ADMIN al usuario
