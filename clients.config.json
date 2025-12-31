@@ -3,19 +3,19 @@
     {
       "Id": "pss_dvnx",
       "Name": "PSS DVNX",
-      "ApiUrl": "https://gestiontime-pss-dvnx.onrender.com",
+      "ApiUrl": "https://gestiontimeapi.onrender.com",
       "Logo": "pss_dvnx_logo.png"
     },
     {
       "Id": "cliente_abc",
       "Name": "Cliente ABC",
-      "ApiUrl": "https://gestiontime-abc.onrender.com",
+      "ApiUrl": "https://gestiontimeapi-abc.onrender.com",
       "Logo": "cliente_abc_logo.png"
     },
     {
       "Id": "cliente_xyz",
       "Name": "Cliente XYZ",
-      "ApiUrl": "https://gestiontime-xyz.onrender.com",
+      "ApiUrl": "https://gestiontimeapi-xyz.onrender.com",
       "Logo": "cliente_xyz_logo.png"
     }
   ]

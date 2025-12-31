@@ -5,10 +5,12 @@
 Cada cliente tiene su **propia URL de API** con su propio deploy:
 
 ```
-Cliente 1: https://gestiontime-pss-dvnx.onrender.com
-Cliente 2: https://gestiontime-abc.onrender.com
-Cliente 3: https://gestiontime-xyz.onrender.com
+Cliente 1 (PSS DVNX): https://gestiontimeapi.onrender.com
+Cliente 2 (ABC):      https://gestiontimeapi-abc.onrender.com
+Cliente 3 (XYZ):      https://gestiontimeapi-xyz.onrender.com
 ```
+
+> **Nota**: El primer cliente (PSS DVNX) usa la URL base sin sufijo.
 
 ---
 
@@ -33,14 +35,14 @@ public class ClientsManager
         {
             Id = "pss_dvnx",
             Name = "PSS DVNX",
-            ApiUrl = "https://gestiontime-pss-dvnx.onrender.com",
+            ApiUrl = "https://gestiontimeapi.onrender.com",
             Logo = "pss_dvnx_logo.png"
         },
         ["cliente_abc"] = new ClientConfig
         {
             Id = "cliente_abc",
             Name = "Cliente ABC",
-            ApiUrl = "https://gestiontime-abc.onrender.com",
+            ApiUrl = "https://gestiontimeapi-abc.onrender.com",
             Logo = "cliente_abc_logo.png"
         }
     };
@@ -187,14 +189,14 @@ export const CLIENTS: Record<string, ClientConfig> = {
   pss_dvnx: {
     id: 'pss_dvnx',
     name: 'PSS DVNX',
-    apiUrl: 'https://gestiontime-pss-dvnx.onrender.com',
+    apiUrl: 'https://gestiontimeapi.onrender.com',
     logo: '/logos/pss_dvnx.png',
     primaryColor: '#0B8C99'
   },
   cliente_abc: {
     id: 'cliente_abc',
     name: 'Cliente ABC',
-    apiUrl: 'https://gestiontime-abc.onrender.com',
+    apiUrl: 'https://gestiontimeapi-abc.onrender.com',
     logo: '/logos/cliente_abc.png',
     primaryColor: '#FF6B35'
   }
@@ -367,8 +369,8 @@ export function useApi() {
 1. Usuario abre app
 2. Ve pantalla "Seleccionar Cliente"
 3. Elige "PSS DVNX"
-4. App guarda: ApiUrl = "https://gestiontime-pss-dvnx.onrender.com"
-5. Usuario hace login → POST https://gestiontime-pss-dvnx.onrender.com/api/v1/auth/login
+4. App guarda: ApiUrl = "https://gestiontimeapi.onrender.com"
+5. Usuario hace login → POST https://gestiontimeapi.onrender.com/api/v1/auth/login
 6. Todos los requests usan esa URL base
 7. Al cerrar sesión, puede cambiar de cliente
 ```
@@ -379,7 +381,7 @@ export function useApi() {
 2. Ve pantalla "Seleccionar Cliente"
 3. Elige "Cliente ABC"
 4. App guarda en localStorage: clientId = "cliente_abc"
-5. Todos los requests van a: https://gestiontime-abc.onrender.com
+5. Todos los requests van a: https://gestiontimeapi-abc.onrender.com
 6. Token JWT solo funciona en esa API (diferentes JWT keys)
 ```
 
@@ -409,14 +411,14 @@ export function useApi() {
 
 **Usuario Juan trabaja para PSS DVNX:**
 - Abre app → Selecciona "PSS DVNX"
-- Login → `POST https://gestiontime-pss-dvnx.onrender.com/api/v1/auth/login`
-- Ver partes → `GET https://gestiontime-pss-dvnx.onrender.com/api/v1/partes`
+- Login → `POST https://gestiontimeapi.onrender.com/api/v1/auth/login`
+- Ver partes → `GET https://gestiontimeapi.onrender.com/api/v1/partes`
 - Sus datos están en schema `pss_dvnx`
 
 **Usuario María trabaja para Cliente ABC:**
 - Abre app → Selecciona "Cliente ABC"
-- Login → `POST https://gestiontime-abc.onrender.com/api/v1/auth/login`
-- Ver partes → `GET https://gestiontime-abc.onrender.com/api/v1/partes`
+- Login → `POST https://gestiontimeapi-abc.onrender.com/api/v1/auth/login`
+- Ver partes → `GET https://gestiontimeapi-abc.onrender.com/api/v1/partes`
 - Sus datos están en schema `cliente_abc`
 
 **Completamente aislados, sin código adicional en la API!** 🎉
