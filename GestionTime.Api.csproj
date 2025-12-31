@@ -35,6 +35,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     
+    <!-- wwwroot específico del cliente PSS DVNX -->
+    <Content Include="wwwroot-pss_dvnx\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>wwwroot-pss_dvnx\%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </Content>
+    
     <!-- appsettings -->
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
