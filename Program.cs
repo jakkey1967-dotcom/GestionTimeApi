@@ -372,8 +372,22 @@ try
             return await GetDiagnosticsPageAsync(db, app);
         }
         
+        // Obtener cliente actual
+        var currentClient = Environment.GetEnvironmentVariable("DB_SCHEMA") 
+                            ?? builder.Configuration["Database:Schema"] 
+                            ?? "pss_dvnx";
+        
+        // Configurar logo según cliente
+        var logoPath = currentClient switch
+        {
+            "pss_dvnx" => "/images/pss_dvnx_logo.png",
+            "cliente_abc" => "/images/cliente_abc_logo.png",
+            "cliente_xyz" => "/images/cliente_xyz_logo.png",
+            _ => "/images/LogoOscuro.png"
+        };
+        
         // En Production, mostrar página simple y segura
-        var html = @"
+        var html = $@"
 <!DOCTYPE html>
 <html lang=""es"">
 <head>
@@ -381,8 +395,8 @@ try
     <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
     <title>GestionTime API</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
@@ -390,41 +404,41 @@ try
             align-items: center;
             justify-content: center;
             padding: 20px;
-        }
-        .container {
+        }}
+        .container {{
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             max-width: 600px;
             width: 100%;
             overflow: hidden;
-        }
-        .header {
+        }}
+        .header {{
             background: linear-gradient(135deg, #0B8C99 0%, #0A7A85 100%);
             color: white;
             padding: 40px;
             text-align: center;
-        }
-        .logo {
+        }}
+        .logo {{
             max-width: 300px;
             height: auto;
             margin: 0 auto 15px auto;
             display: block;
-        }
-        .header h1 {
+        }}
+        .header h1 {{
             font-size: 32px;
             font-weight: 600;
             margin-bottom: 10px;
-        }
-        .header p {
+        }}
+        .header p {{
             opacity: 0.9;
             font-size: 16px;
-        }
-        .content {
+        }}
+        .content {{
             padding: 40px;
             text-align: center;
-        }
-        .status {
+        }}
+        .status {{
             display: inline-block;
             padding: 15px 30px;
             background: #d4edda;
@@ -433,14 +447,14 @@ try
             font-size: 20px;
             font-weight: 600;
             margin-bottom: 30px;
-        }
-        .links {
+        }}
+        .links {{
             display: flex;
             gap: 15px;
             flex-wrap: wrap;
             justify-content: center;
-        }
-        .link-button {
+        }}
+        .link-button {{
             display: inline-block;
             padding: 12px 30px;
             background: linear-gradient(135deg, #0B8C99 0%, #0A7A85 100%);
@@ -450,39 +464,39 @@ try
             font-weight: 600;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(0, 140, 153, 0.3);
-        }
-        .link-button:hover {
+        }}
+        .link-button:hover {{
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 140, 153, 0.4);
-        }
-        .link-button.secondary {
+        }}
+        .link-button.secondary {{
             background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
             box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
-        }
-        .footer {
+        }}
+        .footer {{
             text-align: center;
             padding: 20px;
             background: #f8f9fa;
             color: #6c757d;
             font-size: 14px;
-        }
-        @media (max-width: 600px) {
-            .logo {
+        }}
+        @media (max-width: 600px) {{
+            .logo {{
                 max-width: 200px;
-            }
-            .header h1 {
+            }}
+            .header h1 {{
                 font-size: 24px;
-            }
-            .content {
+            }}
+            .content {{
                 padding: 30px 20px;
-            }
-        }
+            }}
+        }}
     </style>
 </head>
 <body>
     <div class=""container"">
         <div class=""header"">
-            <img src=""/images/LogoOscuro.png"" alt=""GestionTime"" class=""logo"" onerror=""this.style.display='none'"" />
+            <img src=""{logoPath}"" alt=""GestionTime"" class=""logo"" onerror=""this.src='/images/LogoOscuro.png'"" />
             <h1>GestionTime API</h1>
             <p>Sistema de Gestión de Tiempo y Recursos</p>
         </div>
