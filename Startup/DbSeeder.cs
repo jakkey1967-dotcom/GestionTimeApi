@@ -1,14 +1,11 @@
 ﻿using GestionTime.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using Serilog;
 
 namespace GestionTime.Api.Startup;
 
 public static class DbSeeder
 {
-    private const long MIGRATION_LOCK_ID = 1234567890;
-    
     public static async Task SeedAsync(IServiceProvider services)
     {
         using var scope = services.CreateScope();
@@ -26,231 +23,20 @@ public static class DbSeeder
             }
 
             Log.Information("✅ Conexión establecida");
-
-            // Intentar adquirir lock de PostgreSQL
-            var lockAcquired = await TryAcquireAdvisoryLockAsync(db);
             
-            if (!lockAcquired)
-            {
-                Log.Information("⏳ Otra instancia está migrando. Esperando 5 segundos...");
-                await Task.Delay(5000);
-                
-                await VerifyMigrationsAsync(db);
-                await VerifyExistingDataAsync(db);
-                return;
-            }
-
-            Log.Information("🔒 Lock de migraciones adquirido");
+            // Verificar y crear datos iniciales
+            await VerifyAndSeedDataAsync(db);
             
-            try
-            {
-                await ApplyMigrationsAsync(db);
-            }
-            finally
-            {
-                await ReleaseAdvisoryLockAsync(db);
-                Log.Information("🔓 Lock liberado");
-            }
+            Log.Information("✅ Verificación de datos completada");
         }
         catch (Exception ex)
         {
             Log.Error(ex, "❌ Error en proceso de seed");
-            
-            if (IsDuplicateTableError(ex))
-            {
-                Log.Warning("⚠️ Tabla duplicada - Verificando estado...");
-                await VerifyMigrationsAsync(db);
-            }
-            else
-            {
-                throw;
-            }
-        }
-
-        await VerifyExistingDataAsync(db);
-    }
-
-    private static async Task ApplyMigrationsAsync(GestionTimeDbContext db)
-    {
-        try
-        {
-            var appliedMigrations = await db.Database.GetAppliedMigrationsAsync();
-            var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
-            var allMigrations = db.Database.GetMigrations().ToList();
-            
-            Log.Information("📊 Estado de migraciones:");
-            Log.Information("  • Total en código: {Total}", allMigrations.Count);
-            Log.Information("  • Aplicadas en BD: {Applied}", appliedMigrations.Count());
-            Log.Information("  • Pendientes: {Pending}", pendingMigrations.Count());
-
-            if (!pendingMigrations.Any())
-            {
-                Log.Information("✅ Base de datos actualizada");
-                return;
-            }
-
-            // 🔴 DETECTAR: Tabla de historial vacía pero BD con datos
-            if (!appliedMigrations.Any() && pendingMigrations.Any())
-            {
-                Log.Warning("⚠️ Tabla __EFMigrationsHistory vacía detectada");
-                
-                var tablesExist = await CheckIfTablesExistAsync(db);
-                
-                if (tablesExist)
-                {
-                    Log.Information("✅ Las tablas ya existen. Registrando migraciones...");
-                    await ForceRegisterMigrationsAsync(db, allMigrations);
-                    Log.Information("✅ Migraciones registradas exitosamente");
-                    return;
-                }
-                else
-                {
-                    Log.Warning("⚠️ BD vacía. Limpiando tabla de historial corrupta...");
-                    await db.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS \"__EFMigrationsHistory\";");
-                }
-            }
-
-            Log.Information("🔄 Aplicando {Count} migraciones...", pendingMigrations.Count());
-            await db.Database.MigrateAsync();
-            Log.Information("✅ Migraciones aplicadas correctamente");
-        }
-        catch (PostgresException pgEx) when (pgEx.SqlState == "42P07")
-        {
-            Log.Warning("⚠️ Error 42P07: Tabla duplicada");
-            await HandleDuplicateTableErrorAsync(db);
-        }
-        catch (Exception ex) when (ex.InnerException is PostgresException inner && inner.SqlState == "42P07")
-        {
-            Log.Warning("⚠️ Error 42P07 en excepción interna");
-            await HandleDuplicateTableErrorAsync(db);
-        }
-    }
-
-    private static async Task<bool> CheckIfTablesExistAsync(GestionTimeDbContext db)
-    {
-        try
-        {
-            // Intentar acceder directamente a las tablas usando EF Core
-            var rolesCount = await db.Roles.CountAsync();
-            var usersCount = await db.Users.CountAsync();
-            
-            // Si llegamos aquí, las tablas existen
-            Log.Information("  • Tablas encontradas: Las tablas principales existen");
-            return true;
-        }
-        catch
-        {
-            // Si falla el Count, las tablas no existen o hay un error
-            Log.Information("  • Tablas encontradas: 0/5 (BD vacía o sin esquema)");
-            return false;
-        }
-    }
-
-    private static async Task ForceRegisterMigrationsAsync(GestionTimeDbContext db, List<string> migrations)
-    {
-        try
-        {
-            var productVersion = "10.0.1";
-            
-            foreach (var migration in migrations)
-            {
-                var query = @$"
-                    INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
-                    VALUES ('{migration}', '{productVersion}')
-                    ON CONFLICT (""MigrationId"") DO NOTHING";
-                
-                await db.Database.ExecuteSqlRawAsync(query);
-                Log.Information("  ✓ {Migration}", migration);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "❌ Error registrando migraciones");
             throw;
         }
     }
 
-    private static async Task<bool> TryAcquireAdvisoryLockAsync(GestionTimeDbContext db)
-    {
-        try
-        {
-            // Usar ExecuteSqlRaw en lugar de abrir una conexión separada
-            var lockResult = await db.Database.ExecuteSqlRawAsync(
-                $"SELECT pg_try_advisory_lock({MIGRATION_LOCK_ID})");
-            
-            // Si ExecuteSqlRaw devuelve -1, el lock no se pudo adquirir
-            return lockResult != -1;
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "⚠️ Error adquiriendo lock");
-            return false;
-        }
-    }
-
-    private static async Task ReleaseAdvisoryLockAsync(GestionTimeDbContext db)
-    {
-        try
-        {
-            await db.Database.ExecuteSqlRawAsync(
-                $"SELECT pg_advisory_unlock({MIGRATION_LOCK_ID})");
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "⚠️ Error liberando lock");
-        }
-    }
-
-    private static async Task HandleDuplicateTableErrorAsync(GestionTimeDbContext db)
-    {
-        try
-        {
-            Log.Information("🔍 Esperando 5 segundos...");
-            await Task.Delay(5000);
-            
-            var pending = await db.Database.GetPendingMigrationsAsync();
-            
-            if (pending.Any())
-            {
-                Log.Warning("⚠️ Aún hay {Count} migraciones pendientes", pending.Count());
-            }
-            else
-            {
-                Log.Information("✅ Migraciones completadas por otra instancia");
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "⚠️ Error verificando estado");
-        }
-    }
-
-    private static async Task VerifyMigrationsAsync(GestionTimeDbContext db)
-    {
-        try
-        {
-            var pending = await db.Database.GetPendingMigrationsAsync();
-            
-            if (pending.Any())
-            {
-                Log.Warning("⚠️ Migraciones pendientes: {Count}", pending.Count());
-                foreach (var migration in pending)
-                {
-                    Log.Warning("  • {Migration}", migration);
-                }
-            }
-            else
-            {
-                Log.Information("✅ Base de datos actualizada");
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "⚠️ Error verificando migraciones");
-        }
-    }
-
-    private static async Task VerifyExistingDataAsync(GestionTimeDbContext db)
+    private static async Task VerifyAndSeedDataAsync(GestionTimeDbContext db)
     {
         Log.Information("📋 Verificando datos...");
         
@@ -262,47 +48,98 @@ public static class DbSeeder
             var gruposCount = await db.Grupos.CountAsync(); 
             var clientesCount = await db.Clientes.CountAsync();
             
-            Log.Information("📊 Datos:");
+            Log.Information("📊 Estado actual:");
             Log.Information("  • Roles: {Count}", rolesCount);
             Log.Information("  • Usuarios: {Count}", usersCount);
             Log.Information("  • Tipos: {Count}", tiposCount);
             Log.Information("  • Grupos: {Count}", gruposCount);
             Log.Information("  • Clientes: {Count}", clientesCount);
 
-            if (usersCount > 0)
+            // Insertar datos iniciales si no existen
+            if (rolesCount == 0)
+            {
+                Log.Information("📝 Insertando roles iniciales...");
+                await InsertInitialRolesAsync(db);
+            }
+
+            if (usersCount == 0)
+            {
+                Log.Information("📝 Insertando usuario admin...");
+                await InsertInitialUsersAsync(db);
+            }
+
+            // Mostrar usuarios existentes
+            if (usersCount > 0 || await db.Users.AnyAsync())
             {
                 var adminExists = await db.Users.AnyAsync(u => u.Email == "admin@gestiontime.local");
-                var psantosExists = await db.Users.AnyAsync(u => u.Email == "psantos@global-retail.com");
-                var tecnicoExists = await db.Users.AnyAsync(u => u.Email == "tecnico1@global-retail.com");
                 
                 Log.Information("👥 Usuarios:");
-                Log.Information("  • admin: {Status}", adminExists ? "✅" : "❌");
-                Log.Information("  • psantos: {Status}", psantosExists ? "✅" : "❌");
-                Log.Information("  • tecnico1: {Status}", tecnicoExists ? "✅" : "❌");
+                Log.Information("  • admin@gestiontime.local: {Status}", adminExists ? "✅" : "❌");
             }
-            else
-            {
-                Log.Warning("⚠️ No hay usuarios");
-            }
-            
-            Log.Information("✅ Verificación completada");
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "❌ Error verificando datos");
+            Log.Error(ex, "❌ Error verificando/creando datos");
+            throw;
         }
     }
 
-    private static bool IsDuplicateTableError(Exception ex)
+    private static async Task InsertInitialRolesAsync(GestionTimeDbContext db)
     {
-        if (ex is PostgresException pgEx && pgEx.SqlState == "42P07")
-            return true;
-            
-        if (ex.InnerException is PostgresException inner && inner.SqlState == "42P07")
-            return true;
+        // Verificar si ya existen roles
+        if (await db.Roles.AnyAsync())
+        {
+            Log.Information("  ℹ️ Roles ya existen, omitiendo creación");
+            return;
+        }
+        
+        var roles = new[]
+        {
+            new GestionTime.Domain.Auth.Role { Id = 1, Name = "ADMIN" },
+            new GestionTime.Domain.Auth.Role { Id = 2, Name = "MANAGER" },
+            new GestionTime.Domain.Auth.Role { Id = 3, Name = "USER" }
+        };
 
-        var message = ex.Message.ToLowerInvariant();
-        return message.Contains("already exists") || message.Contains("42p07");
+        db.Roles.AddRange(roles);
+        await db.SaveChangesAsync();
+        Log.Information("  ✓ 3 roles creados (ADMIN, MANAGER, USER)");
+    }
+
+    private static async Task InsertInitialUsersAsync(GestionTimeDbContext db)
+    {
+        // Verificar si ya existe el usuario admin
+        if (await db.Users.AnyAsync(u => u.Email == "admin@gestiontime.local"))
+        {
+            Log.Information("  ℹ️ Usuario admin ya existe, omitiendo creación");
+            return;
+        }
+        
+        // Hash de la contraseña "admin123"
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword("admin123");
+
+        var adminUser = new GestionTime.Domain.Auth.User
+        {
+            Id = Guid.NewGuid(),
+            Email = "admin@gestiontime.local",
+            PasswordHash = passwordHash,
+            FullName = "Administrador del Sistema",
+            Enabled = true,
+            EmailConfirmed = true
+        };
+
+        db.Users.Add(adminUser);
+        await db.SaveChangesAsync();
+
+        // Asignar rol ADMIN
+        var adminRole = await db.Roles.FirstAsync(r => r.Name == "ADMIN");
+        db.UserRoles.Add(new GestionTime.Domain.Auth.UserRole
+        {
+            UserId = adminUser.Id,
+            RoleId = adminRole.Id
+        });
+
+        await db.SaveChangesAsync();
+        Log.Information("  ✓ Usuario admin creado (admin@gestiontime.local / admin123)");
     }
 }
 

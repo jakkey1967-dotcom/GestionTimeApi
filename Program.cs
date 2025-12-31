@@ -6,6 +6,46 @@ using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
 
+// Si se invoca con argumentos "export-schema", ejecutar herramienta de exportación
+if (args.Length > 0 && args[0] == "export-schema")
+{
+    var schemaArgs = args.Skip(1).ToArray();
+    await GestionTime.Api.Tools.ExportSchema.Main(schemaArgs);
+    return;
+}
+
+// Si se invoca con argumentos "import-schema", ejecutar herramienta de importación
+if (args.Length > 0 && args[0] == "import-schema")
+{
+    var schemaArgs = args.Skip(1).ToArray();
+    await GestionTime.Api.Tools.ImportSchema.Main(schemaArgs);
+    return;
+}
+
+// Si se invoca con argumentos "sync-schema", sincronizar directamente entre BDs
+if (args.Length > 0 && args[0] == "sync-schema")
+{
+    var schemaArgs = args.Skip(1).ToArray();
+    await GestionTime.Api.Tools.SyncSchema.Main(schemaArgs);
+    return;
+}
+
+// Si se invoca con argumentos "check-render", verificar estado de Render
+if (args.Length > 0 && args[0] == "check-render")
+{
+    var schemaArgs = args.Skip(1).ToArray();
+    await GestionTime.Api.Tools.CheckRender.Main(schemaArgs);
+    return;
+}
+
+// Si se invoca con argumentos "clean-render", limpiar base de datos de Render
+if (args.Length > 0 && args[0] == "clean-render")
+{
+    var schemaArgs = args.Skip(1).ToArray();
+    await GestionTime.Api.Tools.CleanRender.Main(schemaArgs);
+    return;
+}
+
 // Configuración temprana de Serilog para capturar errores de arranque
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -119,6 +159,95 @@ try
     builder.Services.AddScoped<GestionTime.Api.Services.IEmailService, GestionTime.Api.Services.SmtpEmailService>(); 
 
     var app = builder.Build();
+
+    // 🔧 Aplicar migraciones automáticamente (Development y Production)
+    try
+    {
+        Log.Information("🔧 Verificando estado de base de datos...");
+        
+        using (var scope = app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GestionTimeDbContext>();
+            
+            // Verificar si puede conectar
+            var canConnect = await db.Database.CanConnectAsync();
+            if (!canConnect)
+            {
+                Log.Error("❌ No se puede conectar a la base de datos");
+                throw new Exception("No se puede conectar a la base de datos");
+            }
+            
+            Log.Information("✅ Conexión a BD establecida");
+            
+            // Verificar migraciones pendientes
+            var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+            
+            if (pendingMigrations.Any())
+            {
+                Log.Information("📦 Aplicando {Count} migraciones pendientes...", pendingMigrations.Count());
+                foreach (var migration in pendingMigrations)
+                {
+                    Log.Information("  • {Migration}", migration);
+                }
+                
+                try
+                {
+                    await db.Database.MigrateAsync();
+                    Log.Information("✅ Migraciones aplicadas correctamente");
+                }
+                catch (InvalidOperationException ex) when (ex.Message.Contains("Cannot set default value"))
+                {
+                    Log.Warning("⚠️ Error de migración con valor por defecto: {Message}", ex.Message);
+                    Log.Information("🔄 Verificando si la base de datos está operativa...");
+                    
+                    // Verificar que la BD sigue siendo accesible
+                    var stillConnected = await db.Database.CanConnectAsync();
+                    if (stillConnected)
+                    {
+                        Log.Warning("⚠️ Base de datos operativa. Continuando sin aplicar migraciones.");
+                        Log.Information("💡 Acción requerida: Revisa las configuraciones de Entity Framework.");
+                        Log.Information("💡 Busca 'HasDefaultValue' y cángialo por 'HasDefaultValueSql' para strings.");
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+            }
+            else
+            {
+                Log.Information("✅ Base de datos actualizada (sin migraciones pendientes)");
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "❌ ERROR verificando/aplicando migraciones");
+        
+        // Intentar verificar si la BD está operativa antes de fallar completamente
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<GestionTimeDbContext>();
+            var canConnect = await db.Database.CanConnectAsync();
+            
+            if (canConnect)
+            {
+                Log.Warning("⚠️ Error en migraciones pero la BD está conectada. Continuando arranque...");
+                Log.Information("💡 La aplicación funcionará con el esquema actual de la base de datos.");
+            }
+            else
+            {
+                Log.Fatal("💥 Base de datos inaccesible. No se puede continuar.");
+                throw;
+            }
+        }
+        catch (Exception fallbackEx)
+        {
+            Log.Fatal(fallbackEx, "💥 No se pudo verificar el estado de la base de datos");
+            throw;
+        }
+    }
 
     // Request logging middleware de Serilog
     app.UseSerilogRequestLogging(options =>
@@ -277,11 +406,11 @@ try
             border-radius: 25px;
             font-weight: 600;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(11, 140, 153, 0.3);
+            box-shadow: 0 4px 15px rgba(0, 140, 153, 0.3);
         }
         .link-button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(11, 140, 153, 0.4);
+            box-shadow: 0 6px 20px rgba(0, 140, 153, 0.4);
         }
         .link-button.secondary {
             background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
@@ -697,12 +826,3 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
 
     return Results.Content(html, "text/html");
 }
-
-
-
-
-
-
-
-
-

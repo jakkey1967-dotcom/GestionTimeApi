@@ -42,9 +42,8 @@ public sealed class GestionTimeDbContext : DbContext
         // PostgreSQL 9.4 => SERIAL (no IDENTITY)
         b.UseSerialColumns();
 
-        // TEMPORAL: Usar schema public para evitar conflictos de migración
-        // TODO: Cambiar a 'gestiontime' una vez resuelto el problema de migraciones
-        // b.HasDefaultSchema("gestiontime");
+        // Configurar schema por defecto
+        b.HasDefaultSchema("gestiontime");
 
         // WORK: catálogos
         b.Entity<Cliente>(e =>
@@ -208,9 +207,9 @@ public sealed class GestionTimeDbContext : DbContext
             e.Property(x => x.HoraFin).HasColumnName("hora_fin").HasColumnType("time");
 
             // Trabajo
-            e.Property(x => x.Accion).HasColumnName("accion").HasMaxLength(500);
-            e.Property(x => x.Ticket).HasColumnName("ticket").HasMaxLength(50);
-            e.Property(x => x.Tienda).HasColumnName("tienda").HasMaxLength(100);
+            e.Property(x => x.Accion).HasColumnName("accion");
+            e.Property(x => x.Ticket).HasColumnName("ticket");
+            e.Property(x => x.Tienda).HasColumnName("tienda");
 
             // IDs
             e.Property(x => x.IdCliente).HasColumnName("id_cliente");
@@ -218,14 +217,17 @@ public sealed class GestionTimeDbContext : DbContext
             e.Property(x => x.IdTipo).HasColumnName("id_tipo");
             e.Property(x => x.IdUsuario).HasColumnName("id_usuario");
 
-            // ✅ MAPEO CORRECTO: Estado → estado (no state)
-            // ⚠️ TEMPORAL: Conversión int ↔ text para compatibilidad con BD
+            // ✅ Estado (TEXT en BD, conversión a INT en modelo)
+            // La columna en BD se llama "estado" (no "state") y es de tipo TEXT
             e.Property(x => x.Estado)
                 .HasColumnName("estado")
                 .HasColumnType("text")
+                .HasDefaultValueSql("'activo'")  // ✅ Usar SQL para el valor por defecto
                 .HasConversion(
-                    v => v.ToString(), // int → text para BD
-                    v => ConvertirEstadoTextoAInt(v) // text → int para modelo (maneja 'activo', 'cerrado', etc.)
+                    // int → text para guardar en BD
+                    v => ConvertirEstadoIntATexto(v),
+                    // text → int para leer de BD
+                    v => ConvertirEstadoTextoAInt(v)
                 );
 
             // Auditoría
@@ -245,7 +247,26 @@ public sealed class GestionTimeDbContext : DbContext
             e.HasIndex(x => x.FechaTrabajo).HasDatabaseName("idx_partes_fecha_trabajo");
             e.HasIndex(x => new { x.IdUsuario, x.FechaTrabajo }).HasDatabaseName("idx_partes_user_fecha");
             e.HasIndex(x => x.CreatedAt).HasDatabaseName("idx_partes_created_at");
+            
+            // Check constraint para horas válidas
+            e.ToTable(t => t.HasCheckConstraint("ck_partes_horas_validas", "hora_fin >= hora_inicio"));
         });
+    }
+
+    /// <summary>
+    /// Convierte código de estado (int) a texto para la base de datos
+    /// </summary>
+    private static string ConvertirEstadoIntATexto(int estado)
+    {
+        return estado switch
+        {
+            0 => "activo",
+            1 => "pausado",
+            2 => "cerrado",
+            3 => "enviado",
+            9 => "anulado",
+            _ => "activo"
+        };
     }
 
     /// <summary>
@@ -255,7 +276,7 @@ public sealed class GestionTimeDbContext : DbContext
     private static int ConvertirEstadoTextoAInt(string? valor)
     {
         if (string.IsNullOrEmpty(valor))
-            return 0; // Abierto por defecto
+            return 0;
 
         // Si es un número válido, usarlo directamente
         if (int.TryParse(valor, out int numero))
@@ -264,13 +285,13 @@ public sealed class GestionTimeDbContext : DbContext
         // Si es texto descriptivo, mapear a números
         return valor.ToLowerInvariant().Trim() switch
         {
+            "activo" => 0,
             "abierto" => 0,
-            "activo" => 0,      // 'activo' = Abierto
             "pausado" => 1,
             "cerrado" => 2,
             "enviado" => 3,
             "anulado" => 9,
-            _ => 0 // Valor desconocido = Abierto por defecto
+            _ => 0
         };
     }
 }
