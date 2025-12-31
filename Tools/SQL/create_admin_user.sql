@@ -1,31 +1,31 @@
 ﻿-- ============================================
 -- SCRIPT SQL PARA CREAR USUARIO ADMIN
 -- Base de datos: Render PostgreSQL
--- Schema: gestiontime
+-- Schema: pss_dvnx
 -- ============================================
 
 -- PASO 1: Verificar y crear roles (si no existen)
 DO $$
 BEGIN
     -- Verificar si existe ADMIN
-    IF NOT EXISTS (SELECT 1 FROM gestiontime.roles WHERE name = 'ADMIN') THEN
-        INSERT INTO gestiontime.roles (name) VALUES ('ADMIN');
+    IF NOT EXISTS (SELECT 1 FROM pss_dvnx.roles WHERE name = 'ADMIN') THEN
+        INSERT INTO pss_dvnx.roles (name) VALUES ('ADMIN');
         RAISE NOTICE 'Rol ADMIN creado';
     ELSE
         RAISE NOTICE 'Rol ADMIN ya existe';
     END IF;
 
     -- Verificar si existe USER
-    IF NOT EXISTS (SELECT 1 FROM gestiontime.roles WHERE name = 'USER') THEN
-        INSERT INTO gestiontime.roles (name) VALUES ('USER');
+    IF NOT EXISTS (SELECT 1 FROM pss_dvnx.roles WHERE name = 'USER') THEN
+        INSERT INTO pss_dvnx.roles (name) VALUES ('USER');
         RAISE NOTICE 'Rol USER creado';
     ELSE
         RAISE NOTICE 'Rol USER ya existe';
     END IF;
 
     -- Verificar si existe TECH
-    IF NOT EXISTS (SELECT 1 FROM gestiontime.roles WHERE name = 'TECH') THEN
-        INSERT INTO gestiontime.roles (name) VALUES ('TECH');
+    IF NOT EXISTS (SELECT 1 FROM pss_dvnx.roles WHERE name = 'TECH') THEN
+        INSERT INTO pss_dvnx.roles (name) VALUES ('TECH');
         RAISE NOTICE 'Rol TECH creado';
     ELSE
         RAISE NOTICE 'Rol TECH ya existe';
@@ -33,16 +33,16 @@ BEGIN
 END $$;
 
 -- PASO 2: Eliminar usuario admin si existe (para reemplazarlo)
-DELETE FROM gestiontime.user_roles WHERE user_id IN (
-    SELECT id FROM gestiontime.users WHERE email = 'admin@admin.com'
+DELETE FROM pss_dvnx.user_roles WHERE user_id IN (
+    SELECT id FROM pss_dvnx.users WHERE email = 'admin@admin.com'
 );
-DELETE FROM gestiontime.users WHERE email = 'admin@admin.com';
+DELETE FROM pss_dvnx.users WHERE email = 'admin@admin.com';
 
 -- PASO 3: Crear usuario admin
 -- Password: rootadmin
 -- Hash BCrypt generado: $2a$11$2HQ7DMD7VJpjRwJBuAiZOec6TEpyPNjEJ4Pt4zdnvkkpN7HLhZMRq
 -- NOTA: Usando TODAS las columnas necesarias (incluye email_confirmed)
-INSERT INTO gestiontime.users (
+INSERT INTO pss_dvnx.users (
     id, 
     email, 
     password_hash, 
@@ -63,13 +63,13 @@ INSERT INTO gestiontime.users (
 );
 
 -- PASO 4: Asignar rol ADMIN al usuario
-INSERT INTO gestiontime.user_roles (user_id, role_id)
+INSERT INTO pss_dvnx.user_roles (user_id, role_id)
 SELECT 
     u.id,
     r.id
 FROM 
-    gestiontime.users u,
-    gestiontime.roles r
+    pss_dvnx.users u,
+    pss_dvnx.roles r
 WHERE 
     u.email = 'admin@admin.com' 
     AND r.name = 'ADMIN';
@@ -82,9 +82,9 @@ SELECT
     u.enabled,
     r.name as role
 FROM 
-    gestiontime.users u
-    JOIN gestiontime.user_roles ur ON u.id = ur.user_id
-    JOIN gestiontime.roles r ON ur.role_id = r.id
+    pss_dvnx.users u
+    JOIN pss_dvnx.user_roles ur ON u.id = ur.user_id
+    JOIN pss_dvnx.roles r ON ur.role_id = r.id
 WHERE 
     u.email = 'admin@admin.com';
 
