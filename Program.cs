@@ -538,37 +538,71 @@ try
     // ✅ Servir archivos estáticos con prioridad por cliente
     var clientConfigService = app.Services.GetRequiredService<GestionTime.Api.Services.ClientConfigurationService>();
     
+    Log.Information("╔══════════════════════════════════════════════════════╗");
+    Log.Information("║     Configurando Archivos Estáticos Multi-Tenant     ║");
+    Log.Information("╚══════════════════════════════════════════════════════╝");
+    
+    var currentClient = clientConfigService.GetCurrentClient();
+    Log.Information("📋 Cliente activo: {ClientId} ({ClientName})", currentClient.Id, currentClient.Name);
+    Log.Information("🖼️  Logo configurado: {Logo}", currentClient.Logo);
+    Log.Information("🌐 Logo URL: {LogoPath}", clientConfigService.GetLogoPath());
+    
     if (clientConfigService.HasClientSpecificWwwroot())
     {
         var clientWwwroot = clientConfigService.GetClientWwwrootPath();
         var clientWwwrootFullPath = Path.GetFullPath(clientWwwroot);
         
-        Log.Information("Configurando archivos estáticos:");
-        Log.Information("  1️⃣ Prioridad: {ClientPath} (cliente específico)", clientWwwrootFullPath);
-        
-        // 1. PRIMERO: Archivos específicos del cliente (prioridad alta)
-        app.UseStaticFiles(new StaticFileOptions
+        // Verificar que el directorio existe
+        if (Directory.Exists(clientWwwrootFullPath))
         {
-            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(clientWwwrootFullPath),
-            RequestPath = "",
-            OnPrepareResponse = ctx =>
+            Log.Information("✅ 1️⃣ Prioridad: {ClientPath}", clientWwwrootFullPath);
+            
+            // Verificar archivos en el directorio
+            var imagesPath = Path.Combine(clientWwwrootFullPath, "images");
+            if (Directory.Exists(imagesPath))
             {
-                // Log para debug: qué archivo se sirve desde dónde
-                Log.Debug("Sirviendo desde cliente: {Path}", ctx.File.PhysicalPath);
+                var files = Directory.GetFiles(imagesPath, "*.png");
+                Log.Information("   📁 Archivos en images/: {Count} archivos", files.Length);
+                foreach (var file in files.Take(5))
+                {
+                    var fileName = Path.GetFileName(file);
+                    Log.Information("      • {FileName}", fileName);
+                }
             }
-        });
+            
+            // Configurar middleware con prioridad alta
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(clientWwwrootFullPath),
+                RequestPath = "",
+                OnPrepareResponse = ctx =>
+                {
+                    Log.Information("✅ Sirviendo desde cliente: {Path}", ctx.File.Name);
+                }
+            });
+        }
+        else
+        {
+            Log.Warning("⚠️  Carpeta cliente no encontrada: {Path}", clientWwwrootFullPath);
+        }
         
-        Log.Information("  2️⃣ Fallback: wwwroot (archivos comunes)");
+        Log.Information("✅ 2️⃣ Fallback: wwwroot (archivos comunes)");
+    }
+    else
+    {
+        Log.Information("ℹ️  No hay carpeta específica para el cliente, usando solo wwwroot común");
     }
     
-    // 2. SIEMPRE: Archivos comunes (fallback para todos los clientes)
+    // SIEMPRE: Archivos comunes (fallback para todos los clientes)
     app.UseStaticFiles(new StaticFileOptions
     {
         OnPrepareResponse = ctx =>
         {
-            Log.Debug("Sirviendo desde común: {Path}", ctx.File.PhysicalPath);
+            Log.Information("📦 Sirviendo desde común: {Path}", ctx.File.Name);
         }
     });
+    
+    Log.Information("══════════════════════════════════════════════════════");
 
     // Pipeline de autenticación/autorización
     app.UseCors("WebClient");
