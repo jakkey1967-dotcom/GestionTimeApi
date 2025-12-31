@@ -20,9 +20,9 @@ COPY . .
 RUN rm -rf bin GestionTime.Api/bin
 
 # Verificar que el codigo C# no tiene referencias problematicas
-# NOTA: Excluimos Migrations porque son auto-generadas y usan NpgsqlExtensions
+# NOTA: Excluimos Migrations porque son auto-generadas y contienen NpgsqlExtensions
 RUN echo "=== VERIFICANDO CODIGO ===" && \
-    if grep -r "AddNpgSql" --include="*.cs" --exclude-dir="Migrations" .; then \
+    if find . -name "*.cs" -type f ! -path "*/Migrations/*" -exec grep -l "AddNpgSql" {} \; | grep -q .; then \
         echo "ERROR: AddNpgSql encontrado en codigo C#!" && exit 1; \
     else \
         echo "OK: Codigo limpio sin AddNpgSql"; \
