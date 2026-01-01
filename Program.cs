@@ -98,12 +98,28 @@ try
     // 🌐 Configurar URLs para Render.com (usa PORT de variable de entorno)
     var port = Environment.GetEnvironmentVariable("PORT") ?? "2501";
     var isRender = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PORT"));
+    var isProduction = !builder.Environment.IsDevelopment();
     
-    // En Render o Production, solo HTTP (Render maneja HTTPS en su proxy)
-    if (isRender || !builder.Environment.IsDevelopment())
+    // En Render o Production, solo HTTP en contenedor (Render maneja HTTPS en proxy)
+    if (isRender || isProduction)
     {
         builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
         Log.Information("Configurado para producción/Render: HTTP={HttpPort} (HTTPS manejado por proxy)", port);
+        
+        // ✅ FORZAR HTTPS para URLs generadas (emails, redirects, etc.)
+        builder.Services.Configure<Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionOptions>(options =>
+        {
+            options.HttpsPort = 443; // Puerto HTTPS estándar
+        });
+        
+        // ✅ Configurar para que la app sepa que está detrás de un proxy HTTPS
+        builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | 
+                                       Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
     }
     else
     {
@@ -244,6 +260,13 @@ try
         .SetApplicationName("GestionTimeApi"));
 
     var app = builder.Build();
+
+    // ✅ Habilitar forwarded headers en producción (para HTTPS detrás de proxy)
+    if (isRender || isProduction)
+    {
+        app.UseForwardedHeaders();
+        Log.Information("✅ Forwarded headers habilitados (HTTPS via proxy)");
+    }
 
     // 🔧 Aplicar migraciones automáticamente
     try

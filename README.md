@@ -106,7 +106,7 @@ dotnet ef database update
 DATABASE_URL=<auto-configurada>
 DB_SCHEMA=pss_dvnx
 JWT_SECRET_KEY=<tu-secret-key-seguro>
-APP_BASE_URL=https://gestiontime-api.onrender.com
+APP_BASE_URL=https://gestiontimeapi.onrender.com
 ASPNETCORE_ENVIRONMENT=Production
 ```
 
@@ -139,7 +139,7 @@ La API estará disponible en:
 DATABASE_URL      # Auto-configurada al conectar PostgreSQL
 DB_SCHEMA=pss_dvnx
 JWT_SECRET_KEY=v7ZpQ9mL3H2kN8xR1aT6yW4cE0sB5dU9jF2hK7nP3qL8rM1tX6zA4gS9uV2bC5e
-APP_BASE_URL=https://gestiontime-api.onrender.com
+APP_BASE_URL=https://gestiontimeapi.onrender.com
 ASPNETCORE_ENVIRONMENT=Production
 ```
 
