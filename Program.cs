@@ -95,20 +95,21 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    // ?? Configurar URLs para Render.com (usa PORT de variable de entorno)
+    // 🌐 Configurar URLs para Render.com (usa PORT de variable de entorno)
     var port = Environment.GetEnvironmentVariable("PORT") ?? "2501";
+    var isRender = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PORT"));
     
-    // En desarrollo, permitir HTTP y HTTPS
-    if (builder.Environment.IsDevelopment())
+    // En Render o Production, solo HTTP (Render maneja HTTPS en su proxy)
+    if (isRender || !builder.Environment.IsDevelopment())
     {
-        builder.WebHost.UseUrls($"http://0.0.0.0:{port}", $"https://0.0.0.0:2502");
-        Log.Information("Configurado para desarrollo: HTTP={HttpPort}, HTTPS={HttpsPort}", port, "2502");
+        builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+        Log.Information("Configurado para producción/Render: HTTP={HttpPort} (HTTPS manejado por proxy)", port);
     }
     else
     {
-        // En producción (Render), solo HTTP (Render maneja HTTPS)
-        builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
-        Log.Information("Configurado para producción: HTTP={HttpPort}", port);
+        // En desarrollo local, permitir HTTP y HTTPS
+        builder.WebHost.UseUrls($"http://0.0.0.0:{port}", $"https://0.0.0.0:2502");
+        Log.Information("Configurado para desarrollo local: HTTP={HttpPort}, HTTPS={HttpsPort}", port, "2502");
     }
 
     // Configurar Serilog con archivos separados
