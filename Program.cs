@@ -257,7 +257,7 @@ try
     // ✅ Data Protection - Persistir claves en PostgreSQL
     builder.Services.AddDataProtection()
         .PersistKeysToDbContext<GestionTimeDbContext>()
-        .SetApplicationName("GestionTimeApi"));
+        .SetApplicationName("GestionTimeApi");
 
     var app = builder.Build();
 
