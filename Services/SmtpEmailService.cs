@@ -257,8 +257,15 @@ public class SmtpEmailService : IEmailService
 
     private string GenerateActivationUrl(string token)
     {
-        var baseUrl = _config["App:BaseUrl"] ?? "http://localhost:2501";
+        // ✅ Prioridad: Variable de entorno, luego configuración
+        var baseUrl = Environment.GetEnvironmentVariable("APP_BASE_URL") 
+                      ?? _config["App:BaseUrl"] 
+                      ?? "http://localhost:2501";
+        
         baseUrl = baseUrl.TrimEnd('/');
+        
+        _logger.LogInformation("🌐 Generando URL de activación con BaseUrl: {BaseUrl}", baseUrl);
+        
         return $"{baseUrl}/api/v1/auth/activate/{token}";
     }
 
