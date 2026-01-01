@@ -137,8 +137,27 @@ public class AdminUsersController : ControllerBase
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
+        // ✅ ASIGNAR ROLES
         foreach (var r in roles)
             db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = r.Id });
+
+        // ✅ CREAR PERFIL BÁSICO DEL USUARIO
+        var nameParts = req.FullName.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        var firstName = nameParts.Length > 0 ? nameParts[0] : req.FullName;
+        var lastName = nameParts.Length > 1 ? nameParts[1] : "";
+
+        var profile = new UserProfile
+        {
+            Id = user.Id,
+            FirstName = firstName,
+            LastName = lastName,
+            EmployeeType = "user",  // Tipo por defecto
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        
+        db.UserProfiles.Add(profile);
+        _logger.LogInformation("Perfil básico creado para usuario {UserId}", user.Id);
 
         await db.SaveChangesAsync();
         await tx.CommitAsync();

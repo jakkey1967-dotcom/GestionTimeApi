@@ -1,4 +1,4 @@
-using GestionTime.Api.Contracts.Users;
+﻿using GestionTime.Api.Contracts.Users;
 using GestionTime.Domain.Auth;
 using GestionTime.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
@@ -202,9 +202,9 @@ public class ProfilesController : ControllerBase
         return Ok(new { message = "Perfil actualizado correctamente" });
     }
 
-    // GET /api/v1/profiles - Listar todos los perfiles (solo admin)
+    // GET /api/v1/profiles - Listar todos los perfiles (USER o ADMIN)
     [HttpGet]
-    [Authorize(Roles = "ADMIN")]
+    [Authorize(Roles = "USER,ADMIN")]
     public async Task<IActionResult> ListProfiles(
         [FromQuery] string? employee_type,
         [FromQuery] string? department)

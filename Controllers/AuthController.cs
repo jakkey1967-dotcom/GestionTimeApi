@@ -468,8 +468,8 @@ public class AuthController(
 
             db.Users.Add(newUser);
 
-            // Asignar rol de usuario
-            var userRole = await db.Roles.SingleOrDefaultAsync(r => r.Name == "User");
+            // ✅ ASIGNAR ROL USER POR DEFECTO
+            var userRole = await db.Roles.SingleOrDefaultAsync(r => r.Name == "USER");
             if (userRole != null)
             {
                 db.UserRoles.Add(new GestionTime.Domain.Auth.UserRole
@@ -477,7 +477,31 @@ public class AuthController(
                     UserId = newUser.Id,
                     RoleId = userRole.Id
                 });
+                
+                logger.LogInformation("Rol USER asignado a {Email}", email);
             }
+            else
+            {
+                logger.LogWarning("⚠️  Rol USER no encontrado en la base de datos");
+            }
+
+            // ✅ CREAR PERFIL BÁSICO DEL USUARIO
+            var nameParts = fullName.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+            var firstName = nameParts.Length > 0 ? nameParts[0] : fullName;
+            var lastName = nameParts.Length > 1 ? nameParts[1] : "";
+
+            var profile = new GestionTime.Domain.Auth.UserProfile
+            {
+                Id = newUser.Id,
+                FirstName = firstName,
+                LastName = lastName,
+                EmployeeType = "user",  // Tipo por defecto
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            
+            db.UserProfiles.Add(profile);
+            logger.LogInformation("Perfil básico creado para {Email}", email);
 
             await db.SaveChangesAsync();
 
