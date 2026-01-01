@@ -1,283 +1,345 @@
-﻿# GestionTime API ??
+﻿# 🚀 GestionTime API
 
-API RESTful para el sistema de gestión de tiempo y partes de trabajo, desarrollada con .NET 8 y PostgreSQL.
+Sistema de gestión de tiempo y recursos empresariales con arquitectura multi-tenant.
 
-## ?? Características
+## 📋 Características Principales
 
-- ? **Autenticación JWT** con refresh tokens
-- ? **Sistema de roles** (ADMIN, USER)
-- ? **Gestión de partes de trabajo** completa
-- ? **Catálogos** (Clientes, Grupos, Tipos)
-- ? **Cambio obligatorio de contraseñas**
-- ? **Recuperación de contraseñas** por email
-- ? **Logging estructurado** con Serilog
-- ? **Documentación automática** con Swagger
-- ? **Health checks** para monitoreo
+### 🔐 Autenticación y Seguridad
+- ✅ JWT con cookies HttpOnly
+- ✅ Refresh tokens con rotación automática
+- ✅ Sistema de activación de usuarios por email
+- ✅ Recuperación de contraseña por email
+- ✅ Control de expiración de contraseñas
+- ✅ Roles y permisos (USER, ADMIN, MANAGER)
 
-## ??? Tecnologías
+### 📧 Sistema de Email
+- ✅ **MailKit** para envío robusto de emails
+- ✅ Soporte **STARTTLS** (puerto 587)
+- ✅ SMTP configurado con **IONOS**
+- ✅ Templates HTML responsive
+- ✅ Logo embebido en Base64
+- ✅ Emails de activación, recuperación y verificación
 
-- **.NET 8** - Framework principal
-- **ASP.NET Core** - Web API
-- **Entity Framework Core** - ORM
-- **PostgreSQL** - Base de datos
-- **JWT** - Autenticación
-- **BCrypt** - Hash de contraseñas
-- **Serilog** - Logging
-- **Swagger** - Documentación API
+### 🗄️ Base de Datos Multi-Tenant
+- ✅ **PostgreSQL** con schema por cliente
+- ✅ Base de datos única: `pss_dvnx`
+- ✅ Migraciones automáticas con EF Core
+- ✅ Seed automático de datos iniciales
+- ✅ Scripts SQL de verificación incluidos
 
-## ?? Arranque Rápido
+### 👥 Gestión de Usuarios
+- ✅ Registro con verificación de email
+- ✅ Activar/Desactivar usuarios (Admin)
+- ✅ Cambio obligatorio de contraseña
+- ✅ Perfiles de usuario extendidos
+- ✅ Auditoría de cambios de contraseña
+
+### 📊 API Features
+- ✅ Swagger UI integrado
+- ✅ Health checks con métricas detalladas
+- ✅ Logging estructurado con Serilog
+- ✅ CORS configurado para múltiples orígenes
+- ✅ Data Protection con claves persistentes
+
+## 🛠️ Tecnologías
+
+- **.NET 8.0** - Framework principal
+- **PostgreSQL 16** - Base de datos
+- **Entity Framework Core 8** - ORM
+- **MailKit** - Envío de emails
+- **Serilog** - Logging estructurado
+- **BCrypt.Net** - Hash de contraseñas
+- **JWT** - Tokens de autenticación
+- **Swagger/OpenAPI** - Documentación API
+
+## 📦 Instalación
 
 ### Prerrequisitos
+- .NET 8 SDK
+- PostgreSQL 16+
+- Editor (Visual Studio / VS Code / Rider)
 
-- .NET 8.0 SDK
-- PostgreSQL 15+ (o Docker)
-- Git
-
-### 1. Clonar el repositorio
-
+### 1. Clonar Repositorio
 ```bash
 git clone https://github.com/jakkey1967-dotcom/GestionTimeApi.git
 cd GestionTimeApi
 ```
 
-### 2. Configuración
-
-Copia y ajusta el archivo de configuración:
-
+### 2. Configurar Base de Datos
 ```bash
-cp appsettings.json appsettings.Development.json
-```
+# Crear base de datos
+psql -U postgres
+CREATE DATABASE pss_dvnx;
+\q
 
-Edita `appsettings.Development.json` con tu configuración local.
-
-### 3. Arranque (Windows)
-
-```cmd
-start-dev.bat
-```
-
-### 3. Arranque (Linux/macOS)
-
-```bash
-chmod +x start-dev.sh
-./start-dev.sh
-```
-
-### 4. Acceso
-
-- **API:** https://localhost:2501
-- **Swagger:** https://localhost:2501/swagger
-- **Health:** https://localhost:2501/health
-
-## ?? Docker
-
-### Desarrollo con Docker Compose
-
-```bash
-docker-compose up -d
-```
-
-Esto levanta:
-- API en puerto 8080
-- PostgreSQL en puerto 5433
-- PgAdmin en puerto 5050
-
-### Producción con Docker
-
-```bash
-# Construir imagen
-docker build -t gestiontime-api .
-
-# Ejecutar contenedor
-docker run -d \
-  --name gestiontime-api \
-  -p 8080:8080 \
-  -e ConnectionStrings__Default="tu-connection-string" \
-  gestiontime-api
-```
-
-## ?? API Endpoints
-
-### Autenticación
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| POST | `/api/v1/auth/login` | Login con email/password |
-| POST | `/api/v1/auth/logout` | Cerrar sesión |
-| POST | `/api/v1/auth/refresh` | Renovar tokens |
-| GET | `/api/v1/auth/me` | Información del usuario |
-
-### Gestión de Contraseñas
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| POST | `/api/v1/auth/forgot-password` | Solicitar código recuperación |
-| POST | `/api/v1/auth/reset-password` | Resetear con código |
-| POST | `/api/v1/auth/change-password` | Cambio obligatorio |
-
-### Partes de Trabajo
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| GET | `/api/v1/partes` | Listar partes |
-| GET | `/api/v1/partes/{id}` | Obtener parte |
-| POST | `/api/v1/partes` | Crear parte |
-| PUT | `/api/v1/partes/{id}` | Actualizar parte |
-| DELETE | `/api/v1/partes/{id}` | Eliminar parte |
-
-### Catálogos
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| GET | `/api/v1/clientes` | Listar clientes |
-| GET | `/api/v1/grupos` | Listar grupos |
-| GET | `/api/v1/tipos` | Listar tipos |
-
-## ?? Configuración
-
-### Variables de Entorno
-
-| Variable | Descripción | Ejemplo |
-|----------|-------------|---------|
-| `ASPNETCORE_ENVIRONMENT` | Entorno de ejecución | `Development` |
-| `ConnectionStrings__Default` | Cadena de conexión BD | `Host=localhost;Database=...` |
-| `Jwt__Key` | Clave secreta JWT | `tu-clave-secreta-aqui` |
-
-### Base de Datos
-
-Las migraciones se aplican automáticamente al iniciar. Para aplicarlas manualmente:
-
-```bash
+# Aplicar migraciones
 dotnet ef database update
 ```
 
-### Datos de Prueba (Seed)
+### 3. Configurar Variables de Entorno
 
-El sistema incluye datos iniciales:
-- Usuarios de prueba con roles
-- Catálogos básicos (tipos, grupos, clientes)
-
-Credenciales por defecto:
-- **Admin:** `admin@gestiontime.local` / `admin123`
-- **Usuario:** `psantos@global-retail.com` / `psantos123`
-
-## ?? Monitoreo
-
-### Health Checks
-
-```bash
-curl https://localhost:2501/health
+**Development** (`appsettings.Development.json`):
+```json
+{
+  "ConnectionStrings": {
+    "Default": "Host=localhost;Port=5432;Database=pss_dvnx;Username=postgres;Password=postgres"
+  },
+  "Database": {
+    "Schema": "pss_dvnx"
+  },
+  "Email": {
+    "SmtpHost": "smtp.ionos.es",
+    "SmtpPort": "587",
+    "SmtpUser": "envio_noreplica@tdkportal.com",
+    "SmtpPassword": "A4gS9uV2bC5e",
+    "From": "envio_noreplica@tdkportal.com",
+    "FromName": "GestionTime"
+  },
+  "App": {
+    "BaseUrl": "http://localhost:2501"
+  }
+}
 ```
 
-### Logs
-
-Los logs se almacenan en:
-- **Desarrollo:** `C:\GestionTime\src\GestionTime.Api\logs`
-- **Producción:** `/app/logs` (Docker)
-
-## ?? Testing
-
-### ? Verificación Rápida
-
-Después de arrancar la API, puedes verificar que funciona:
-
-#### Automático (Recomendado)
-
-```bash
-# Linux/macOS
-chmod +x test-api.sh
-./test-api.sh
-
-# Windows
-test-api.bat
+**Production** (Variables de entorno en Render):
+```sh
+DATABASE_URL=<auto-configurada>
+DB_SCHEMA=pss_dvnx
+JWT_SECRET_KEY=<tu-secret-key-seguro>
+APP_BASE_URL=https://gestiontime-api.onrender.com
+ASPNETCORE_ENVIRONMENT=Production
 ```
 
-#### Manual con Swagger
-
-1. Ve a https://localhost:2501/swagger
-2. Haz login con las credenciales de prueba
-3. Prueba los endpoints disponibles
-
-#### Manual con curl
-
+### 4. Ejecutar API
 ```bash
-# Health Check
-curl -k https://localhost:2501/health
+dotnet run
+```
 
-# Login
-curl -X POST https://localhost:2501/api/v1/auth/login \
+La API estará disponible en:
+- **HTTP**: `http://localhost:2501`
+- **HTTPS**: `https://localhost:2502`
+- **Swagger**: `http://localhost:2501/swagger`
+
+## 🚀 Deploy en Render
+
+### 1. Crear Servicio PostgreSQL
+1. New → PostgreSQL
+2. Name: `pss_dvnx`
+3. Database: `pss_dvnx`
+4. Plan: Free o Starter
+
+### 2. Crear Web Service
+1. New → Web Service
+2. Connect repository: `GestionTimeApi`
+3. Build Command: `dotnet publish -c Release -o out`
+4. Start Command: `dotnet out/GestionTime.Api.dll`
+
+### 3. Configurar Variables de Entorno
+```sh
+DATABASE_URL      # Auto-configurada al conectar PostgreSQL
+DB_SCHEMA=pss_dvnx
+JWT_SECRET_KEY=v7ZpQ9mL3H2kN8xR1aT6yW4cE0sB5dU9jF2hK7nP3qL8rM1tX6zA4gS9uV2bC5e
+APP_BASE_URL=https://gestiontime-api.onrender.com
+ASPNETCORE_ENVIRONMENT=Production
+```
+
+### 4. Deploy Automático
+- Cada push a `main` despliega automáticamente
+- Logs visibles en Render Dashboard
+- Migraciones se aplican automáticamente
+
+## 📖 Uso de la API
+
+### Registro de Usuario
+```http
+POST /api/v1/auth/register
+Content-Type: application/json
+
+{
+  "email": "usuario@ejemplo.com",
+  "fullName": "Usuario Test",
+  "password": "123456"
+}
+```
+
+**Respuesta**:
+```json
+{
+  "success": true,
+  "message": "Registro exitoso. Revisa tu email para activar tu cuenta."
+}
+```
+
+### Activación por Email
+El usuario recibe un email con un enlace:
+```
+https://gestiontime-api.onrender.com/api/v1/auth/activate/{token}
+```
+
+Al hacer clic, se muestra una página de confirmación y la cuenta se activa.
+
+### Login
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "usuario@ejemplo.com",
+  "password": "123456"
+}
+```
+
+**Respuesta**:
+```json
+{
+  "message": "ok",
+  "userName": "Usuario Test",
+  "userEmail": "usuario@ejemplo.com",
+  "userRole": "USER"
+}
+```
+
+Los tokens se envían como cookies HttpOnly (`access_token`, `refresh_token`).
+
+### Gestión de Usuarios (Admin)
+
+**Listar Usuarios**:
+```http
+GET /api/v1/admin/users
+Authorization: Bearer {admin-jwt-token}
+```
+
+**Desactivar Usuario**:
+```http
+PUT /api/v1/admin/users/{userId}/enabled
+Authorization: Bearer {admin-jwt-token}
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+```
+
+**Respuesta**:
+```json
+{
+  "message": "Estado actualizado.",
+  "enabled": false
+}
+```
+
+## 🔧 Scripts Útiles
+
+### Crear Usuario Admin
+```bash
+dotnet run -- seed-admin
+```
+
+O ejecutar SQL:
+```sql
+-- Ver Tools/SQL/create_admin_user_complete.sql
+```
+
+### Verificar Estado de BD
+```bash
+psql -U postgres -d pss_dvnx -f Tools/SQL/verify_database.sql
+```
+
+### Backup de Cliente
+```bash
+dotnet run -- backup-client pss_dvnx
+```
+
+## 📊 Health Check
+
+```http
+GET /health
+```
+
+**Respuesta**:
+```json
+{
+  "status": "OK",
+  "timestamp": "2025-01-01T12:00:00Z",
+  "service": "GestionTime API",
+  "version": "1.0.0",
+  "client": "PSS Desarrollo",
+  "clientId": "pss_dvnx",
+  "schema": "pss_dvnx",
+  "environment": "Production",
+  "uptime": "0d 2h 15m 30s",
+  "database": "connected",
+  "configuration": {
+    "jwtAccessMinutes": 15,
+    "jwtRefreshDays": 14,
+    "emailConfirmationRequired": false,
+    "maxUsers": 50
+  }
+}
+```
+
+## 🐛 Troubleshooting
+
+### Email no se envía
+```bash
+# Verificar configuración SMTP
+dotnet user-secrets list
+
+# Test de conexión
+curl -X POST http://localhost:2501/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@gestiontime.local","password":"admin123"}'
+  -d '{"email":"test@example.com","fullName":"Test","password":"123456"}'
 
-# Obtener tipos (sin autenticación)
-curl -k https://localhost:2501/api/v1/tipos
+# Ver logs
+tail -f logs/gestiontime-*.log
 ```
 
-### ?? Verificación desde GitHub
-
-Si clonas el repositorio desde GitHub:
-
+### Error de migraciones
 ```bash
-# 1. Clonar repositorio
-git clone https://github.com/jakkey1967-dotcom/GestionTimeApi.git
-cd GestionTimeApi
+# Resetear migraciones
+dotnet ef database drop -f
+dotnet ef database update
 
-# 2. Arrancar API
-./start-dev.sh   # Linux/macOS
-start-dev.bat    # Windows
-
-# 3. En otra terminal, ejecutar pruebas
-./test-api.sh    # Linux/macOS  
-test-api.bat     # Windows
+# Ver migraciones pendientes
+dotnet ef migrations list
 ```
 
-### ?? CI/CD Automático
+### Usuario deshabilitado
+```sql
+-- Habilitar usuario
+UPDATE pss_dvnx."Users" 
+SET "Enabled" = true 
+WHERE "Email" = 'usuario@ejemplo.com';
+```
 
-El repositorio incluye GitHub Actions que:
-- ? Compila automáticamente en cada push
-- ? Ejecuta pruebas de integración
-- ? Construye imagen Docker
-- ? Verifica que la API funciona correctamente
+## 📝 Documentación
 
-Ver estado en: [Actions tab](https://github.com/jakkey1967-dotcom/GestionTimeApi/actions)
+- **Swagger UI**: `http://localhost:2501/swagger`
+- **Changelog**: [CHANGELOG_2025-01-01.md](CHANGELOG_2025-01-01.md)
+- **Quick Start**: [QUICK_START_DATABASE.md](QUICK_START_DATABASE.md)
+- **Troubleshooting**: Ver carpeta `Tools/`
 
-## ?? Seguridad
+## 🤝 Contribuir
 
-- **Autenticación:** JWT con refresh tokens en cookies HttpOnly
-- **Autorización:** Basada en roles (ADMIN, USER)
-- **Contraseñas:** Hasheadas con BCrypt
-- **CORS:** Configurado para orígenes específicos
-- **Headers de seguridad:** HTTPS, HSTS, etc.
+1. Fork el proyecto
+2. Crear feature branch (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit cambios (`git commit -m 'feat: Nueva funcionalidad'`)
+4. Push al branch (`git push origin feature/nueva-funcionalidad`)
+5. Abrir Pull Request
 
-## ?? Logging
+## 📄 Licencia
 
-El sistema utiliza logging estructurado con niveles:
+Propietario: TDK Portal  
+Todos los derechos reservados © 2025
 
-- **Information:** Operaciones normales
-- **Warning:** Situaciones anómalas no críticas
-- **Error:** Errores que requieren atención
-- **Debug:** Información detallada para desarrollo
+## 👥 Contacto
 
-## ?? Contribución
-
-1. Fork del repositorio
-2. Crear rama de feature (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit de cambios (`git commit -am 'Agregar nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Crear Pull Request
-
-## ?? Soporte
-
-- **Documentación:** https://localhost:2501/swagger
-- **Issues:** [GitHub Issues](https://github.com/jakkey1967-dotcom/GestionTimeApi/issues)
-- **Email:** soporte@gestiontime.com
-
-## ?? Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver `LICENSE` para más detalles.
+- **Email**: soporte@tdkportal.com
+- **Web**: https://tdkportal.com
+- **GitHub**: https://github.com/jakkey1967-dotcom/GestionTimeApi
 
 ---
 
-**?? Estado del Proyecto:** ? Producción Ready
-
-**?? Última Actualización:** Diciembre 2024
+**Última actualización**: 01 Enero 2025  
+**Versión**: 1.0.0  
+**Estado**: ✅ Producción
