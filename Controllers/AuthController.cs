@@ -33,6 +33,43 @@ public class AuthController(
             return Unauthorized(new { message = "Credenciales inválidas" });
         }
 
+        // ✅ DETECTAR Y ACTUALIZAR HASH TEMPORAL
+        if (user.PasswordHash.StartsWith("TEMP_HASH_"))
+        {
+            logger.LogInformation("⚠️  Usuario {Email} tiene hash temporal, actualizando con BCrypt...", email);
+            
+            // Extraer la contraseña temporal del hash
+            var tempPassword = user.PasswordHash.Replace("TEMP_HASH_", "");
+            
+            // Verificar que la contraseña ingresada coincida con la temporal
+            if (req.Password != tempPassword)
+            {
+                logger.LogWarning("Login fallido para {Email}: contraseña temporal incorrecta", email);
+                return Unauthorized(new { message = "Credenciales inválidas" });
+            }
+            
+            // Generar hash BCrypt correcto
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password);
+            user.MustChangePassword = true; // Forzar cambio de contraseña
+            user.PasswordChangedAt = DateTime.UtcNow;
+            
+            await db.SaveChangesAsync();
+            
+            logger.LogInformation("✅ Hash temporal actualizado a BCrypt para {Email}", email);
+            
+            // Forzar cambio de contraseña en el primer login real
+            return Ok(new 
+            { 
+                message = "password_change_required",
+                mustChangePassword = true,
+                passwordExpired = false,
+                daysUntilExpiration = 999,
+                userName = !string.IsNullOrWhiteSpace(user.FullName) ? user.FullName : user.Email?.Split('@')[0] ?? "Usuario",
+                temporaryPassword = true // Indicador de que era contraseña temporal
+            });
+        }
+
+        // Verificación normal con BCrypt
         bool ok;
         try
         {
@@ -53,7 +90,7 @@ public class AuthController(
         // ✅ VERIFICAR SI DEBE CAMBIAR CONTRASEÑA
         if (user.ShouldChangePassword)
         {
-            logger.LogInformation(" Usuario {Email} debe cambiar contraseña - MustChange: {MustChange}, IsExpired: {IsExpired}", 
+            logger.LogInformation("👤 Usuario {Email} debe cambiar contraseña - MustChange: {MustChange}, IsExpired: {IsExpired}", 
                 email, user.MustChangePassword, user.IsPasswordExpired);
             
             return Ok(new 
@@ -206,11 +243,14 @@ public class AuthController(
 
     private void SetAccessCookie(string jwtToken)
     {
+        var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+        var isHttps = Request.IsHttps;
+        
         Response.Cookies.Append("access_token", jwtToken, new CookieOptions
         {
             HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
+            Secure = isHttps, // true si la petición es HTTPS
+            SameSite = isHttps ? SameSiteMode.None : SameSiteMode.Lax, // None para HTTPS, Lax para HTTP
             Expires = DateTimeOffset.UtcNow.AddMinutes(15),
             Path = "/"
         });
@@ -218,11 +258,14 @@ public class AuthController(
 
     private void SetRefreshCookie(string refreshRaw, DateTime refreshExpiresUtc)
     {
+        var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+        var isHttps = Request.IsHttps;
+        
         Response.Cookies.Append("refresh_token", refreshRaw, new CookieOptions
         {
             HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
+            Secure = isHttps, // true si la petición es HTTPS
+            SameSite = isHttps ? SameSiteMode.None : SameSiteMode.Lax, // None para HTTPS, Lax para HTTP
             Expires = new DateTimeOffset(refreshExpiresUtc),
             Path = "/api/v1/auth/refresh"
         });
@@ -890,6 +933,43 @@ public class AuthController(
             return Unauthorized(new { message = "Credenciales inválidas" });
         }
 
+        // ✅ DETECTAR Y ACTUALIZAR HASH TEMPORAL
+        if (user.PasswordHash.StartsWith("TEMP_HASH_"))
+        {
+            logger.LogInformation("⚠️  Usuario {Email} tiene hash temporal, actualizando con BCrypt...", email);
+            
+            // Extraer la contraseña temporal del hash
+            var tempPassword = user.PasswordHash.Replace("TEMP_HASH_", "");
+            
+            // Verificar que la contraseña ingresada coincida con la temporal
+            if (req.Password != tempPassword)
+            {
+                logger.LogWarning("Login fallido para {Email}: contraseña temporal incorrecta", email);
+                return Unauthorized(new { message = "Credenciales inválidas" });
+            }
+            
+            // Generar hash BCrypt correcto
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password);
+            user.MustChangePassword = true; // Forzar cambio de contraseña
+            user.PasswordChangedAt = DateTime.UtcNow;
+            
+            await db.SaveChangesAsync();
+            
+            logger.LogInformation("✅ Hash temporal actualizado a BCrypt para {Email}", email);
+            
+            // Forzar cambio de contraseña en el primer login real
+            return Ok(new 
+            { 
+                message = "password_change_required",
+                mustChangePassword = true,
+                passwordExpired = false,
+                daysUntilExpiration = 999,
+                userName = !string.IsNullOrWhiteSpace(user.FullName) ? user.FullName : user.Email?.Split('@')[0] ?? "Usuario",
+                temporaryPassword = true // Indicador de que era contraseña temporal
+            });
+        }
+
+        // Verificación normal con BCrypt
         bool ok;
         try
         {
@@ -963,7 +1043,6 @@ public class AuthController(
             expiresAt = refreshExpires
         });
     }
-
 }
 
 public record ForcePasswordChangeRequest

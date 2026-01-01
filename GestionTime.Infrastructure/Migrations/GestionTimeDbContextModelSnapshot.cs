@@ -17,7 +17,7 @@ namespace GestionTime.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("gestiontime")
+                .HasDefaultSchema("pss_dvnx")
                 .HasAnnotation("ProductVersion", "8.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -59,7 +59,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("refresh_tokens", "gestiontime");
+                    b.ToTable("refresh_tokens", "pss_dvnx");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.Role", b =>
@@ -82,7 +82,7 @@ namespace GestionTime.Infrastructure.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("roles", "gestiontime");
+                    b.ToTable("roles", "pss_dvnx");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.User", b =>
@@ -142,7 +142,7 @@ namespace GestionTime.Infrastructure.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("users", "gestiontime");
+                    b.ToTable("users", "pss_dvnx");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.UserProfile", b =>
@@ -228,7 +228,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("user_profiles", "gestiontime");
+                    b.ToTable("user_profiles", "pss_dvnx");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.UserRole", b =>
@@ -245,7 +245,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("user_roles", "gestiontime");
+                    b.ToTable("user_roles", "pss_dvnx");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Work.Cliente", b =>
@@ -289,7 +289,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("cliente", "gestiontime");
+                    b.ToTable("cliente", "pss_dvnx");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Work.Grupo", b =>
@@ -312,7 +312,7 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasKey("IdGrupo");
 
-                    b.ToTable("grupo", "gestiontime");
+                    b.ToTable("grupo", "pss_dvnx");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Work.ParteDeTrabajo", b =>
@@ -395,7 +395,7 @@ namespace GestionTime.Infrastructure.Migrations
                     b.HasIndex("IdUsuario", "FechaTrabajo")
                         .HasDatabaseName("idx_partes_user_fecha");
 
-                    b.ToTable("partesdetrabajo", "gestiontime", t =>
+                    b.ToTable("partesdetrabajo", "pss_dvnx", t =>
                         {
                             t.HasCheckConstraint("ck_partes_horas_validas", "hora_fin >= hora_inicio");
                         });
@@ -421,26 +421,29 @@ namespace GestionTime.Infrastructure.Migrations
 
                     b.HasKey("IdTipo");
 
-                    b.ToTable("tipo", "gestiontime");
+                    b.ToTable("tipo", "pss_dvnx");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("Id"));
 
                     b.Property<string>("FriendlyName")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("friendlyname");
 
                     b.Property<string>("Xml")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("xml");
 
                     b.HasKey("Id");
 
-                    b.ToTable("DataProtectionKeys", "gestiontime");
+                    b.ToTable("dataprotectionkeys", "pss_dvnx");
                 });
 
             modelBuilder.Entity("GestionTime.Domain.Auth.RefreshToken", b =>

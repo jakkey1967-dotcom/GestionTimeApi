@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
+using Npgsql;
 
 // Si se invoca con argumentos "export-schema", ejecutar herramienta de exportación
 if (args.Length > 0 && args[0] == "export-schema")
@@ -95,8 +96,20 @@ try
     var builder = WebApplication.CreateBuilder(args);
 
     // ?? Configurar URLs para Render.com (usa PORT de variable de entorno)
-    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "2501";
+    
+    // En desarrollo, permitir HTTP y HTTPS
+    if (builder.Environment.IsDevelopment())
+    {
+        builder.WebHost.UseUrls($"http://0.0.0.0:{port}", $"https://0.0.0.0:2502");
+        Log.Information("Configurado para desarrollo: HTTP={HttpPort}, HTTPS={HttpsPort}", port, "2502");
+    }
+    else
+    {
+        // En producción (Render), solo HTTP (Render maneja HTTPS)
+        builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+        Log.Information("Configurado para producción: HTTP={HttpPort}", port);
+    }
 
     // Configurar Serilog con archivos separados
     SerilogConfiguration.ConfigureSerilog(builder);
@@ -165,8 +178,8 @@ try
     // Configurar Identity Options
     builder.Services.Configure<Microsoft.AspNetCore.Identity.IdentityOptions>(options =>
     {
-        // HABILITAR verificación de email (para testing del sistema de activación)
-        options.SignIn.RequireConfirmedEmail = true;
+        // ⚠️ DESHABILITAR verificación de email temporalmente (mientras se soluciona SMTP)
+        options.SignIn.RequireConfirmedEmail = false;
         
         // Relajar requisitos de contraseña para desarrollo
         options.Password.RequireDigit = false;
@@ -185,12 +198,25 @@ try
     Log.Information("Usando connection string (oculto por seguridad)");
     
     // ✅ Obtener schema desde variable de entorno o configuración
-    // No usar el servicio aquí porque aún no está registrado en DI
     var dbSchema = Environment.GetEnvironmentVariable("DB_SCHEMA") 
                    ?? builder.Configuration["Database:Schema"] 
                    ?? "pss_dvnx";
     
     Log.Information("Schema de base de datos: {Schema}", dbSchema);
+    
+    // ✅ ASEGURAR QUE LA BD SEA SIEMPRE pss_dvnx
+    var csBuilder = new NpgsqlConnectionStringBuilder(connectionString);
+    if (csBuilder.Database != "pss_dvnx")
+    {
+        Log.Warning("⚠️  Ajustando base de datos de '{OldDb}' a 'pss_dvnx'", csBuilder.Database);
+        csBuilder.Database = "pss_dvnx";
+        connectionString = csBuilder.ToString();
+    }
+    
+    Log.Information("📦 Base de datos: pss_dvnx | Schema: {Schema}", dbSchema);
+    
+    // ✅ CREAR BASE DE DATOS Y SCHEMA SI NO EXISTEN
+    await EnsureDatabaseAndSchemaExistAsync(connectionString, dbSchema);
     
     builder.Services.AddDbContext<GestionTimeDbContext>((serviceProvider, opt) =>
     {
@@ -533,6 +559,10 @@ try
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "GestionTime API v1");
         c.RoutePrefix = "swagger";
         c.DocumentTitle = "GestionTime API - Documentación";
+        
+        // ✅ Habilitar envío de cookies con credenciales
+        c.ConfigObject.AdditionalItems["persistAuthorization"] = true;
+        c.ConfigObject.AdditionalItems["withCredentials"] = true;
     });
 
     // HTTPS redirect solo en desarrollo local
@@ -540,7 +570,7 @@ try
     {
         app.UseHttpsRedirection();
     }
-
+    
     // ✅ Servir archivos estáticos con prioridad por cliente
     var clientConfigService = app.Services.GetRequiredService<GestionTime.Api.Services.ClientConfigurationService>();
     
@@ -955,4 +985,115 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
 </html>";
 
     return Results.Content(html, "text/html");
+}
+
+/// <summary>
+/// Asegura que la base de datos y el schema existan antes de continuar
+/// </summary>
+static async Task EnsureDatabaseAndSchemaExistAsync(string connectionString, string schema)
+{
+    try
+    {
+        Log.Information("🔍 Verificando base de datos pss_dvnx y schema {Schema}...", schema);
+        
+        // La BD ya debe ser pss_dvnx en este punto
+        var builder = new NpgsqlConnectionStringBuilder(connectionString);
+        var databaseName = builder.Database;
+        
+        if (databaseName != "pss_dvnx")
+        {
+            throw new InvalidOperationException($"Error de configuración: se esperaba 'pss_dvnx' pero se recibió '{databaseName}'");
+        }
+        
+        // 1. Verificar/Crear la base de datos pss_dvnx
+        var maintenanceDb = "postgres";
+        var maintenanceConnString = new NpgsqlConnectionStringBuilder(connectionString)
+        {
+            Database = maintenanceDb
+        }.ToString();
+        
+        await using (var conn = new NpgsqlConnection(maintenanceConnString))
+        {
+            await conn.OpenAsync();
+            
+            var checkDbCmd = new NpgsqlCommand(
+                "SELECT 1 FROM pg_database WHERE datname = 'pss_dvnx'", 
+                conn);
+            
+            var dbExists = await checkDbCmd.ExecuteScalarAsync() != null;
+            
+            if (!dbExists)
+            {
+                Log.Information("📦 Creando base de datos 'pss_dvnx'...");
+                var createDbCmd = new NpgsqlCommand("CREATE DATABASE pss_dvnx", conn);
+                await createDbCmd.ExecuteNonQueryAsync();
+                Log.Information("✅ Base de datos 'pss_dvnx' creada");
+            }
+            else
+            {
+                Log.Information("✅ Base de datos 'pss_dvnx' existe");
+            }
+        }
+        
+        // 2. Conectar a pss_dvnx y gestionar schemas
+        await using (var conn = new NpgsqlConnection(connectionString))
+        {
+            await conn.OpenAsync();
+            
+            // 2.1 Verificar/Crear schema del cliente
+            var checkSchemaCmd = new NpgsqlCommand(
+                $"SELECT 1 FROM information_schema.schemata WHERE schema_name = '{schema}'", 
+                conn);
+            
+            var schemaExists = await checkSchemaCmd.ExecuteScalarAsync() != null;
+            
+            if (!schemaExists)
+            {
+                Log.Information("📦 Creando schema '{Schema}'...", schema);
+                var createSchemaCmd = new NpgsqlCommand($"CREATE SCHEMA \"{schema}\"", conn);
+                await createSchemaCmd.ExecuteNonQueryAsync();
+                Log.Information("✅ Schema '{Schema}' creado", schema);
+            }
+            else
+            {
+                Log.Information("✅ Schema '{Schema}' existe", schema);
+            }
+            
+            // 2.2 Habilitar extensión pgcrypto
+            try
+            {
+                var enablePgcryptoCmd = new NpgsqlCommand("CREATE EXTENSION IF NOT EXISTS pgcrypto", conn);
+                await enablePgcryptoCmd.ExecuteNonQueryAsync();
+                Log.Information("✅ Extensión pgcrypto habilitada");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("⚠️  pgcrypto: {Message}", ex.Message);
+            }
+            
+            // 2.3 Listar schemas existentes
+            var listSchemasCmd = new NpgsqlCommand(
+                @"SELECT schema_name 
+                  FROM information_schema.schemata 
+                  WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+                  ORDER BY schema_name", 
+                conn);
+            
+            var schemas = new List<string>();
+            await using var reader = await listSchemasCmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                schemas.Add(reader.GetString(0));
+            }
+            
+            Log.Information("📋 Schemas en pss_dvnx: {Schemas}", string.Join(", ", schemas));
+        }
+        
+        Log.Information("✅ Verificación completada");
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "❌ Error en verificación de BD/schema");
+        throw;
+    }
 }

@@ -268,8 +268,12 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
         // ✅ Configurar DataProtectionKeys con schema dinámico
         b.Entity<DataProtectionKey>(e =>
         {
-            e.ToTable("DataProtectionKeys");
+            e.ToTable("dataprotectionkeys"); // ✅ Forzar minúsculas
             e.HasKey(x => x.Id);
+            
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.FriendlyName).HasColumnName("friendlyname");
+            e.Property(x => x.Xml).HasColumnName("xml");
         });
     }
 

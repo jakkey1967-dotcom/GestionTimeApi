@@ -7,17 +7,17 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GestionTime.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreateWithGestionTimeSchema : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.EnsureSchema(
-                name: "gestiontime");
+                name: "pss_dvnx");
 
             migrationBuilder.CreateTable(
                 name: "cliente",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -36,8 +36,23 @@ namespace GestionTime.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "dataprotectionkeys",
+                schema: "pss_dvnx",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    friendlyname = table.Column<string>(type: "text", nullable: true),
+                    xml = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_dataprotectionkeys", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "grupo",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 columns: table => new
                 {
                     id_grupo = table.Column<int>(type: "integer", nullable: false)
@@ -52,7 +67,7 @@ namespace GestionTime.Infrastructure.Migrations
 
             migrationBuilder.CreateTable(
                 name: "partesdetrabajo",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 columns: table => new
                 {
                     id = table.Column<long>(type: "bigint", nullable: false)
@@ -79,7 +94,7 @@ namespace GestionTime.Infrastructure.Migrations
 
             migrationBuilder.CreateTable(
                 name: "roles",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -93,7 +108,7 @@ namespace GestionTime.Infrastructure.Migrations
 
             migrationBuilder.CreateTable(
                 name: "tipo",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 columns: table => new
                 {
                     id_tipo = table.Column<int>(type: "integer", nullable: false)
@@ -108,7 +123,7 @@ namespace GestionTime.Infrastructure.Migrations
 
             migrationBuilder.CreateTable(
                 name: "users",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -128,7 +143,7 @@ namespace GestionTime.Infrastructure.Migrations
 
             migrationBuilder.CreateTable(
                 name: "refresh_tokens",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -144,7 +159,7 @@ namespace GestionTime.Infrastructure.Migrations
                     table.ForeignKey(
                         name: "FK_refresh_tokens_users_user_id",
                         column: x => x.user_id,
-                        principalSchema: "gestiontime",
+                        principalSchema: "pss_dvnx",
                         principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -152,7 +167,7 @@ namespace GestionTime.Infrastructure.Migrations
 
             migrationBuilder.CreateTable(
                 name: "user_profiles",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -178,7 +193,7 @@ namespace GestionTime.Infrastructure.Migrations
                     table.ForeignKey(
                         name: "FK_user_profiles_users_id",
                         column: x => x.id,
-                        principalSchema: "gestiontime",
+                        principalSchema: "pss_dvnx",
                         principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -186,7 +201,7 @@ namespace GestionTime.Infrastructure.Migrations
 
             migrationBuilder.CreateTable(
                 name: "user_roles",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 columns: table => new
                 {
                     user_id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -198,14 +213,14 @@ namespace GestionTime.Infrastructure.Migrations
                     table.ForeignKey(
                         name: "FK_user_roles_roles_role_id",
                         column: x => x.role_id,
-                        principalSchema: "gestiontime",
+                        principalSchema: "pss_dvnx",
                         principalTable: "roles",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_user_roles_users_user_id",
                         column: x => x.user_id,
-                        principalSchema: "gestiontime",
+                        principalSchema: "pss_dvnx",
                         principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -213,51 +228,51 @@ namespace GestionTime.Infrastructure.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "idx_partes_created_at",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 table: "partesdetrabajo",
                 column: "created_at");
 
             migrationBuilder.CreateIndex(
                 name: "idx_partes_fecha_trabajo",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 table: "partesdetrabajo",
                 column: "fecha_trabajo");
 
             migrationBuilder.CreateIndex(
                 name: "idx_partes_user_fecha",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 table: "partesdetrabajo",
                 columns: new[] { "id_usuario", "fecha_trabajo" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_refresh_tokens_token_hash",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 table: "refresh_tokens",
                 column: "token_hash",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_refresh_tokens_user_id",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 table: "refresh_tokens",
                 column: "user_id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_roles_name",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 table: "roles",
                 column: "name",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_user_roles_role_id",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 table: "user_roles",
                 column: "role_id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_users_email",
-                schema: "gestiontime",
+                schema: "pss_dvnx",
                 table: "users",
                 column: "email",
                 unique: true);
@@ -268,39 +283,43 @@ namespace GestionTime.Infrastructure.Migrations
         {
             migrationBuilder.DropTable(
                 name: "cliente",
-                schema: "gestiontime");
+                schema: "pss_dvnx");
+
+            migrationBuilder.DropTable(
+                name: "dataprotectionkeys",
+                schema: "pss_dvnx");
 
             migrationBuilder.DropTable(
                 name: "grupo",
-                schema: "gestiontime");
+                schema: "pss_dvnx");
 
             migrationBuilder.DropTable(
                 name: "partesdetrabajo",
-                schema: "gestiontime");
+                schema: "pss_dvnx");
 
             migrationBuilder.DropTable(
                 name: "refresh_tokens",
-                schema: "gestiontime");
+                schema: "pss_dvnx");
 
             migrationBuilder.DropTable(
                 name: "tipo",
-                schema: "gestiontime");
+                schema: "pss_dvnx");
 
             migrationBuilder.DropTable(
                 name: "user_profiles",
-                schema: "gestiontime");
+                schema: "pss_dvnx");
 
             migrationBuilder.DropTable(
                 name: "user_roles",
-                schema: "gestiontime");
+                schema: "pss_dvnx");
 
             migrationBuilder.DropTable(
                 name: "roles",
-                schema: "gestiontime");
+                schema: "pss_dvnx");
 
             migrationBuilder.DropTable(
                 name: "users",
-                schema: "gestiontime");
+                schema: "pss_dvnx");
         }
     }
 }

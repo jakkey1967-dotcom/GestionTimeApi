@@ -1,5 +1,6 @@
-using System.Net;
-using System.Net.Mail;
+Ôªøusing MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 
 namespace GestionTime.Api.Services;
 
@@ -16,7 +17,7 @@ public class SmtpEmailService : IEmailService
 
     public async Task SendPasswordResetEmailAsync(string toEmail, string resetToken)
     {
-        var subject = "RecuperaciÛn de ContraseÒa - GestionTime";
+        var subject = "Recuperaci√≥n de Contrase√±a - GestionTime";
         var htmlBody = $@"
             <!DOCTYPE html>
             <html>
@@ -42,23 +43,23 @@ public class SmtpEmailService : IEmailService
             <body>
                 <div class='container'>
                     <div class='header'>
-                        <h1>?? RecuperaciÛn de ContraseÒa</h1>
+                        <h1>üîê Recuperaci√≥n de Contrase√±a</h1>
                     </div>
                     <div class='content'>
                         <p>Hola,</p>
-                        <p>Recibimos una solicitud para restablecer tu contraseÒa en <strong>GestionTime</strong>.</p>
+                        <p>Recibimos una solicitud para restablecer tu contrase√±a en <strong>GestionTime</strong>.</p>
                         
-                        <p>Tu cÛdigo de verificaciÛn es:</p>
+                        <p>Tu c√≥digo de verificaci√≥n es:</p>
                         <div class='token'>{resetToken}</div>
                         
-                        <p>Este cÛdigo expira en <strong>1 hora</strong>.</p>
+                        <p>Este c√≥digo expira en <strong>1 hora</strong>.</p>
                         
-                        <p><strong>?? Si no solicitaste este cambio, ignora este correo.</strong></p>
+                        <p><strong>‚ö†Ô∏è Si no solicitaste este cambio, ignora este correo.</strong></p>
                         
                         <p>Saludos,<br/>El equipo de GestionTime</p>
                     </div>
                     <div class='footer'>
-                        <p>Este es un correo autom·tico, por favor no respondas a este mensaje.</p>
+                        <p>Este es un correo autom√°tico, por favor no respondas a este mensaje.</p>
                         <p>&copy; 2024 GestionTime. Todos los derechos reservados.</p>
                     </div>
                 </div>
@@ -71,7 +72,7 @@ public class SmtpEmailService : IEmailService
 
     public async Task SendRegistrationEmailAsync(string toEmail, string verificationToken)
     {
-        var subject = "VerificaciÛn de Email - GestionTime";
+        var subject = "Verificaci√≥n de Email - GestionTime";
         var htmlBody = $@"
             <!DOCTYPE html>
             <html>
@@ -97,23 +98,23 @@ public class SmtpEmailService : IEmailService
             <body>
                 <div class='container'>
                     <div class='header'>
-                        <h1>?? VerificaciÛn de Registro</h1>
+                        <h1>üìß Verificaci√≥n de Registro</h1>
                     </div>
                     <div class='content'>
-                        <p>°Bienvenido a <strong>GestionTime</strong>!</p>
-                        <p>Para completar tu registro, necesitamos verificar tu direcciÛn de correo electrÛnico.</p>
+                        <p>¬°Bienvenido a <strong>GestionTime</strong>!</p>
+                        <p>Para completar tu registro, necesitamos verificar tu direcci√≥n de correo electr√≥nico.</p>
                         
-                        <p>Tu cÛdigo de verificaciÛn es:</p>
+                        <p>Tu c√≥digo de verificaci√≥n es:</p>
                         <div class='token'>{verificationToken}</div>
                         
-                        <p>Este cÛdigo expira en <strong>24 horas</strong>.</p>
+                        <p>Este c√≥digo expira en <strong>24 horas</strong>.</p>
                         
                         <p>Si no creaste esta cuenta, puedes ignorar este correo.</p>
                         
                         <p>Saludos,<br/>El equipo de GestionTime</p>
                     </div>
                     <div class='footer'>
-                        <p>Este es un correo autom·tico, por favor no respondas a este mensaje.</p>
+                        <p>Este es un correo autom√°tico, por favor no respondas a este mensaje.</p>
                         <p>&copy; 2024 GestionTime. Todos los derechos reservados.</p>
                     </div>
                 </div>
@@ -124,85 +125,141 @@ public class SmtpEmailService : IEmailService
         await SendEmailAsync(toEmail, subject, htmlBody);
     }
 
-    /// <summary>
-    /// EnvÌa email de activaciÛn con enlace directo
-    /// </summary>
     public async Task SendActivationEmailAsync(GestionTime.Domain.Auth.User user, string activationToken)
     {
         try
         {
             var activationUrl = GenerateActivationUrl(activationToken);
-            var logoUrl = GenerateLogoUrl();
+            var userName = user.FullName ?? user.Email?.Split('@')[0] ?? "Usuario";
             
-            _logger.LogInformation("?? Enviando email de activaciÛn a {Email}", user.Email);
-            _logger.LogInformation("   URL de activaciÛn: {Url}", activationUrl);
+            _logger.LogInformation("üìß Enviando email de activaci√≥n a {Email}", user.Email);
+            _logger.LogInformation("   URL de activaci√≥n: {Url}", activationUrl);
 
-            // Cargar template HTML
-            var templatePath = Path.Combine("Templates", "EmailTemplates", "ActivationEmail.html");
-            var htmlTemplate = await File.ReadAllTextAsync(templatePath);
+            // ‚úÖ Logo embebido en Base64 (funciona en todos los clientes de email)
+            var logoBase64 = GetLogoBase64();
 
-            // Reemplazar variables en el template
-            var htmlBody = htmlTemplate
-                .Replace("{{USER_NAME}}", user.FullName ?? user.Email?.Split('@')[0] ?? "Usuario")
-                .Replace("{{ACTIVATION_LINK}}", activationUrl)
-                .Replace("{{LOGO_URL}}", logoUrl);
-
-            // Crear mensaje
-            using var message = new MailMessage();
+            var htmlBody = $@"
+<!DOCTYPE html>
+<html lang=""es"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }}
+        .header {{ background-color: #0B8C99; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }}
+        .logo {{ max-width: 200px; height: auto; margin-bottom: 15px; }}
+        .content {{ padding: 30px; background-color: white; border-radius: 0 0 8px 8px; }}
+        .button {{ 
+            display: inline-block;
+            padding: 15px 40px;
+            background-color: #0B8C99;
+            color: white !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 20px 0;
+        }}
+        .link-text {{ 
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            word-break: break-all;
+            font-size: 12px;
+            color: #0B8C99;
+            margin: 15px 0;
+        }}
+        .footer {{ text-align: center; padding: 20px; font-size: 12px; color: #666; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            {(string.IsNullOrEmpty(logoBase64) ? "" : $"<img src='data:image/png;base64,{logoBase64}' alt='GestionTime' class='logo' />")}
+            <h1>¬°Bienvenido a GestionTime!</h1>
+        </div>
+        <div class='content'>
+            <h2>Hola {userName},</h2>
+            <p>Gracias por registrarte en <strong>GestionTime</strong>.</p>
+            <p>Para activar tu cuenta, haz clic en el bot√≥n de abajo:</p>
             
-            var fromEmail = _config["Email:From"] ?? "noreply@gestiontime.com";
-            var fromName = _config["Email:FromName"] ?? "GestionTime";
-            var userEmail = user.Email ?? throw new ArgumentException("El usuario debe tener un email", nameof(user));
+            <div style='text-align: center;'>
+                <a href='{activationUrl}' class='button'>‚úì Activar mi cuenta ahora</a>
+            </div>
             
-            message.From = new MailAddress(fromEmail, fromName);
-            message.To.Add(userEmail);
-            message.Subject = "Activar tu cuenta - GestionTime";
-            message.Body = htmlBody;
-            message.IsBodyHtml = true;
-            message.Priority = MailPriority.High;
+            <p><strong>¬øEl bot√≥n no funciona?</strong><br>Puedes copiar y pegar este enlace en tu navegador:</p>
+            <div class='link-text'>{activationUrl}</div>
+            
+            <p style='color: #666; font-size: 14px;'>üîí Este enlace expira en 24 horas por seguridad.</p>
+            
+            <p>Saludos,<br/>El equipo de GestionTime</p>
+        </div>
+        <div class='footer'>
+            <p>Este es un correo autom√°tico, por favor no respondas a este mensaje.</p>
+            <p>¬© 2025 GestionTime. Todos los derechos reservados.</p>
+            <p style='margin-top: 10px; font-size: 11px;'>Si no solicitaste esta cuenta, puedes ignorar este email de forma segura.</p>
+        </div>
+    </div>
+</body>
+</html>";
 
-            // Configurar SMTP
-            var smtpHost = _config["Email:SmtpHost"] ?? throw new InvalidOperationException("Email:SmtpHost no configurado");
-            var smtpPortStr = _config["Email:SmtpPort"] ?? "587";
-            var smtpPort = int.Parse(smtpPortStr);
-            var smtpUser = _config["Email:SmtpUser"] ?? throw new InvalidOperationException("Email:SmtpUser no configurado");
-            var smtpPassword = _config["Email:SmtpPassword"] ?? throw new InvalidOperationException("Email:SmtpPassword no configurado");
+            var subject = "Activar tu cuenta - GestionTime";
+            await SendEmailAsync(user.Email ?? throw new ArgumentException("Email requerido"), subject, htmlBody);
             
-            using var smtp = new SmtpClient(smtpHost, smtpPort)
-            {
-                Credentials = new NetworkCredential(smtpUser, smtpPassword),
-                EnableSsl = true,
-                DeliveryMethod = SmtpDeliveryMethod.Network
-            };
-
-            await smtp.SendMailAsync(message);
-            
-            _logger.LogInformation("? Email de activaciÛn enviado exitosamente a {Email}", user.Email);
+            _logger.LogInformation("‚úÖ Email de activaci√≥n enviado exitosamente a {Email}", user.Email);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "? Error enviando email de activaciÛn a {Email}", user.Email);
+            _logger.LogError(ex, "‚ùå Error enviando email de activaci√≥n a {Email}", user.Email);
             throw;
         }
     }
 
     /// <summary>
-    /// Genera URL de activaciÛn completa
+    /// Obtiene el logo en Base64 para embeber en emails
     /// </summary>
-    private string GenerateActivationUrl(string token)
+    private string GetLogoBase64()
     {
-        // TODO: Obtener URL base de configuraciÛn en producciÛn
-        var baseUrl = "https://localhost:2501";
-        return $"{baseUrl}/api/v1/auth/activate/{token}";
+        try
+        {
+            // Lista de rutas posibles para el logo
+            var possiblePaths = new[]
+            {
+                Path.Combine("wwwroot", "images", "LogoOscuro.png"),
+                Path.Combine("wwwroot_pss_dvnx", "images", "LogoOscuro.png"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "images", "LogoOscuro.png"),
+                Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "LogoOscuro.png")
+            };
+
+            foreach (var logoPath in possiblePaths)
+            {
+                if (File.Exists(logoPath))
+                {
+                    _logger.LogInformation("‚úÖ Logo encontrado: {Path}", logoPath);
+                    var imageBytes = File.ReadAllBytes(logoPath);
+                    return Convert.ToBase64String(imageBytes);
+                }
+                else
+                {
+                    _logger.LogDebug("‚è≠Ô∏è Logo no encontrado en: {Path}", logoPath);
+                }
+            }
+            
+            _logger.LogWarning("‚ö†Ô∏è Logo no encontrado en ninguna ruta");
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "‚ö†Ô∏è Error cargando logo para email");
+            return string.Empty;
+        }
     }
 
-    /// <summary>
-    /// Genera URL del logo completa
-    /// </summary>
-    private string GenerateLogoUrl()
+    private string GenerateActivationUrl(string token)
     {
-        var baseUrl = "https://localhost:2501";
-        return $"{baseUrl}/images/LogoOscuro.png";
+        var baseUrl = _config["App:BaseUrl"] ?? "http://localhost:2501";
+        baseUrl = baseUrl.TrimEnd('/');
+        return $"{baseUrl}/api/v1/auth/activate/{token}";
     }
 
     private async Task SendEmailAsync(string toEmail, string subject, string htmlBody)
@@ -218,35 +275,41 @@ public class SmtpEmailService : IEmailService
 
             if (string.IsNullOrEmpty(smtpHost) || string.IsNullOrEmpty(smtpUser) || string.IsNullOrEmpty(smtpPass))
             {
-                _logger.LogError("? ConfiguraciÛn de email incompleta. Verifica appsettings.json");
-                throw new InvalidOperationException("ConfiguraciÛn de email incompleta");
+                _logger.LogError("‚ùå Configuraci√≥n de email incompleta");
+                throw new InvalidOperationException("Configuraci√≥n de email incompleta");
             }
 
-            _logger.LogInformation("?? Enviando email a {Email} - Asunto: {Subject}", toEmail, subject);
+            _logger.LogInformation("üìß Enviando email via MailKit a {Email}", toEmail);
+            _logger.LogInformation("   SMTP: {Host}:{Port}, SSL/TLS: STARTTLS", smtpHost, smtpPort);
 
-            using var smtpClient = new SmtpClient(smtpHost, smtpPort)
-            {
-                EnableSsl = true,
-                Credentials = new NetworkCredential(smtpUser, smtpPass)
-            };
+            // ‚úÖ USAR MAILKIT (soporta STARTTLS correctamente)
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(fromName, fromEmail));
+            message.To.Add(new MailboxAddress("", toEmail));
+            message.Subject = subject;
 
-            var mailMessage = new MailMessage
-            {
-                From = new MailAddress(fromEmail, fromName),
-                Subject = subject,
-                Body = htmlBody,
-                IsBodyHtml = true
-            };
+            var bodyBuilder = new BodyBuilder { HtmlBody = htmlBody };
+            message.Body = bodyBuilder.ToMessageBody();
 
-            mailMessage.To.Add(toEmail);
+            using var client = new SmtpClient();
+            
+            // ‚úÖ CONECTAR CON STARTTLS (puerto 587)
+            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls);
+            
+            // ‚úÖ AUTENTICAR
+            await client.AuthenticateAsync(smtpUser, smtpPass);
+            
+            // ‚úÖ ENVIAR
+            await client.SendAsync(message);
+            
+            // ‚úÖ DESCONECTAR
+            await client.DisconnectAsync(true);
 
-            await smtpClient.SendMailAsync(mailMessage);
-
-            _logger.LogInformation("? Email enviado exitosamente a {Email}", toEmail);
+            _logger.LogInformation("‚úÖ Email enviado exitosamente a {Email}", toEmail);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "? Error enviando email a {Email}", toEmail);
+            _logger.LogError(ex, "‚ùå Error enviando email a {Email}", toEmail);
             throw;
         }
     }

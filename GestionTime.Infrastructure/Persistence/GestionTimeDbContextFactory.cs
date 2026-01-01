@@ -11,9 +11,17 @@ public class GestionTimeDbContextFactory : IDesignTimeDbContextFactory<GestionTi
 {
     public GestionTimeDbContext CreateDbContext(string[] args)
     {
-        // Leer configuración desde appsettings.Development.json
+        // Buscar appsettings.Development.json en el directorio correcto (GestionTimeApi/)
+        var basePath = Path.Combine(Directory.GetCurrentDirectory());
+        
+        // Si estamos en GestionTime.Infrastructure, subir un nivel
+        if (basePath.EndsWith("GestionTime.Infrastructure"))
+        {
+            basePath = Path.Combine(basePath, "..");
+        }
+        
         var configuration = new ConfigurationBuilder()
-            .SetBasePath(Path.Combine(Directory.GetCurrentDirectory(), "../"))
+            .SetBasePath(basePath)
             .AddJsonFile("appsettings.Development.json", optional: false)
             .Build();
 

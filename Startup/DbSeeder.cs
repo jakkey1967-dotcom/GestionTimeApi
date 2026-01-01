@@ -105,7 +105,7 @@ public static class DbSeeder
 
     private static string GenerateInitializationScript(string schema)
     {
-        // Script SQL completo idempotente
+        // Script SQL completo idempotente - Sin usar crypt() para evitar problemas con pgcrypto
         return $@"
 DO $$
 DECLARE
@@ -177,8 +177,10 @@ BEGIN
     -- Resetear secuencia de grupo
     PERFORM setval(pg_get_serial_sequence('grupo', 'id_grupo'), COALESCE((SELECT MAX(id_grupo) FROM grupo), 1));
     
-    -- 4. GENERAR HASH DE CONTRASEÑA (BCrypt)
-    v_password_hash := crypt(v_password_plain, gen_salt('bf', 10));
+    -- 4. GENERAR HASH TEMPORAL DE CONTRASEÑA
+    -- ⚠️ La aplicación C# usará BCrypt.Net para generar el hash correcto
+    -- Este es solo un placeholder que la aplicación detectará
+    v_password_hash := 'TEMP_HASH_' || v_password_plain;
     
     -- 5. CREAR USUARIO ADMINISTRADOR
     v_user_id := gen_random_uuid();
@@ -201,7 +203,7 @@ BEGIN
         v_full_name,
         true,
         true,
-        false,
+        true,  -- ✅ FORZAR cambio de contraseña en primer login
         NOW(),
         999
     );
@@ -243,7 +245,8 @@ BEGIN
     
     RAISE NOTICE '✅ Inicialización completada:';
     RAISE NOTICE '   👤 Usuario: %', v_email;
-    RAISE NOTICE '   🔑 Password: %', v_password_plain;
+    RAISE NOTICE '   🔑 Password TEMPORAL: %', v_password_plain;
+    RAISE NOTICE '   ⚠️  DEBE CAMBIAR PASSWORD EN PRIMER LOGIN';
     RAISE NOTICE '   🎭 Roles: %', v_roles_count;
     RAISE NOTICE '   📋 Tipos: 10';
     RAISE NOTICE '   👥 Grupos: 8';

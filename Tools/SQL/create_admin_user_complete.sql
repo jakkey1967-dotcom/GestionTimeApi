@@ -148,21 +148,17 @@ BEGIN
     RAISE NOTICE '';
     
     -- ==================== 4. GENERAR HASH DE CONTRASEÑA ====================
-    -- ⚠️ IMPORTANTE: Este script usa crypt() con bcrypt
-    -- Crear extensión pgcrypto si no existe (requerido para gen_salt y crypt)
+    -- ⚠️ TEMPORAL: Se usa un placeholder que DEBE cambiarse en el primer login
+    -- La aplicación C# usará BCrypt.Net para generar el hash correcto
     
-    RAISE NOTICE '🔐 Verificando extensión pgcrypto...';
+    RAISE NOTICE '🔐 Generando hash temporal de contraseña...';
+    RAISE NOTICE '⚠️  IMPORTANTE: Este hash es temporal y DEBE cambiarse en el primer login';
     
-    -- Crear extensión pgcrypto si no existe
-    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+    -- Hash temporal: La aplicación lo detectará y forzará cambio de contraseña
+    -- Usamos un placeholder reconocible que la aplicación puede identificar
+    v_password_hash := 'TEMP_HASH_' || v_password_plain;
     
-    RAISE NOTICE '✅ Extensión pgcrypto disponible';
-    RAISE NOTICE '🔐 Generando hash BCrypt de contraseña...';
-    
-    -- Usar bcrypt para el hash (compatible con BCrypt.Net en C#)
-    v_password_hash := crypt(v_password_plain, gen_salt('bf', 10));
-    
-    RAISE NOTICE '✅ Hash generado correctamente';
+    RAISE NOTICE '✅ Hash temporal generado';
     RAISE NOTICE '';
     
     -- ==================== 5. CREAR USUARIO ADMINISTRADOR ====================
