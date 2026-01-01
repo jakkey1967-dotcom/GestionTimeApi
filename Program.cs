@@ -240,7 +240,7 @@ try
     // ✅ Data Protection - Persistir claves en PostgreSQL
     builder.Services.AddDataProtection()
         .PersistKeysToDbContext<GestionTimeDbContext>()
-        .SetApplicationName("GestionTimeApi");
+        .SetApplicationName("GestionTimeApi"));
 
     var app = builder.Build();
 
@@ -347,7 +347,7 @@ try
         }
         else
         {
-            Log.Warning("⚠️ Error en seed pero continuando arranque: {Message}", ex.Message);
+            Log.Warning("⚠️ Error en seed pero continuando arranke: {Message}", ex.Message);
         }
     }
 
