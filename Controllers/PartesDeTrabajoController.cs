@@ -23,37 +23,70 @@ public class PartesDeTrabajoController : ControllerBase
     }
 
     // GET /api/v1/partes?fecha=2025-12-15
+    // GET /api/v1/partes?fechaInicio=2025-01-01&fechaFin=2025-01-31
     // GET /api/v1/partes?created_from=...&created_to=...
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] DateTime? fecha,
+        [FromQuery] DateTime? fechaInicio,
+        [FromQuery] DateTime? fechaFin,
         [FromQuery] DateTime? created_from,
         [FromQuery] DateTime? created_to,
         [FromQuery] string? q,
         [FromQuery] int? estado)
     {
         var userId = GetUserId();
-        _logger.LogDebug("Listando partes para usuario {UserId}. Fecha: {Fecha}, Query: {Query}, Estado: {Estado}", userId, fecha, q, estado);
+        _logger.LogDebug("Listando partes para usuario {UserId}. Fecha: {Fecha}, FechaInicio: {FechaInicio}, FechaFin: {FechaFin}, Query: {Query}, Estado: {Estado}", 
+            userId, fecha, fechaInicio, fechaFin, q, estado);
 
         var baseQuery = db.PartesDeTrabajo
             .AsNoTracking()
             .Where(p => p.IdUsuario == userId);
 
+        // Filtro por fecha única
         if (fecha.HasValue)
         {
-            var d = fecha.Value.Date;
+            var d = DateTime.SpecifyKind(fecha.Value.Date, DateTimeKind.Utc);
             baseQuery = baseQuery.Where(p => p.FechaTrabajo == d);
         }
 
+        // Filtro por rango de fechas
+        if (fechaInicio.HasValue)
+        {
+            var fechaInicioDate = DateTime.SpecifyKind(fechaInicio.Value.Date, DateTimeKind.Utc);
+            baseQuery = baseQuery.Where(p => p.FechaTrabajo >= fechaInicioDate);
+            _logger.LogDebug("Aplicando filtro fechaInicio >= {FechaInicio}", fechaInicioDate);
+        }
+
+        if (fechaFin.HasValue)
+        {
+            var fechaFinDate = DateTime.SpecifyKind(fechaFin.Value.Date, DateTimeKind.Utc);
+            baseQuery = baseQuery.Where(p => p.FechaTrabajo <= fechaFinDate);
+            _logger.LogDebug("Aplicando filtro fechaFin <= {FechaFin}", fechaFinDate);
+        }
+
+        // Filtros por fecha de creación (convertir a UTC)
         if (created_from.HasValue)
-            baseQuery = baseQuery.Where(p => p.CreatedAt >= created_from.Value);
+        {
+            var createdFromUtc = created_from.Value.Kind == DateTimeKind.Unspecified 
+                ? DateTime.SpecifyKind(created_from.Value, DateTimeKind.Utc) 
+                : created_from.Value.ToUniversalTime();
+            baseQuery = baseQuery.Where(p => p.CreatedAt >= createdFromUtc);
+        }
 
         if (created_to.HasValue)
-            baseQuery = baseQuery.Where(p => p.CreatedAt < created_to.Value);
+        {
+            var createdToUtc = created_to.Value.Kind == DateTimeKind.Unspecified 
+                ? DateTime.SpecifyKind(created_to.Value, DateTimeKind.Utc) 
+                : created_to.Value.ToUniversalTime();
+            baseQuery = baseQuery.Where(p => p.CreatedAt < createdToUtc);
+        }
 
+        // Filtro por búsqueda de texto
         if (!string.IsNullOrWhiteSpace(q))
             baseQuery = baseQuery.Where(p => p.Accion.Contains(q) || (p.Ticket != null && p.Ticket.Contains(q)));
 
+        // Filtro por estado
         if (estado.HasValue)
             baseQuery = baseQuery.Where(p => p.Estado == estado.Value);
 
@@ -68,6 +101,7 @@ public class PartesDeTrabajoController : ControllerBase
             join t0 in db.Tipos on p.IdTipo equals (int?)t0.IdTipo into tj
             from t in tj.DefaultIfEmpty()
 
+            // ✅ Ordenar de más nuevo a más antiguo (fecha descendente, luego hora descendente)
             orderby p.FechaTrabajo descending, p.HoraInicio descending
             select new
             {
@@ -115,7 +149,7 @@ public class PartesDeTrabajoController : ControllerBase
             updated_at = x.UpdatedAt
         }).ToList();
 
-        _logger.LogInformation("Usuario {UserId} listo {Count} partes de trabajo", userId, items.Count);
+        _logger.LogInformation("Usuario {UserId} listó {Count} partes de trabajo", userId, items.Count);
 
         return Ok(items);
     }
@@ -158,9 +192,14 @@ public class PartesDeTrabajoController : ControllerBase
             return BadRequest(new { message = "hora_fin no puede ser menor que hora_inicio" });
         }
 
+        // ✅ Asegurar que la fecha tenga Kind=Utc
+        var fechaTrabajoUtc = req.fecha_trabajo.Kind == DateTimeKind.Unspecified 
+            ? DateTime.SpecifyKind(req.fecha_trabajo.Date, DateTimeKind.Utc) 
+            : req.fecha_trabajo.Date.ToUniversalTime();
+
         var entity = new ParteDeTrabajo
         {
-            FechaTrabajo = req.fecha_trabajo.Date,
+            FechaTrabajo = fechaTrabajoUtc,
             HoraInicio = hi,
             HoraFin = hf,
             IdCliente = req.id_cliente,
@@ -248,7 +287,12 @@ public class PartesDeTrabajoController : ControllerBase
             return BadRequest(new { message = "accion es requerida" });
         }
 
-        entity.FechaTrabajo = req.fecha_trabajo.Date;
+        // ✅ Asegurar que la fecha tenga Kind=Utc
+        var fechaTrabajoUtc = req.fecha_trabajo.Kind == DateTimeKind.Unspecified 
+            ? DateTime.SpecifyKind(req.fecha_trabajo.Date, DateTimeKind.Utc) 
+            : req.fecha_trabajo.Date.ToUniversalTime();
+
+        entity.FechaTrabajo = fechaTrabajoUtc;
         entity.HoraInicio = hi;
         entity.HoraFin = hf;
         entity.IdCliente = req.id_cliente;

@@ -740,9 +740,368 @@ Base: `/api/v1/catalog`
 
 ## 📊 Partes de Trabajo
 
-Base: `/api/v1/partes-trabajo`
+Base: `/api/v1/partes`
 
-**Nota:** Endpoints del módulo de partes de trabajo (implementación pendiente)
+### 1. Listar Partes de Trabajo
+
+**GET** `/api/v1/partes`
+
+Obtiene los partes de trabajo del usuario autenticado con múltiples opciones de filtrado.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Query Parameters (todos opcionales):**
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `fecha` | date | Filtrar por fecha específica (YYYY-MM-DD) |
+| `fechaInicio` | date | Fecha inicio del rango (YYYY-MM-DD) |
+| `fechaFin` | date | Fecha fin del rango (YYYY-MM-DD) |
+| `created_from` | datetime | Filtrar por fecha de creación desde |
+| `created_to` | datetime | Filtrar por fecha de creación hasta |
+| `q` | string | Buscar en acción o ticket |
+| `estado` | int | Filtrar por estado (1=Abierto, 2=Pausado, 3=Cerrado, 4=Anulado) |
+
+**Ejemplos de uso:**
+```
+# Partes de una fecha específica
+GET /api/v1/partes?fecha=2025-01-15
+
+# Partes de un rango de fechas (más nuevo a más antiguo)
+GET /api/v1/partes?fechaInicio=2025-01-01&fechaFin=2025-01-31
+
+# Buscar por texto
+GET /api/v1/partes?q=reparacion
+
+# Filtrar por estado
+GET /api/v1/partes?estado=1
+
+# Combinación de filtros
+GET /api/v1/partes?fechaInicio=2025-01-01&fechaFin=2025-01-31&estado=3&q=ticket
+```
+
+**Respuesta (200):**
+```json
+[
+  {
+    "id": 1,
+    "fecha": "2025-01-15",
+    "cliente": "Cliente XYZ",
+    "id_cliente": 1,
+    "tienda": "Tienda 01",
+    "accion": "Reparación de equipos",
+    "horainicio": "09:00",
+    "horafin": "11:30",
+    "duracion_min": 150,
+    "ticket": "TKT-12345",
+    "grupo": "Mantenimiento",
+    "id_grupo": 1,
+    "tipo": "Correctivo",
+    "id_tipo": 2,
+    "tecnico": "Juan Pérez",
+    "estado": 3,
+    "estado_nombre": "Cerrado",
+    "created_at": "2025-01-15T09:00:00Z",
+    "updated_at": "2025-01-15T11:30:00Z"
+  },
+  {
+    "id": 2,
+    "fecha": "2025-01-14",
+    "cliente": "Cliente ABC",
+    "id_cliente": 2,
+    "tienda": "Tienda 02",
+    "accion": "Instalación de software",
+    "horainicio": "14:00",
+    "horafin": "16:00",
+    "duracion_min": 120,
+    "ticket": null,
+    "grupo": "Instalaciones",
+    "id_grupo": 2,
+    "tipo": "Preventivo",
+    "id_tipo": 1,
+    "tecnico": "Juan Pérez",
+    "estado": 1,
+    "estado_nombre": "Abierto",
+    "created_at": "2025-01-14T14:00:00Z",
+    "updated_at": "2025-01-14T14:00:00Z"
+  }
+]
+```
+
+**Nota:** Los resultados están ordenados de más nuevo a más antiguo (por fecha descendente y hora descendente).
+
+---
+
+### 2. Obtener Estados Disponibles
+
+**GET** `/api/v1/partes/estados`
+
+Obtiene la lista de estados posibles para los partes de trabajo.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Respuesta (200):**
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Abierto"
+  },
+  {
+    "id": 2,
+    "nombre": "Pausado"
+  },
+  {
+    "id": 3,
+    "nombre": "Cerrado"
+  },
+  {
+    "id": 4,
+    "nombre": "Anulado"
+  }
+]
+```
+
+---
+
+### 3. Crear Parte de Trabajo
+
+**POST** `/api/v1/partes`
+
+Crea un nuevo parte de trabajo.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Body:**
+```json
+{
+  "fecha_trabajo": "2025-01-15",
+  "hora_inicio": "09:00",
+  "hora_fin": "11:30",
+  "id_cliente": 1,
+  "tienda": "Tienda 01",
+  "id_grupo": 1,
+  "id_tipo": 2,
+  "accion": "Reparación de equipos",
+  "ticket": "TKT-12345"
+}
+```
+
+**Respuesta (200):**
+```json
+{
+  "id": 1
+}
+```
+
+**Errores:**
+- `400 Bad Request` - Hora inválida o hora_fin menor que hora_inicio
+
+---
+
+### 4. Actualizar Parte de Trabajo
+
+**PUT** `/api/v1/partes/{id}`
+
+Actualiza un parte de trabajo existente (solo si está en estado editable).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Parámetros:**
+- `id` (long) - ID del parte de trabajo
+
+**Body:**
+```json
+{
+  "fecha_trabajo": "2025-01-15",
+  "hora_inicio": "09:00",
+  "hora_fin": "12:00",
+  "id_cliente": 1,
+  "tienda": "Tienda 01",
+  "id_grupo": 1,
+  "id_tipo": 2,
+  "accion": "Reparación de equipos - Actualizado",
+  "ticket": "TKT-12345",
+  "estado": 1
+}
+```
+
+**Respuesta (200):**
+```json
+{
+  "message": "ok"
+}
+```
+
+**Errores:**
+- `400 Bad Request` - Parte no puede ser editado (estado no editable)
+- `404 Not Found` - Parte no encontrado o no pertenece al usuario
+
+---
+
+### 5. Eliminar Parte de Trabajo
+
+**DELETE** `/api/v1/partes/{id}`
+
+Elimina un parte de trabajo (solo si está en estado editable).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Parámetros:**
+- `id` (long) - ID del parte de trabajo
+
+**Respuesta (200):**
+```json
+{
+  "message": "ok"
+}
+```
+
+**Errores:**
+- `400 Bad Request` - Parte no puede ser eliminado (estado no editable)
+
+---
+
+### 6. Pausar Parte de Trabajo
+
+**POST** `/api/v1/partes/{id}/pause`
+
+Pausa un parte de trabajo en curso.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Respuesta (200):**
+```json
+{
+  "message": "ok",
+  "estado": 2,
+  "estado_nombre": "Pausado"
+}
+```
+
+---
+
+### 7. Reanudar Parte de Trabajo
+
+**POST** `/api/v1/partes/{id}/resume`
+
+Reanuda un parte de trabajo pausado.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Respuesta (200):**
+```json
+{
+  "message": "ok",
+  "estado": 1,
+  "estado_nombre": "Abierto"
+}
+```
+
+**Errores:**
+- `400 Bad Request` - Solo se puede reanudar un parte pausado
+
+---
+
+### 8. Cerrar Parte de Trabajo
+
+**POST** `/api/v1/partes/{id}/close`
+
+Cierra un parte de trabajo.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Respuesta (200):**
+```json
+{
+  "message": "ok",
+  "estado": 3,
+  "estado_nombre": "Cerrado"
+}
+```
+
+---
+
+### 9. Anular Parte de Trabajo
+
+**POST** `/api/v1/partes/{id}/cancel`
+
+Anula un parte de trabajo.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Respuesta (200):**
+```json
+{
+  "message": "ok",
+  "estado": 4,
+  "estado_nombre": "Anulado"
+}
+```
+
+---
+
+### 10. Cambiar Estado de Parte
+
+**POST** `/api/v1/partes/{id}/estado`
+
+Cambia el estado de un parte de trabajo de forma genérica.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Body:**
+```json
+{
+  "estado": 3
+}
+```
+
+**Respuesta (200):**
+```json
+{
+  "message": "ok",
+  "estado": 3,
+  "estado_nombre": "Cerrado"
+}
+```
+
+---
+
+## 📋 Catálogo
+
+Base: `/api/v1/catalog`
+
+**Nota:** Endpoints del módulo de catálogo (implementación pendiente)
 
 ---
 
