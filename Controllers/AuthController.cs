@@ -147,12 +147,31 @@ public class AuthController(
         });
     }
 
+    /// <summary>Refresca el access token usando un refresh token válido. Soporta cookies (web) y JSON body (desktop).</summary>
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh()
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest? bodyRequest)
     {
-        if (!Request.Cookies.TryGetValue("refresh_token", out var rawRefresh) || string.IsNullOrWhiteSpace(rawRefresh))
+        string? rawRefresh = null;
+        bool isDesktopClient = false;
+        
+        // 1️⃣ Intentar obtener desde cookie (clientes web)
+        if (Request.Cookies.TryGetValue("refresh_token", out var cookieToken))
         {
-            logger.LogWarning("Intento de refresh sin token");
+            rawRefresh = cookieToken;
+            logger.LogDebug("Refresh token obtenido desde cookie (cliente web)");
+        }
+        // 2️⃣ Intentar obtener desde body JSON (clientes desktop)
+        else if (bodyRequest != null && !string.IsNullOrWhiteSpace(bodyRequest.RefreshToken))
+        {
+            rawRefresh = bodyRequest.RefreshToken;
+            isDesktopClient = true;
+            logger.LogDebug("Refresh token obtenido desde body JSON (cliente desktop)");
+        }
+        
+        // Validar que se recibió un token
+        if (string.IsNullOrWhiteSpace(rawRefresh))
+        {
+            logger.LogWarning("Intento de refresh sin token (ni cookie ni body JSON)");
             return Unauthorized(new { message = "No refresh token" });
         }
 
@@ -189,12 +208,32 @@ public class AuthController(
 
         await db.SaveChangesAsync();
 
-        SetAccessCookie(newAccess);
-        SetRefreshCookie(newRawRefresh, newRefreshExpires);
+        logger.LogInformation("Refresh exitoso para UserId: {UserId} (Roles: {Roles}, Desktop: {IsDesktop})", 
+            token.User.Id, string.Join(", ", roles), isDesktopClient);
 
-        logger.LogInformation("Token refrescado exitosamente para {UserId}", token.User.Id);
+        // 3️⃣ Respuesta según el tipo de cliente
+        if (isDesktopClient)
+        {
+            // Cliente desktop: devolver tokens en JSON body
+            return Ok(new
+            {
+                accessToken = newAccess,
+                refreshToken = newRawRefresh,
+                expiresAt = newRefreshExpires
+            });
+        }
+        else
+        {
+            // Cliente web: devolver tokens en cookies (comportamiento original)
+            SetAccessCookie(newAccess);
+            SetRefreshCookie(newRawRefresh, newRefreshExpires);
 
-        return Ok(new { message = "ok" });
+            return Ok(new
+            {
+                message = "ok",
+                expiresAt = DateTime.UtcNow.AddMinutes(15)
+            });
+        }
     }
 
     [Authorize]
@@ -1072,4 +1111,10 @@ public class AuthController(
 public record ForcePasswordChangeRequest
 {
     public string Email { get; init; } = "";
+}
+
+// 🆕 NUEVO: Modelo para recibir refresh token desde desktop (JSON body)
+public record RefreshRequest
+{
+    public string? RefreshToken { get; init; }
 }
