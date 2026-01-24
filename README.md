@@ -1,345 +1,211 @@
-﻿# 🚀 GestionTime API
+﻿# GestionTime API
 
-Sistema de gestión de tiempo y recursos empresariales con arquitectura multi-tenant.
+Sistema de gestión de tiempo y recursos empresariales con autenticación robusta y sistema de presencia online.
 
-## 📋 Características Principales
+## 🚀 Características Principales
 
-### 🔐 Autenticación y Seguridad
-- ✅ JWT con cookies HttpOnly
-- ✅ Refresh tokens con rotación automática
-- ✅ Sistema de activación de usuarios por email
-- ✅ Recuperación de contraseña por email
-- ✅ Control de expiración de contraseñas
-- ✅ Roles y permisos (USER, ADMIN, MANAGER)
+- ✅ **Autenticación JWT** con refresh tokens
+- ✅ **Sistema de Presencia** (usuarios online/offline en tiempo real)
+- ✅ **Multi-tenant** con soporte para múltiples clientes
+- ✅ **Gestión de Usuarios** con roles (ADMIN, EDITOR, USER)
+- ✅ **Partes de Trabajo** con estados y tracking
+- ✅ **Perfiles de Usuario** extendidos
+- ✅ **Recuperación de Contraseña** con códigos de verificación
+- ✅ **Registro con Activación** por email
 
-### 📧 Sistema de Email
-- ✅ **MailKit** para envío robusto de emails
-- ✅ Soporte **STARTTLS** (puerto 587)
-- ✅ SMTP configurado con **IONOS**
-- ✅ Templates HTML responsive
-- ✅ Logo embebido en Base64
-- ✅ Emails de activación, recuperación y verificación
+## 🛠️ Stack Tecnológico
 
-### 🗄️ Base de Datos Multi-Tenant
-- ✅ **PostgreSQL** con schema por cliente
-- ✅ Base de datos única: `pss_dvnx`
-- ✅ Migraciones automáticas con EF Core
-- ✅ Seed automático de datos iniciales
-- ✅ Scripts SQL de verificación incluidos
+- **Framework:** ASP.NET Core 8.0
+- **Base de Datos:** PostgreSQL 16
+- **ORM:** Entity Framework Core
+- **Autenticación:** JWT Bearer
+- **Logging:** Serilog
+- **Deploy:** Render.com
 
-### 👥 Gestión de Usuarios
-- ✅ Registro con verificación de email
-- ✅ Activar/Desactivar usuarios (Admin)
-- ✅ Cambio obligatorio de contraseña
-- ✅ Perfiles de usuario extendidos
-- ✅ Auditoría de cambios de contraseña
+## 📋 Requisitos
 
-### 📊 API Features
-- ✅ Swagger UI integrado
-- ✅ Health checks con métricas detalladas
-- ✅ Logging estructurado con Serilog
-- ✅ CORS configurado para múltiples orígenes
-- ✅ Data Protection con claves persistentes
+- .NET 8.0 SDK
+- PostgreSQL 16
+- Visual Studio 2022 / VS Code / Rider
 
-## 🛠️ Tecnologías
-
-- **.NET 8.0** - Framework principal
-- **PostgreSQL 16** - Base de datos
-- **Entity Framework Core 8** - ORM
-- **MailKit** - Envío de emails
-- **Serilog** - Logging estructurado
-- **BCrypt.Net** - Hash de contraseñas
-- **JWT** - Tokens de autenticación
-- **Swagger/OpenAPI** - Documentación API
-
-## 📦 Instalación
-
-### Prerrequisitos
-- .NET 8 SDK
-- PostgreSQL 16+
-- Editor (Visual Studio / VS Code / Rider)
+## 🚀 Inicio Rápido
 
 ### 1. Clonar Repositorio
+
 ```bash
 git clone https://github.com/jakkey1967-dotcom/GestionTimeApi.git
 cd GestionTimeApi
 ```
 
 ### 2. Configurar Base de Datos
-```bash
-# Crear base de datos
-psql -U postgres
-CREATE DATABASE pss_dvnx;
-\q
 
+```bash
+# Editar appsettings.Development.json con tu connection string
 # Aplicar migraciones
 dotnet ef database update
 ```
 
-### 3. Configurar Variables de Entorno
+### 3. Ejecutar
 
-**Development** (`appsettings.Development.json`):
-```json
-{
-  "ConnectionStrings": {
-    "Default": "Host=localhost;Port=5432;Database=pss_dvnx;Username=postgres;Password=postgres"
-  },
-  "Database": {
-    "Schema": "pss_dvnx"
-  },
-  "Email": {
-    "SmtpHost": "smtp.ionos.es",
-    "SmtpPort": "587",
-    "SmtpUser": "envio_noreplica@tdkportal.com",
-    "SmtpPassword": "A4gS9uV2bC5e",
-    "From": "envio_noreplica@tdkportal.com",
-    "FromName": "GestionTime"
-  },
-  "App": {
-    "BaseUrl": "http://localhost:2501"
-  }
-}
-```
-
-**Production** (Variables de entorno en Render):
-```sh
-DATABASE_URL=<auto-configurada>
-DB_SCHEMA=pss_dvnx
-JWT_SECRET_KEY=<tu-secret-key-seguro>
-APP_BASE_URL=https://gestiontimeapi.onrender.com
-ASPNETCORE_ENVIRONMENT=Production
-```
-
-### 4. Ejecutar API
 ```bash
-dotnet run
+dotnet run --project GestionTime.Api.csproj
 ```
 
 La API estará disponible en:
-- **HTTP**: `http://localhost:2501`
-- **HTTPS**: `https://localhost:2502`
-- **Swagger**: `http://localhost:2501/swagger`
+- HTTP: http://localhost:2501
+- HTTPS: https://localhost:2502
+- Swagger: http://localhost:2501/swagger
 
-## 🚀 Deploy en Render
+## 📚 Documentación
 
-### 1. Crear Servicio PostgreSQL
-1. New → PostgreSQL
-2. Name: `pss_dvnx`
-3. Database: `pss_dvnx`
-4. Plan: Free o Starter
+Toda la documentación está en la carpeta [`/docs`](./docs/):
 
-### 2. Crear Web Service
-1. New → Web Service
-2. Connect repository: `GestionTimeApi`
-3. Build Command: `dotnet publish -c Release -o out`
-4. Start Command: `dotnet out/GestionTime.Api.dll`
+### Guías Principales
+- [**IMPLEMENTACION_PRESENCIA.md**](./docs/IMPLEMENTACION_PRESENCIA.md) - Sistema de presencia online
+- [**REFRESH_TOKEN_IMPLEMENTATION.md**](./docs/REFRESH_TOKEN_IMPLEMENTATION.md) - Implementación de refresh tokens
+- [**DEPLOY_CONFIGURATION_COMPLETE.md**](./docs/DEPLOY_CONFIGURATION_COMPLETE.md) - Deploy en Render
+- [**CREATE_ADMIN_USER_GUIDE.md**](./docs/CREATE_ADMIN_USER_GUIDE.md) - Crear usuario admin
 
-### 3. Configurar Variables de Entorno
-```sh
-DATABASE_URL      # Auto-configurada al conectar PostgreSQL
-DB_SCHEMA=pss_dvnx
-JWT_SECRET_KEY=v7ZpQ9mL3H2kN8xR1aT6yW4cE0sB5dU9jF2hK7nP3qL8rM1tX6zA4gS9uV2bC5e
-APP_BASE_URL=https://gestiontimeapi.onrender.com
-ASPNETCORE_ENVIRONMENT=Production
+### Configuración
+- [**CONFIGURATION_VARIABLES.md**](./docs/CONFIGURATION_VARIABLES.md) - Variables de entorno
+- [**CLIENT_CONFIGURATION_SERVICE.md**](./docs/CLIENT_CONFIGURATION_SERVICE.md) - Multi-tenant
+- [**SCHEMA_CONFIG.md**](./docs/SCHEMA_CONFIG.md) - Configuración de schemas
+
+### Troubleshooting
+- [**SAFE_MIGRATION_GUIDE.md**](./docs/SAFE_MIGRATION_GUIDE.md) - Migraciones seguras
+- [**FIX_*.md**](./docs/) - Soluciones a problemas comunes
+
+## 🔐 Endpoints Principales
+
+### Autenticación
+```
+POST /api/v1/auth/login               # Login web (cookies)
+POST /api/v1/auth/login-desktop       # Login desktop (JSON tokens)
+POST /api/v1/auth/refresh             # Renovar tokens
+POST /api/v1/auth/logout              # Logout
+POST /api/v1/auth/logout-desktop      # Logout desktop
+GET  /api/v1/auth/me                  # Info usuario actual
 ```
 
-### 4. Deploy Automático
-- Cada push a `main` despliega automáticamente
-- Logs visibles en Render Dashboard
-- Migraciones se aplican automáticamente
-
-## 📖 Uso de la API
-
-### Registro de Usuario
-```http
-POST /api/v1/auth/register
-Content-Type: application/json
-
-{
-  "email": "usuario@ejemplo.com",
-  "fullName": "Usuario Test",
-  "password": "123456"
-}
+### Presencia (Usuarios Online)
+```
+GET  /api/v1/presence/users                       # Lista usuarios con estado
+POST /api/v1/admin/presence/users/{id}/kick       # Desconectar usuario (admin)
 ```
 
-**Respuesta**:
-```json
-{
-  "success": true,
-  "message": "Registro exitoso. Revisa tu email para activar tu cuenta."
-}
+### Usuarios (Admin)
+```
+GET    /api/v1/admin/users            # Listar usuarios
+POST   /api/v1/admin/users            # Crear usuario
+PUT    /api/v1/admin/users/{id}       # Actualizar usuario
+DELETE /api/v1/admin/users/{id}       # Eliminar usuario
 ```
 
-### Activación por Email
-El usuario recibe un email con un enlace:
+### Partes de Trabajo
 ```
-https://gestiontime-api.onrender.com/api/v1/auth/activate/{token}
-```
-
-Al hacer clic, se muestra una página de confirmación y la cuenta se activa.
-
-### Login
-```http
-POST /api/v1/auth/login
-Content-Type: application/json
-
-{
-  "email": "usuario@ejemplo.com",
-  "password": "123456"
-}
+GET    /api/v1/partes-trabajo         # Listar partes
+POST   /api/v1/partes-trabajo         # Crear parte
+PUT    /api/v1/partes-trabajo/{id}    # Actualizar parte
+DELETE /api/v1/partes-trabajo/{id}    # Eliminar parte
 ```
 
-**Respuesta**:
-```json
-{
-  "message": "ok",
-  "userName": "Usuario Test",
-  "userEmail": "usuario@ejemplo.com",
-  "userRole": "USER"
-}
+Ver documentación completa en [Swagger](https://gestiontimeapi.onrender.com/swagger).
+
+## 🗄️ Estructura del Proyecto
+
+```
+GestionTimeApi/
+├── Controllers/           # Controladores API
+├── Domain/               # Entidades del dominio
+├── Infrastructure/       # Acceso a datos (EF Core)
+├── Middleware/          # Middleware personalizado
+├── Security/            # JWT, autenticación
+├── Services/            # Servicios de negocio
+├── Tools/               # Herramientas CLI
+├── docs/                # 📚 Documentación completa
+├── wwwroot/            # Archivos estáticos comunes
+└── wwwroot-{client}/   # Archivos estáticos por cliente
 ```
 
-Los tokens se envían como cookies HttpOnly (`access_token`, `refresh_token`).
+## 🔧 Herramientas CLI
 
-### Gestión de Usuarios (Admin)
+El proyecto incluye varias herramientas útiles:
 
-**Listar Usuarios**:
-```http
-GET /api/v1/admin/users
-Authorization: Bearer {admin-jwt-token}
-```
-
-**Desactivar Usuario**:
-```http
-PUT /api/v1/admin/users/{userId}/enabled
-Authorization: Bearer {admin-jwt-token}
-Content-Type: application/json
-
-{
-  "enabled": false
-}
-```
-
-**Respuesta**:
-```json
-{
-  "message": "Estado actualizado.",
-  "enabled": false
-}
-```
-
-## 🔧 Scripts Útiles
-
-### Crear Usuario Admin
 ```bash
-dotnet run -- seed-admin
+# Exportar schema de BD
+dotnet run --project GestionTime.Api.csproj -- export-schema
+
+# Crear usuario admin
+dotnet run --project GestionTime.Api.csproj -- seed-admin
+
+# Verificar estado de Render
+dotnet run --project GestionTime.Api.csproj -- check-render
+
+# Backup de base de datos
+dotnet run --project GestionTime.Api.csproj -- backup-client
 ```
 
-O ejecutar SQL:
-```sql
--- Ver Tools/SQL/create_admin_user_complete.sql
-```
+Ver más en [`docs/TOOLS_README.md`](./docs/TOOLS_README.md).
 
-### Verificar Estado de BD
+## 🚀 Deploy en Producción
+
+La API está desplegada en Render:
+- **URL:** https://gestiontimeapi.onrender.com
+- **Health:** https://gestiontimeapi.onrender.com/health
+- **Swagger:** https://gestiontimeapi.onrender.com/swagger
+
+Ver guía completa: [`docs/DEPLOY_CONFIGURATION_COMPLETE.md`](./docs/DEPLOY_CONFIGURATION_COMPLETE.md)
+
+## 🔒 Seguridad
+
+- ✅ JWT con expiración (15 min access, 7 días refresh)
+- ✅ Refresh tokens con rotación
+- ✅ Passwords hasheados con BCrypt
+- ✅ HttpOnly cookies para web
+- ✅ CORS configurado
+- ✅ Rate limiting (opcional)
+- ✅ Logs de auditoría
+
+## 🧪 Testing
+
 ```bash
-psql -U postgres -d pss_dvnx -f Tools/SQL/verify_database.sql
+# Compilar
+dotnet build
+
+# Ejecutar tests (cuando existan)
+dotnet test
+
+# Verificar sincronización con GitHub
+.\verify-github-sync.ps1
 ```
 
-### Backup de Cliente
-```bash
-dotnet run -- backup-client pss_dvnx
-```
+## 📊 Estado del Proyecto
 
-## 📊 Health Check
+**Versión Actual:** v1.2.0  
+**Estado:** ✅ Producción
 
-```http
-GET /health
-```
+### Últimas Actualizaciones
+- ✅ Sistema de presencia implementado (v1.2.0)
+- ✅ Refresh tokens dual (web + desktop) (v1.1.0)
+- ✅ Multi-tenant configurado (v1.0.5)
+- ✅ Autenticación robusta (v1.0.0)
 
-**Respuesta**:
-```json
-{
-  "status": "OK",
-  "timestamp": "2025-01-01T12:00:00Z",
-  "service": "GestionTime API",
-  "version": "1.0.0",
-  "client": "PSS Desarrollo",
-  "clientId": "pss_dvnx",
-  "schema": "pss_dvnx",
-  "environment": "Production",
-  "uptime": "0d 2h 15m 30s",
-  "database": "connected",
-  "configuration": {
-    "jwtAccessMinutes": 15,
-    "jwtRefreshDays": 14,
-    "emailConfirmationRequired": false,
-    "maxUsers": 50
-  }
-}
-```
+Ver [`docs/CHANGELOG_2025-01-01.md`](./docs/CHANGELOG_2025-01-01.md) para más detalles.
 
-## 🐛 Troubleshooting
-
-### Email no se envía
-```bash
-# Verificar configuración SMTP
-dotnet user-secrets list
-
-# Test de conexión
-curl -X POST http://localhost:2501/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","fullName":"Test","password":"123456"}'
-
-# Ver logs
-tail -f logs/gestiontime-*.log
-```
-
-### Error de migraciones
-```bash
-# Resetear migraciones
-dotnet ef database drop -f
-dotnet ef database update
-
-# Ver migraciones pendientes
-dotnet ef migrations list
-```
-
-### Usuario deshabilitado
-```sql
--- Habilitar usuario
-UPDATE pss_dvnx."Users" 
-SET "Enabled" = true 
-WHERE "Email" = 'usuario@ejemplo.com';
-```
-
-## 📝 Documentación
-
-- **Swagger UI**: `http://localhost:2501/swagger`
-- **Changelog**: [CHANGELOG_2025-01-01.md](CHANGELOG_2025-01-01.md)
-- **Quick Start**: [QUICK_START_DATABASE.md](QUICK_START_DATABASE.md)
-- **Troubleshooting**: Ver carpeta `Tools/`
-
-## 🤝 Contribuir
-
-1. Fork el proyecto
-2. Crear feature branch (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit cambios (`git commit -m 'feat: Nueva funcionalidad'`)
-4. Push al branch (`git push origin feature/nueva-funcionalidad`)
-5. Abrir Pull Request
-
-## 📄 Licencia
+## 📝 Licencia
 
 Propietario: TDK Portal  
-Todos los derechos reservados © 2025
+Uso exclusivo para GestionTime
 
-## 👥 Contacto
+## 🤝 Contribuciones
 
-- **Email**: soporte@tdkportal.com
-- **Web**: https://tdkportal.com
-- **GitHub**: https://github.com/jakkey1967-dotcom/GestionTimeApi
+Este es un proyecto privado. Para reportar bugs o sugerencias, contactar al equipo de desarrollo.
+
+## 📞 Contacto
+
+- **Email:** soporte@gestiontime.com
+- **GitHub:** https://github.com/jakkey1967-dotcom/GestionTimeApi
 
 ---
 
-**Última actualización**: 01 Enero 2025  
-**Versión**: 1.0.0  
-**Estado**: ✅ Producción
+**Documentación completa en [`/docs`](./docs/)** 📚
