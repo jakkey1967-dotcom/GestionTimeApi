@@ -176,7 +176,10 @@ dotnet build
 dotnet test
 
 # Verificar sincronización con GitHub
-.\verify-github-sync.ps1
+.\scripts\verify-github-sync.ps1
+
+# Verificar health de la API
+.\scripts\check-health.ps1
 ```
 
 ## 📊 Estado del Proyecto

@@ -77,6 +77,7 @@
 |-----------|-------------|
 | [**TOOLS_README.md**](./TOOLS_README.md) | Herramientas CLI disponibles ⭐ |
 | [**API_ENDPOINTS.md**](./API_ENDPOINTS.md) | Listado completo de endpoints |
+| [**../scripts/README.md**](../scripts/README.md) | Scripts PowerShell útiles ⭐ |
 
 ---
 
