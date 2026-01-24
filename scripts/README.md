@@ -8,11 +8,107 @@ Colección de scripts útiles para administración, deploy y mantenimiento de la
 
 | Script | Descripción | Uso Principal |
 |--------|-------------|---------------|
+| [setup-local.ps1](#setup-localps1) | **Setup inicial completo** | Primera configuración |
 | [check-health.ps1](#check-healthps1) | Verificar estado del endpoint /health | Health check local/producción |
 | [create-admin-user.ps1](#create-admin-userps1) | Crear usuario admin + datos iniciales | Setup inicial |
 | [export_gtdefault.ps1](#export_gtdefaultps1) | Exportar schema gtdefault a CSV | Backup de datos antiguos |
 | [export_schema_dotnet.ps1](#export_schema_dotnetps1) | Exportar cualquier schema a CSV | Backup/migración flexible |
 | [verify-github-sync.ps1](#verify-github-syncps1) | Verificar sincronización con GitHub | Pre-deploy, respaldos |
+
+---
+
+## 🚀 setup-local.ps1
+
+**Propósito:** Configuración automática completa para desarrollo local (TODO EN UNO).
+
+### Características
+- ✅ Verifica/configura PostgreSQL (local o Docker)
+- ✅ Crea base de datos y schema
+- ✅ Restaura paquetes NuGet
+- ✅ Compila el proyecto
+- ✅ Aplica migraciones automáticamente
+- ✅ Crea usuario administrador
+- ✅ Verifica que todo funciona (health check)
+
+### Uso
+
+```powershell
+# Setup completo automático
+.\scripts\setup-local.ps1
+
+# Setup con Docker (recomendado)
+.\scripts\setup-local.ps1 -UseDocker
+
+# Setup con credenciales personalizadas
+.\scripts\setup-local.ps1 `
+  -AdminEmail "admin@local.com" `
+  -AdminPassword "MiPassword123!" `
+  -PostgresPassword "mipassword"
+
+# Solo setup de BD (sin admin)
+.\scripts\setup-local.ps1 -SkipAdmin
+
+# Solo setup de BD (sin migraciones)
+.\scripts\setup-local.ps1 -SkipMigrations
+```
+
+### Parámetros
+
+| Parámetro | Tipo | Default | Descripción |
+|-----------|------|---------|-------------|
+| `-PostgresPassword` | string | `postgres` | Password de PostgreSQL |
+| `-PostgresPort` | int | `5432` | Puerto de PostgreSQL |
+| `-AdminEmail` | string | `admin@local.com` | Email del admin |
+| `-AdminPassword` | string | `Admin123!` | Password del admin |
+| `-UseDocker` | switch | - | Usar Docker en lugar de PostgreSQL local |
+| `-SkipMigrations` | switch | - | No aplicar migraciones |
+| `-SkipAdmin` | switch | - | No crear usuario admin |
+
+### Salida
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║      🚀 SETUP INICIAL - DESARROLLO LOCAL 🚀                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+1️⃣  VERIFICANDO POSTGRESQL
+   ✅ PostgreSQL corriendo en Docker
+
+2️⃣  CREANDO BASE DE DATOS Y SCHEMA
+   ✅ Base de datos configurada
+
+3️⃣  RESTAURANDO PAQUETES NUGET
+   ✅ Paquetes restaurados
+
+4️⃣  COMPILANDO PROYECTO
+   ✅ Compilación exitosa
+
+5️⃣  APLICANDO MIGRACIONES
+   ✅ Migraciones aplicadas
+
+6️⃣  CREANDO USUARIO ADMINISTRADOR
+   ✅ Usuario admin creado
+
+7️⃣  INICIANDO API Y VERIFICANDO HEALTH
+   ✅ API FUNCIONANDO
+
+╔══════════════════════════════════════════════════════════════╗
+║              ✅ SETUP COMPLETADO EXITOSAMENTE ✅             ║
+╚══════════════════════════════════════════════════════════════╝
+
+📋 RESUMEN:
+   ✅ PostgreSQL configurado
+   ✅ Base de datos creada: pss_dvnx
+   ✅ Migraciones aplicadas
+   ✅ Usuario admin creado
+
+🔑 CREDENCIALES DE ADMIN:
+   📧 Email: admin@local.com
+   🔐 Password: Admin123!
+
+🚀 PARA INICIAR LA API:
+   dotnet run --project GestionTime.Api.csproj
+```
 
 ---
 

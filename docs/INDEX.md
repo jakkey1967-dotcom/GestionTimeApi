@@ -9,6 +9,7 @@
 | Documento | Descripción |
 |-----------|-------------|
 | [**README.md**](../README.md) | Introducción y guía rápida del proyecto |
+| [**LOCAL_DEVELOPMENT_SETUP.md**](./LOCAL_DEVELOPMENT_SETUP.md) | Configuración completa para desarrollo local ⭐ |
 | [**QUICK_START_DATABASE.md**](./QUICK_START_DATABASE.md) | Configuración inicial de base de datos |
 | [**CREATE_ADMIN_USER_GUIDE.md**](./CREATE_ADMIN_USER_GUIDE.md) | Crear primer usuario administrador |
 
