@@ -9,8 +9,10 @@ Write-Host "║     🔍 VERIFICACIÓN DE RESPALDO - GitHub Sync Status       �
 Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
-# Cambiar al directorio del proyecto
-Set-Location $PSScriptRoot
+# Cambiar al directorio raíz del proyecto (padre de scripts/)
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectRoot = Split-Path -Parent $scriptPath
+Set-Location $projectRoot
 
 # 1. Estado del Working Tree
 Write-Host "📋 Estado del Working Tree:" -ForegroundColor Yellow
