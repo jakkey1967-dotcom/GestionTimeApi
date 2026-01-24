@@ -1067,8 +1067,27 @@ public class AuthController(
 
         var roles = user.UserRoles.Select(ur => ur.Role.Name).ToArray();
 
-        // Access token (JWT)
-        var accessToken = jwt.CreateAccessToken(user.Id, user.Email, roles);
+        // ✅ CREAR SESIÓN DE USUARIO (para presencia online)
+        var sessionId = Guid.NewGuid();
+        var userIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        
+        var session = new GestionTime.Domain.Auth.UserSession
+        {
+            Id = sessionId,
+            UserId = user.Id,
+            CreatedAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow,
+            RevokedAt = null,
+            Ip = userIp,
+            UserAgent = userAgent?.Length > 500 ? userAgent.Substring(0, 500) : userAgent
+        };
+        
+        db.UserSessions.Add(session);
+        logger.LogDebug("Sesión creada: {SessionId} para usuario {UserId}", sessionId, user.Id);
+
+        // Access token (JWT) con sessionId en claim "sid"
+        var accessToken = jwt.CreateAccessToken(user.Id, user.Email, roles, sessionId);
         
         // Refresh token (raw + hash)
         var (rawRefresh, refreshHash, refreshExpires) = refreshSvc.Create();
@@ -1083,8 +1102,8 @@ public class AuthController(
 
         await db.SaveChangesAsync();
 
-        logger.LogInformation("Login DESKTOP exitoso para {Email} (UserId: {UserId}, Roles: {Roles})", 
-            email, user.Id, string.Join(", ", roles));
+        logger.LogInformation("Login DESKTOP exitoso para {Email} (UserId: {UserId}, SessionId: {SessionId}, Roles: {Roles})", 
+            email, user.Id, sessionId, string.Join(", ", roles));
 
         var role = roles.FirstOrDefault() ?? "Usuario";
         var userName = !string.IsNullOrWhiteSpace(user.FullName) 
@@ -1103,8 +1122,56 @@ public class AuthController(
             // Tokens para Desktop
             accessToken = accessToken,
             refreshToken = rawRefresh,
-            expiresAt = refreshExpires
+            expiresAt = refreshExpires,
+            sessionId = sessionId // Para debug
         });
+    }
+
+    /// <summary>
+    /// Logout para aplicación desktop (revoca sesión y refresh token)
+    /// </summary>
+    [HttpPost("logout-desktop")]
+    [Authorize]
+    public async Task<IActionResult> LogoutDesktop([FromBody] RefreshRequest? req)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var sessionIdClaim = User.FindFirst("sid")?.Value;
+        
+        logger.LogInformation("Logout DESKTOP solicitado (UserId: {UserId}, SessionId: {SessionId})", 
+            userId, sessionIdClaim ?? "N/A");
+
+        // 1. Revocar sesión actual si existe
+        if (!string.IsNullOrEmpty(sessionIdClaim) && Guid.TryParse(sessionIdClaim, out var sessionId))
+        {
+            var session = await db.UserSessions
+                .SingleOrDefaultAsync(s => s.Id == sessionId && s.RevokedAt == null);
+            
+            if (session != null)
+            {
+                session.RevokedAt = DateTime.UtcNow;
+                logger.LogDebug("Sesión revocada: {SessionId}", sessionId);
+            }
+        }
+
+        // 2. Revocar refresh token si se proporciona
+        if (req != null && !string.IsNullOrWhiteSpace(req.RefreshToken))
+        {
+            var hash = RefreshTokenService.Hash(req.RefreshToken);
+            var refreshToken = await db.RefreshTokens
+                .SingleOrDefaultAsync(t => t.TokenHash == hash && t.RevokedAt == null);
+            
+            if (refreshToken != null)
+            {
+                refreshToken.RevokedAt = DateTime.UtcNow;
+                logger.LogDebug("Refresh token revocado");
+            }
+        }
+
+        await db.SaveChangesAsync();
+        
+        logger.LogInformation("Logout DESKTOP completado para UserId: {UserId}", userId);
+        
+        return Ok(new { message = "bye" });
     }
 }
 

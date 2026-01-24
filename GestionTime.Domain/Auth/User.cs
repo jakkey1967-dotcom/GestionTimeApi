@@ -1,4 +1,4 @@
-namespace GestionTime.Domain.Auth;
+﻿namespace GestionTime.Domain.Auth;
 
 public sealed class User
 {
@@ -9,18 +9,19 @@ public sealed class User
     public bool Enabled { get; set; } = true;
     public bool EmailConfirmed { get; set; } = false;
     
-    // Control de expiraci�n de contrase�as
+    // Control de expiración de contraseñas
     public DateTime? PasswordChangedAt { get; set; }
     public bool MustChangePassword { get; set; } = false;
-    public int PasswordExpirationDays { get; set; } = 90; // Por defecto 90 d�as
+    public int PasswordExpirationDays { get; set; } = 90; // Por defecto 90 días
 
     public List<UserRole> UserRoles { get; set; } = new();
     public List<RefreshToken> RefreshTokens { get; set; } = new();
+    public List<UserSession> Sessions { get; set; } = new();
     
-    // Relaci�n 1:1 con UserProfile
+    // Relación 1:1 con UserProfile
     public UserProfile? Profile { get; set; }
     
-    // Propiedades calculadas para control de contrase�as
+    // Propiedades calculadas para control de contraseñas
     public bool IsPasswordExpired => PasswordChangedAt.HasValue && 
         PasswordChangedAt.Value.AddDays(PasswordExpirationDays) < DateTime.UtcNow;
     

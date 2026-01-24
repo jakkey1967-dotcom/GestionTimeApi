@@ -18,6 +18,11 @@ public sealed class JwtService
 
     public string CreateAccessToken(Guid userId, string email, IEnumerable<string> roles)
     {
+        return CreateAccessToken(userId, email, roles, null);
+    }
+
+    public string CreateAccessToken(Guid userId, string email, IEnumerable<string> roles, Guid? sessionId)
+    {
         var issuer = _config["Jwt:Issuer"]!;
         var audience = _config["Jwt:Audience"]!;
         var key = _config["Jwt:Key"]!;
@@ -30,6 +35,12 @@ public sealed class JwtService
             new(ClaimTypes.Name, email)
         };
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+        
+        // Agregar sessionId si está presente (para tracking de presencia)
+        if (sessionId.HasValue)
+        {
+            claims.Add(new Claim("sid", sessionId.Value.ToString()));
+        }
 
         var creds = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
@@ -42,7 +53,8 @@ public sealed class JwtService
             expires: DateTime.UtcNow.AddMinutes(minutes),
             signingCredentials: creds);
 
-        _logger.LogDebug("Access token generado para {UserId}, expira en {Minutes} minutos", userId, minutes);
+        _logger.LogDebug("Access token generado para {UserId}, expira en {Minutes} minutos{SessionInfo}", 
+            userId, minutes, sessionId.HasValue ? $" (session: {sessionId})" : "");
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }

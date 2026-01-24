@@ -24,6 +24,7 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
 
     // WORK
     public DbSet<Cliente> Clientes => Set<Cliente>();
@@ -274,6 +275,35 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Property(x => x.Id).HasColumnName("id");
             e.Property(x => x.FriendlyName).HasColumnName("friendlyname");
             e.Property(x => x.Xml).HasColumnName("xml");
+        });
+
+        // ✅ UserSession (para presencia online)
+        b.Entity<UserSession>(e =>
+        {
+            e.ToTable("user_sessions");
+            e.HasKey(x => x.Id);
+            
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            e.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").IsRequired();
+            e.Property(x => x.LastSeenAt).HasColumnName("last_seen_at").IsRequired();
+            e.Property(x => x.RevokedAt).HasColumnName("revoked_at");
+            e.Property(x => x.DeviceId).HasColumnName("device_id").HasMaxLength(100);
+            e.Property(x => x.DeviceName).HasColumnName("device_name").HasMaxLength(200);
+            e.Property(x => x.Ip).HasColumnName("ip").HasMaxLength(45);
+            e.Property(x => x.UserAgent).HasColumnName("user_agent").HasMaxLength(500);
+            
+            // Índices para performance
+            e.HasIndex(x => x.UserId).HasDatabaseName("idx_sessions_user_id");
+            e.HasIndex(x => x.LastSeenAt).HasDatabaseName("idx_sessions_last_seen");
+            e.HasIndex(x => new { x.UserId, x.RevokedAt }).HasDatabaseName("idx_sessions_user_active");
+            
+            // Relación con User
+            e.HasOne(x => x.User).WithMany(u => u.Sessions)
+             .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+             
+            // Ignorar propiedades calculadas
+            e.Ignore(x => x.IsActive);
         });
     }
 

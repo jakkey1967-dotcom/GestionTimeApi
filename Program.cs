@@ -1,4 +1,5 @@
 ﻿using GestionTime.Api.Logging;
+using GestionTime.Api.Middleware;
 using GestionTime.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
@@ -668,6 +669,9 @@ try
     app.UseCors("WebClient");
     app.UseAuthentication();
     app.UseAuthorization();
+    
+    // ✅ Middleware de presencia (después de autenticación)
+    app.UsePresenceTracking();
 
     app.MapControllers();
 
