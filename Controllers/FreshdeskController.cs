@@ -778,7 +778,7 @@ public class FreshdeskController : ControllerBase
     /// <param name="days">Número de días hacia atrás (solo para mode=recent)</param>
     /// <param name="limit">Límite máximo de tickets a procesar</param>
     [HttpPost("tags/sync")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,ADMIN")]
     public async Task<IActionResult> SyncTags(
         [FromQuery] string mode = "recent",
         [FromQuery] int days = 30,
