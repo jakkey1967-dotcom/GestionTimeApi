@@ -10,5 +10,7 @@ public sealed record UpdateParteRequest(
     int? id_tipo,
     string? accion,
     string? ticket,
-    int? estado            // Opcional - 0=Abierto, 1=Pausado, 2=Cerrado, 3=Enviado, 9=Anulado
+    int? estado,           // Opcional - 0=Abierto, 1=Pausado, 2=Cerrado, 3=Enviado, 9=Anulado
+    string[]? tags         // Opcional - array de tags (null = sin cambios, [] = vaciar)
 );
+

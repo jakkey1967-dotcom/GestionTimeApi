@@ -1,9 +1,9 @@
-#!/bin/bash
+Ôªø#!/bin/bash
 
-# ?? Script de verificaciÛn r·pida - Solo para comprobar que la API arranca
+# ?? Script de verificaci√≥n r√°pida - Solo para comprobar que la API arranca
 # Uso: ./quick-test.sh
 
-echo "?? VerificaciÛn r·pida de GestionTime API"
+echo "?? Verificaci√≥n r√°pida de GestionTime API"
 echo "=========================================="
 
 API_URL="https://localhost:2501"
@@ -12,7 +12,7 @@ echo "? Esperando 10 segundos para que la API arranque..."
 sleep 10
 
 echo ""
-echo "?? Probando endpoints b·sicos..."
+echo "?? Probando endpoints b√°sicos..."
 
 # Test 1: Health Check
 echo "1?? Health Check:"
@@ -40,13 +40,13 @@ else
 fi
 
 echo ""
-echo "?? VerificaciÛn completada"
+echo "?? Verificaci√≥n completada"
 echo "=========================="
 echo ""
-echo "?? Si todo est· en verde, puedes acceder a:"
-echo "   ï API: $API_URL"
-echo "   ï Swagger: $API_URL/swagger"
+echo "?? Si todo est√° en verde, puedes acceder a:"
+echo "   ‚Ä¢ API: $API_URL"
+echo "   ‚Ä¢ Swagger: $API_URL/swagger"
 echo ""
 echo "?? Credenciales de prueba:"
-echo "   ï admin@gestiontime.local / admin123"
-echo "   ï psantos@global-retail.com / psantos123"
+echo "   ‚Ä¢ admin@gestiontime.local / admin123"
+echo "   ‚Ä¢ psantos@global-retail.com / psantos123"

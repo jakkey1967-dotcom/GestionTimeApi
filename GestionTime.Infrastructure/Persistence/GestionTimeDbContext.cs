@@ -1,5 +1,6 @@
 ﻿using GestionTime.Domain.Auth;
 using GestionTime.Domain.Work;
+using GestionTime.Domain.Freshdesk;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -31,9 +32,14 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<Grupo> Grupos => Set<Grupo>();
     public DbSet<Tipo> Tipos => Set<Tipo>();
     public DbSet<ParteDeTrabajo> PartesDeTrabajo => Set<ParteDeTrabajo>();
+    public DbSet<ParteTag> ParteTags => Set<ParteTag>();
     
     // ✅ Data Protection Keys
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+    
+    // ✅ Freshdesk
+    public DbSet<FreshdeskAgentMap> FreshdeskAgentMaps => Set<FreshdeskAgentMap>();
+    public DbSet<FreshdeskTag> FreshdeskTags => Set<FreshdeskTag>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -266,11 +272,49 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.ToTable(t => t.HasCheckConstraint("ck_partes_horas_validas", "hora_fin >= hora_inicio"));
         });
         
+        // ✅ Configurar ParteTag (tabla puente N:N - usa freshdesk_tags)
+        b.Entity<ParteTag>(e =>
+        {
+            e.ToTable("parte_tags");
+            
+            // Clave compuesta
+            e.HasKey(x => new { x.ParteId, x.TagName });
+            
+            e.Property(x => x.ParteId)
+                .HasColumnName("parte_id");
+            
+            e.Property(x => x.TagName)
+                .HasColumnName("tag_name")
+                .HasMaxLength(100) // ← Mismo límite que freshdesk_tags
+                .IsRequired();
+            
+            // Relación con ParteDeTrabajo
+            e.HasOne(x => x.Parte)
+                .WithMany(p => p.ParteTags)
+                .HasForeignKey(x => x.ParteId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            // Relación con freshdesk_tags
+            e.HasOne<FreshdeskTag>()
+                .WithMany()
+                .HasForeignKey(x => x.TagName)
+                .HasPrincipalKey(t => t.Name)
+                .OnDelete(DeleteBehavior.Restrict); // No borrar tag si está en uso
+            
+            // Índices
+            e.HasIndex(x => x.ParteId)
+                .HasDatabaseName("idx_parte_tags_parte_id");
+            
+            e.HasIndex(x => x.TagName)
+                .HasDatabaseName("idx_parte_tags_tag_name");
+        });
+        
         // ✅ Configurar DataProtectionKeys con schema dinámico
         b.Entity<DataProtectionKey>(e =>
         {
             e.ToTable("dataprotectionkeys"); // ✅ Forzar minúsculas
             e.HasKey(x => x.Id);
+
             
             e.Property(x => x.Id).HasColumnName("id");
             e.Property(x => x.FriendlyName).HasColumnName("friendlyname");
@@ -304,6 +348,33 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
              
             // Ignorar propiedades calculadas
             e.Ignore(x => x.IsActive);
+        });
+        
+        // ✅ Freshdesk Agent Map (caché de agentId por usuario)
+        b.Entity<FreshdeskAgentMap>(e =>
+        {
+            e.ToTable("freshdesk_agent_map");
+            e.HasKey(x => x.UserId);
+            
+            e.Property(x => x.UserId).HasColumnName("user_id");
+            e.Property(x => x.Email).HasColumnName("email").HasMaxLength(200).IsRequired();
+            e.Property(x => x.AgentId).HasColumnName("agent_id").IsRequired();
+            e.Property(x => x.SyncedAt).HasColumnName("synced_at").IsRequired();
+            
+            e.HasIndex(x => x.Email).HasDatabaseName("idx_freshdesk_agent_email");
+        });
+        
+        // ✅ Freshdesk Tags (caché de tags sincronizados)
+        b.Entity<FreshdeskTag>(e =>
+        {
+            e.ToTable("freshdesk_tags");
+            e.HasKey(x => x.Name);
+            
+            e.Property(x => x.Name).HasColumnName("name").HasMaxLength(100);
+            e.Property(x => x.Source).HasColumnName("source").HasMaxLength(50).IsRequired();
+            e.Property(x => x.LastSeenAt).HasColumnName("last_seen_at").IsRequired();
+            
+            e.HasIndex(x => x.LastSeenAt).HasDatabaseName("idx_freshdesk_tags_last_seen");
         });
     }
 

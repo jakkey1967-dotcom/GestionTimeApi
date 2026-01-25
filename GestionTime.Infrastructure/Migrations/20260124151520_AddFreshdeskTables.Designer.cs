@@ -3,6 +3,7 @@ using System;
 using GestionTime.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GestionTime.Infrastructure.Migrations
 {
     [DbContext(typeof(GestionTimeDbContext))]
-    partial class GestionTimeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260124151520_AddFreshdeskTables")]
+    partial class AddFreshdeskTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -512,28 +515,6 @@ namespace GestionTime.Infrastructure.Migrations
                         });
                 });
 
-            modelBuilder.Entity("GestionTime.Domain.Work.ParteTag", b =>
-                {
-                    b.Property<long>("ParteId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("parte_id");
-
-                    b.Property<string>("TagName")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("tag_name");
-
-                    b.HasKey("ParteId", "TagName");
-
-                    b.HasIndex("ParteId")
-                        .HasDatabaseName("idx_parte_tags_parte_id");
-
-                    b.HasIndex("TagName")
-                        .HasDatabaseName("idx_parte_tags_tag_name");
-
-                    b.ToTable("parte_tags", "pss_dvnx");
-                });
-
             modelBuilder.Entity("GestionTime.Domain.Work.Tipo", b =>
                 {
                     b.Property<int>("IdTipo")
@@ -631,23 +612,6 @@ namespace GestionTime.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("GestionTime.Domain.Work.ParteTag", b =>
-                {
-                    b.HasOne("GestionTime.Domain.Work.ParteDeTrabajo", "Parte")
-                        .WithMany("ParteTags")
-                        .HasForeignKey("ParteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GestionTime.Domain.Freshdesk.FreshdeskTag", null)
-                        .WithMany()
-                        .HasForeignKey("TagName")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Parte");
-                });
-
             modelBuilder.Entity("GestionTime.Domain.Auth.Role", b =>
                 {
                     b.Navigation("UserRoles");
@@ -662,11 +626,6 @@ namespace GestionTime.Infrastructure.Migrations
                     b.Navigation("Sessions");
 
                     b.Navigation("UserRoles");
-                });
-
-            modelBuilder.Entity("GestionTime.Domain.Work.ParteDeTrabajo", b =>
-                {
-                    b.Navigation("ParteTags");
                 });
 #pragma warning restore 612, 618
         }

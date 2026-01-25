@@ -9,6 +9,8 @@ public sealed record CreateParteRequest(
     int? id_grupo,
     int? id_tipo,
     string accion,
-    string? ticket
+    string? ticket,
+    string[]? tags        // Opcional - array de tags
 );
+
 

@@ -1,5 +1,6 @@
 ﻿using GestionTime.Api.Contracts.Work;
 using GestionTime.Domain.Work;
+using GestionTime.Domain.Freshdesk;
 using GestionTime.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace GestionTime.Api.Controllers;
+
 
 [ApiController]
 [Route("api/v1/partes")]
@@ -122,7 +124,8 @@ public class PartesDeTrabajoController : ControllerBase
                 Cliente = (c.NombreComercial ?? c.Nombre),
                 Grupo = g != null ? g.Nombre : null,
                 Tipo = t != null ? t.Nombre : null,
-                Tecnico = u.FullName
+                Tecnico = u.FullName,
+                Tags = p.ParteTags.Select(pt => pt.TagName).ToList()
             }
         ).ToListAsync();
 
@@ -146,7 +149,8 @@ public class PartesDeTrabajoController : ControllerBase
             estado = x.Estado,
             estado_nombre = EstadoParte.ObtenerNombre(x.Estado),
             created_at = x.CreatedAt,
-            updated_at = x.UpdatedAt
+            updated_at = x.UpdatedAt,
+            tags = x.Tags.OrderBy(t => t).ToArray()
         }).ToList();
 
         _logger.LogInformation("Usuario {UserId} listó {Count} partes de trabajo", userId, items.Count);
@@ -213,9 +217,16 @@ public class PartesDeTrabajoController : ControllerBase
         };
 
         db.PartesDeTrabajo.Add(entity);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(); // Guardar para obtener el ID
 
-        _logger.LogInformation("Parte de trabajo creado: {ParteId} por usuario {UserId}", entity.Id, userId);
+        // Procesar tags si se enviaron
+        if (req.tags != null)
+        {
+            await SyncParteTagsAsync(entity.Id, req.tags);
+        }
+
+        _logger.LogInformation("Parte de trabajo creado: {ParteId} por usuario {UserId} con {TagCount} tags", 
+            entity.Id, userId, req.tags?.Length ?? 0);
 
         return Ok(new { id = entity.Id });
     }
@@ -314,6 +325,13 @@ public class PartesDeTrabajoController : ControllerBase
         }
 
         entity.UpdatedAt = DateTime.UtcNow;
+        
+        // Procesar tags si se enviaron (null = sin cambios, [] = vaciar)
+        if (req.tags != null)
+        {
+            await SyncParteTagsAsync(id, req.tags);
+            _logger.LogInformation("Tags actualizadas para parte {ParteId}: {TagCount} tags", id, req.tags.Length);
+        }
 
         await db.SaveChangesAsync();
 
@@ -511,5 +529,131 @@ public class PartesDeTrabajoController : ControllerBase
 
     private static bool TryParseTime(string s, out TimeOnly t)
         => TimeOnly.TryParseExact(s, "HH:mm", out t);
+    
+    /// <summary>
+    /// PUT /api/v1/partes/{id}/tags - Reemplazar tags de un parte
+    /// </summary>
+    [HttpPut("{id:long}/tags")]
+    public async Task<IActionResult> UpdateTags(long id, [FromBody] UpdateTagsRequest req)
+    {
+        var userId = GetUserId();
+        _logger.LogInformation("Usuario {UserId} actualizando tags del parte {ParteId}", userId, id);
+        
+        if (req == null || req.tags == null)
+        {
+            return BadRequest(new { message = "Body inválido. Se requiere { tags: [...] }" });
+        }
+        
+        var entity = await db.PartesDeTrabajo
+            .Include(p => p.ParteTags)
+            .SingleOrDefaultAsync(x => x.Id == id && x.IdUsuario == userId);
+        
+        if (entity is null)
+        {
+            _logger.LogWarning("Parte {ParteId} no encontrado o no pertenece al usuario {UserId}", id, userId);
+            return NotFound(new { message = "Parte no encontrado" });
+        }
+        
+        await SyncParteTagsAsync(id, req.tags);
+        
+        _logger.LogInformation("Tags actualizadas para parte {ParteId}: {TagCount} tags", id, req.tags.Length);
+        
+        // Recargar con tags actualizadas
+        var updated = await db.PartesDeTrabajo
+            .Include(p => p.ParteTags)
+            .FirstAsync(p => p.Id == id);
+        
+        return Ok(new
+        {
+            message = "ok",
+            parte_id = id,
+            tags = updated.ParteTags.Select(pt => pt.TagName).OrderBy(t => t).ToArray()
+        });
+    }
+    
+    /// <summary>
+    /// Sincroniza tags de un parte (replace completo)
+    /// </summary>
+    private async Task SyncParteTagsAsync(long parteId, string[] tags)
+    {
+        var now = DateTime.UtcNow; // FreshdeskTag usa DateTime
+        
+        // Normalizar y validar tags
+        var normalizedTags = tags
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.Trim().ToLowerInvariant())
+            .Where(t => t.Length <= 100) // Límite de freshdesk_tags
+            .Distinct()
+            .Take(20) // Límite máximo de 20 tags por parte
+            .ToList();
+        
+        // Obtener tags actuales del parte
+        var currentTags = await db.ParteTags
+            .Where(pt => pt.ParteId == parteId)
+            .Select(pt => pt.TagName)
+            .ToListAsync();
+        
+        var currentSet = currentTags.ToHashSet();
+        var newSet = normalizedTags.ToHashSet();
+        
+        // Tags a eliminar
+        var tagsToRemove = currentSet.Except(newSet).ToList();
+        if (tagsToRemove.Any())
+        {
+            var toRemove = db.ParteTags.Where(pt => pt.ParteId == parteId && tagsToRemove.Contains(pt.TagName));
+            db.ParteTags.RemoveRange(toRemove);
+        }
+        
+        // Tags a agregar
+        var tagsToAdd = newSet.Except(currentSet).ToList();
+        foreach (var tagName in tagsToAdd)
+        {
+            // Upsert en catálogo de tags (freshdesk_tags)
+            var tag = await db.FreshdeskTags.FindAsync(tagName);
+            if (tag == null)
+            {
+                db.FreshdeskTags.Add(new FreshdeskTag
+                {
+                    Name = tagName,
+                    Source = "local", // Origen: partes de trabajo
+                    LastSeenAt = now
+                });
+            }
+            else
+            {
+                tag.LastSeenAt = now;
+                // Si era de freshdesk, ahora es 'both'
+                if (tag.Source == "freshdesk")
+                {
+                    tag.Source = "both";
+                }
+            }
+            
+            // Crear relación parte-tag
+            db.ParteTags.Add(new ParteTag
+            {
+                ParteId = parteId,
+                TagName = tagName
+            });
+        }
+        
+        // Actualizar last_seen_at de tags que ya estaban y siguen
+        var tagsToUpdate = currentSet.Intersect(newSet).ToList();
+        if (tagsToUpdate.Any())
+        {
+            var tagsEntities = await db.FreshdeskTags.Where(t => tagsToUpdate.Contains(t.Name)).ToListAsync();
+            foreach (var tag in tagsEntities)
+            {
+                tag.LastSeenAt = now;
+            }
+        }
+        
+        await db.SaveChangesAsync();
+        
+        _logger.LogDebug("Tags sync: +{Add} -{Remove} ={Keep}", tagsToAdd.Count, tagsToRemove.Count, tagsToUpdate.Count);
+    }
 }
+
+public sealed record UpdateTagsRequest(string[] tags);
+
 

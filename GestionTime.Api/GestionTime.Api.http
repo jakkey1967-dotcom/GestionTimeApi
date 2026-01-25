@@ -1,6 +1,0 @@
-@GestionTime.Api_HostAddress = http://localhost:2501
-
-GET {{GestionTime.Api_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

@@ -1,4 +1,4 @@
-﻿# Dockerfile V2 CLEAN - Sin referencias a AddNpgSql
+﻿# Dockerfile para Render - Optimizado
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 WORKDIR /app
@@ -28,11 +28,18 @@ WORKDIR /app
 
 # Instalar curl y crear directorio logs
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /app/logs
+    mkdir -p /app/logs && chmod 777 /app/logs
 
 COPY --from=build /app/publish .
 
+# Variables de entorno
 ENV ASPNETCORE_ENVIRONMENT=Production
-ENV ASPNETCORE_URLS=http://0.0.0.0:$PORT
+
+# Render usa la variable PORT dinamicamente
+# Si PORT no existe, usar 8080 por defecto
+ENV ASPNETCORE_URLS=http://0.0.0.0:${PORT:-8080}
+
+# Exponer puerto 8080 (Render lo mapea automaticamente)
+EXPOSE 8080
 
 ENTRYPOINT ["dotnet", "GestionTime.Api.dll"]

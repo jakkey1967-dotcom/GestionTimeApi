@@ -3,6 +3,7 @@ using System;
 using GestionTime.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GestionTime.Infrastructure.Migrations
 {
     [DbContext(typeof(GestionTimeDbContext))]
-    partial class GestionTimeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260125110057_AddPartesTagsWithFreshdeskTags")]
+    partial class AddPartesTagsWithFreshdeskTags
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

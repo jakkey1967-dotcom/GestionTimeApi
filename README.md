@@ -51,6 +51,27 @@ dotnet ef database update
 dotnet run --project GestionTime.Api.csproj
 ```
 
+> **Nota importante**: El proyecto principal es `GestionTime.Api.csproj` en la raíz del repositorio. No usar carpetas duplicadas o archivadas.
+
+## 🧹 Limpieza del Repositorio
+
+Si necesitas limpiar artefactos de build, logs antiguos o archivos temporales:
+
+```powershell
+.\scripts\cleanup.ps1
+```
+
+Este script automáticamente:
+- ✅ Limpia carpetas de build (`bin/`, `obj/`, `.vs/`)
+- ✅ Archiva logs antiguos en `_logs_archive/`
+- ✅ Mueve carpetas duplicadas a `_ARCHIVE_APIS/`
+- ✅ Limpia archivos de backup
+- ✅ Actualiza el tracking de Git
+
+
+dotnet run --project GestionTime.Api.csproj
+```
+
 La API estará disponible en:
 - HTTP: http://localhost:2501
 - HTTPS: https://localhost:2502

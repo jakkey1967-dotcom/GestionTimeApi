@@ -43,6 +43,9 @@ public sealed class ParteDeTrabajo
 
     // Fecha de última actualización (UTC)
     public DateTime UpdatedAt { get; set; }
+    
+    // Navegación a tags (N:N)
+    public ICollection<ParteTag> ParteTags { get; set; } = new List<ParteTag>();
 
     // Métodos de conveniencia
     public bool EstaAbierto => Estado == EstadoParte.Abierto;
@@ -53,3 +56,18 @@ public sealed class ParteDeTrabajo
     public bool PuedeEditar => EstadoParte.PuedeEditar(Estado);
     public string EstadoNombre => EstadoParte.ObtenerNombre(Estado);
 }
+
+/// <summary>
+/// Tabla puente N:N entre Partes y Tags (usa freshdesk_tags)
+/// </summary>
+public sealed class ParteTag
+{
+    public long ParteId { get; set; }
+    public string TagName { get; set; } = string.Empty;
+    
+    // Navegación
+    public ParteDeTrabajo Parte { get; set; } = null!;
+    // NO tiene navegación a FreshdeskTag para evitar conflictos
+}
+
+

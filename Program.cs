@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using Serilog.Events;
 using System.Text;
 using Npgsql;
 
@@ -78,6 +79,13 @@ if (args.Length > 0 && args[0] == "verify-password")
     return;
 }
 
+// Si se invoca con argumentos "reset-password", resetear contraseña de usuario
+if (args.Length > 0 && args[0] == "reset-password")
+{
+    await GestionTime.Api.Tools.ResetUserPassword.Main(args.Skip(1).ToArray());
+    return;
+}
+
 // Si se invoca con argumentos "backup-client", hacer backup completo
 if (args.Length > 0 && args[0] == "backup-client")
 {
@@ -129,8 +137,24 @@ try
         Log.Information("Configurado para desarrollo local: HTTP={HttpPort}, HTTPS={HttpsPort}", port, "2502");
     }
 
-    // Configurar Serilog con archivos separados
-    SerilogConfiguration.ConfigureSerilog(builder);
+    // ✅ Configurar Serilog con consola Y archivo
+    builder.Host.UseSerilog((context, configuration) =>
+    {
+        configuration
+            .ReadFrom.Configuration(context.Configuration)
+            .Enrich.FromLogContext()
+            .Enrich.WithProperty("Application", "GestionTime")
+            .Enrich.WithProperty("Environment", context.HostingEnvironment.EnvironmentName)
+            .WriteTo.Console(
+                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
+            .WriteTo.File(
+                path: "logs/log-.txt",
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 7,
+                outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
+
+        Log.Information("✅ Serilog configurado: Consola + Archivo (logs/log-.txt)");
+    });
 
     // Controllers
     builder.Services.AddControllers();
@@ -233,8 +257,15 @@ try
     
     Log.Information("📦 Base de datos: pss_dvnx | Schema: {Schema}", dbSchema);
     
-    // ✅ CREAR BASE DE DATOS Y SCHEMA SI NO EXISTEN
-    await EnsureDatabaseAndSchemaExistAsync(connectionString, dbSchema);
+    // ✅ CREAR BASE DE DATOS Y SCHEMA SI NO EXISTEN (solo en desarrollo local)
+    if (builder.Environment.IsDevelopment() && connectionString.Contains("localhost"))
+    {
+        await EnsureDatabaseAndSchemaExistAsync(connectionString, dbSchema);
+    }
+    else
+    {
+        Log.Information("⏭️  Saltando verificación de BD (conexión remota)");
+    }
     
     builder.Services.AddDbContext<GestionTimeDbContext>((serviceProvider, opt) =>
     {
@@ -252,8 +283,18 @@ try
     builder.Services.AddScoped<GestionTime.Api.Services.EmailVerificationTokenService>();
     builder.Services.AddScoped<GestionTime.Api.Services.IEmailService, GestionTime.Api.Services.SmtpEmailService>();
     
+    
     // ✅ Servicio centralizado de configuración de clientes
     builder.Services.AddSingleton<GestionTime.Api.Services.ClientConfigurationService>();
+    
+    // ✅ Freshdesk Integration
+    builder.Services.Configure<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions>(
+        builder.Configuration.GetSection(GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions.SectionName));
+    builder.Services.AddHttpClient<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskClient>();
+    builder.Services.AddScoped<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskService>();
+    
+    // ✅ Freshdesk Background Service - Sincronización automática de tags
+    builder.Services.AddHostedService<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskSyncBackgroundService>();
     
     // ✅ Data Protection - Persistir claves en PostgreSQL
     builder.Services.AddDataProtection()
@@ -674,6 +715,9 @@ try
     app.UsePresenceTracking();
 
     app.MapControllers();
+    
+    // ✅ Health Check endpoint para Render
+    app.MapHealthChecks("/health");
 
     Log.Information("GestionTime API iniciada correctamente en puerto {Port}", port);
 
@@ -696,8 +740,20 @@ static string GetConnectionString(IConfiguration configuration)
 {
     var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
     
-    // Si DATABASE_URL existe y es formato URL de Render
-    if (!string.IsNullOrEmpty(databaseUrl) && databaseUrl.StartsWith("postgresql://"))
+    // Si no hay DATABASE_URL, usar connection string de configuración
+    if (string.IsNullOrEmpty(databaseUrl))
+    {
+        databaseUrl = configuration.GetConnectionString("Default");
+    }
+    
+    // Si es null o vacío, lanzar error
+    if (string.IsNullOrEmpty(databaseUrl))
+    {
+        throw new InvalidOperationException("No se encontró connection string");
+    }
+    
+    // Si la cadena es formato URL de PostgreSQL, convertirla
+    if (databaseUrl.StartsWith("postgresql://"))
     {
         Log.Information("Detectado DATABASE_URL en formato Render, convirtiendo...");
         
@@ -719,12 +775,12 @@ static string GetConnectionString(IConfiguration configuration)
         catch (Exception ex)
         {
             Log.Error(ex, "Error convirtiendo DATABASE_URL, usando connection string de configuración");
+            throw;
         }
     }
     
-    // Fallback: usar connection string de appsettings
-    return configuration.GetConnectionString("Default") 
-           ?? throw new InvalidOperationException("No se encontró connection string");
+    // Si no es formato URL, devolverla tal cual (formato Npgsql estándar)
+    return databaseUrl;
 }
 
 /// <summary>
