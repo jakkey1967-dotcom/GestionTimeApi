@@ -92,66 +92,135 @@ public class PartesDeTrabajoController : ControllerBase
         if (estado.HasValue)
             baseQuery = baseQuery.Where(p => p.Estado == estado.Value);
 
-        var rows = await (
-            from p in baseQuery
-            join c in db.Clientes on p.IdCliente equals c.Id
-            join u in db.Users on p.IdUsuario equals u.Id
-
-            join g0 in db.Grupos on p.IdGrupo equals (int?)g0.IdGrupo into gj
-            from g in gj.DefaultIfEmpty()
-
-            join t0 in db.Tipos on p.IdTipo equals (int?)t0.IdTipo into tj
-            from t in tj.DefaultIfEmpty()
-
-            // ✅ Ordenar de más nuevo a más antiguo (fecha descendente, luego hora descendente)
-            orderby p.FechaTrabajo descending, p.HoraInicio descending
-            select new
-            {
-                p.Id,
-                p.FechaTrabajo,
-                p.HoraInicio,
-                p.HoraFin,
-                p.Ticket,
-                p.Accion,
-                p.Tienda,
-                p.Estado,
-                p.CreatedAt,
-                p.UpdatedAt,
-                p.IdCliente,
-                p.IdGrupo,
-                p.IdTipo,
-
-                Cliente = (c.NombreComercial ?? c.Nombre),
-                Grupo = g != null ? g.Nombre : null,
-                Tipo = t != null ? t.Nombre : null,
-                Tecnico = u.FullName,
-                Tags = p.ParteTags.Select(pt => pt.TagName).ToList()
-            }
-        ).ToListAsync();
-
-        var items = rows.Select(x => new
+        List<dynamic> items;
+        
+        try
         {
-            id = x.Id,
-            fecha = x.FechaTrabajo,
-            cliente = x.Cliente,
-            id_cliente = x.IdCliente,
-            tienda = x.Tienda,
-            accion = x.Accion,
-            horainicio = x.HoraInicio.ToString("HH:mm"),
-            horafin = x.HoraFin.ToString("HH:mm"),
-            duracion_min = (int)(x.HoraFin.ToTimeSpan() - x.HoraInicio.ToTimeSpan()).TotalMinutes,
-            ticket = x.Ticket,
-            grupo = x.Grupo,
-            id_grupo = x.IdGrupo,
-            tipo = x.Tipo,
-            id_tipo = x.IdTipo,
-            tecnico = x.Tecnico,
-            estado = x.Estado,
-            estado_nombre = EstadoParte.ObtenerNombre(x.Estado),
-            created_at = x.CreatedAt,
-            updated_at = x.UpdatedAt,
-            tags = x.Tags.OrderBy(t => t).ToArray()
-        }).ToList();
+            var rows = await (
+                from p in baseQuery
+                join c in db.Clientes on p.IdCliente equals c.Id
+                join u in db.Users on p.IdUsuario equals u.Id
+
+                join g0 in db.Grupos on p.IdGrupo equals (int?)g0.IdGrupo into gj
+                from g in gj.DefaultIfEmpty()
+
+                join t0 in db.Tipos on p.IdTipo equals (int?)t0.IdTipo into tj
+                from t in tj.DefaultIfEmpty()
+
+                // ✅ Ordenar de más nuevo a más antiguo (fecha descendente, luego hora descendente)
+                orderby p.FechaTrabajo descending, p.HoraInicio descending
+                select new
+                {
+                    p.Id,
+                    p.FechaTrabajo,
+                    p.HoraInicio,
+                    p.HoraFin,
+                    p.Ticket,
+                    p.Accion,
+                    p.Tienda,
+                    p.Estado,
+                    p.CreatedAt,
+                    p.UpdatedAt,
+                    p.IdCliente,
+                    p.IdGrupo,
+                    p.IdTipo,
+
+                    Cliente = (c.NombreComercial ?? c.Nombre),
+                    Grupo = g != null ? g.Nombre : null,
+                    Tipo = t != null ? t.Nombre : null,
+                    Tecnico = u.FullName,
+                    Tags = p.ParteTags.Select(pt => pt.TagName).ToList()
+                }
+            ).ToListAsync();
+
+            items = rows.Select(x => new
+            {
+                id = x.Id,
+                fecha = x.FechaTrabajo,
+                cliente = x.Cliente,
+                id_cliente = x.IdCliente,
+                tienda = x.Tienda,
+                accion = x.Accion,
+                horainicio = x.HoraInicio.ToString("HH:mm"),
+                horafin = x.HoraFin.ToString("HH:mm"),
+                duracion_min = (int)(x.HoraFin.ToTimeSpan() - x.HoraInicio.ToTimeSpan()).TotalMinutes,
+                ticket = x.Ticket,
+                grupo = x.Grupo,
+                id_grupo = x.IdGrupo,
+                tipo = x.Tipo,
+                id_tipo = x.IdTipo,
+                tecnico = x.Tecnico,
+                estado = x.Estado,
+                estado_nombre = EstadoParte.ObtenerNombre(x.Estado),
+                created_at = x.CreatedAt,
+                updated_at = x.UpdatedAt,
+                tags = x.Tags.OrderBy(t => t).ToArray()
+            } as dynamic).ToList();
+        }
+        catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P01") // UndefinedTable
+        {
+            _logger.LogWarning("Tags deshabilitadas en GET: tabla pss_dvnx.parte_tags no existe. Devolviendo partes sin tags");
+            
+            // Query alternativa sin tags
+            var rows = await (
+                from p in baseQuery
+                join c in db.Clientes on p.IdCliente equals c.Id
+                join u in db.Users on p.IdUsuario equals u.Id
+
+                join g0 in db.Grupos on p.IdGrupo equals (int?)g0.IdGrupo into gj
+                from g in gj.DefaultIfEmpty()
+
+                join t0 in db.Tipos on p.IdTipo equals (int?)t0.IdTipo into tj
+                from t in tj.DefaultIfEmpty()
+
+                orderby p.FechaTrabajo descending, p.HoraInicio descending
+                select new
+                {
+                    p.Id,
+                    p.FechaTrabajo,
+                    p.HoraInicio,
+                    p.HoraFin,
+                    p.Ticket,
+                    p.Accion,
+                    p.Tienda,
+                    p.Estado,
+                    p.CreatedAt,
+                    p.UpdatedAt,
+                    p.IdCliente,
+                    p.IdGrupo,
+                    p.IdTipo,
+
+                    Cliente = (c.NombreComercial ?? c.Nombre),
+                    Grupo = g != null ? g.Nombre : null,
+                    Tipo = t != null ? t.Nombre : null,
+                    Tecnico = u.FullName
+                }
+            ).ToListAsync();
+
+            items = rows.Select(x => new
+            {
+                id = x.Id,
+                fecha = x.FechaTrabajo,
+                cliente = x.Cliente,
+                id_cliente = x.IdCliente,
+                tienda = x.Tienda,
+                accion = x.Accion,
+                horainicio = x.HoraInicio.ToString("HH:mm"),
+                horafin = x.HoraFin.ToString("HH:mm"),
+                duracion_min = (int)(x.HoraFin.ToTimeSpan() - x.HoraInicio.ToTimeSpan()).TotalMinutes,
+                ticket = x.Ticket,
+                grupo = x.Grupo,
+                id_grupo = x.IdGrupo,
+                tipo = x.Tipo,
+                id_tipo = x.IdTipo,
+                tecnico = x.Tecnico,
+                estado = x.Estado,
+                estado_nombre = EstadoParte.ObtenerNombre(x.Estado),
+                created_at = x.CreatedAt,
+                updated_at = x.UpdatedAt,
+                tags = Array.Empty<string>() // ← Sin tags
+            } as dynamic).ToList();
+        }
 
         _logger.LogInformation("Usuario {UserId} listó {Count} partes de trabajo", userId, items.Count);
 
@@ -573,84 +642,116 @@ public class PartesDeTrabajoController : ControllerBase
     
     /// <summary>
     /// Sincroniza tags de un parte (replace completo)
+    /// ROBUSTO: Si las tablas no existen, solo loguea warning y continúa sin romper
     /// </summary>
     private async Task SyncParteTagsAsync(long parteId, string[] tags)
     {
-        var now = DateTime.UtcNow; // FreshdeskTag usa DateTime
-        
-        // Normalizar y validar tags
-        var normalizedTags = tags
-            .Where(t => !string.IsNullOrWhiteSpace(t))
-            .Select(t => t.Trim().ToLowerInvariant())
-            .Where(t => t.Length <= 100) // Límite de freshdesk_tags
-            .Distinct()
-            .Take(20) // Límite máximo de 20 tags por parte
-            .ToList();
-        
-        // Obtener tags actuales del parte
-        var currentTags = await db.ParteTags
-            .Where(pt => pt.ParteId == parteId)
-            .Select(pt => pt.TagName)
-            .ToListAsync();
-        
-        var currentSet = currentTags.ToHashSet();
-        var newSet = normalizedTags.ToHashSet();
-        
-        // Tags a eliminar
-        var tagsToRemove = currentSet.Except(newSet).ToList();
-        if (tagsToRemove.Any())
+        try
         {
-            var toRemove = db.ParteTags.Where(pt => pt.ParteId == parteId && tagsToRemove.Contains(pt.TagName));
-            db.ParteTags.RemoveRange(toRemove);
-        }
-        
-        // Tags a agregar
-        var tagsToAdd = newSet.Except(currentSet).ToList();
-        foreach (var tagName in tagsToAdd)
-        {
-            // Upsert en catálogo de tags (freshdesk_tags)
-            var tag = await db.FreshdeskTags.FindAsync(tagName);
-            if (tag == null)
+            var now = DateTime.UtcNow; // FreshdeskTag usa DateTime
+            
+            // Normalizar y validar tags
+            var normalizedTags = tags
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Select(t => t.Trim().ToLowerInvariant())
+                .Where(t => t.Length <= 100) // Límite de freshdesk_tags
+                .Distinct()
+                .Take(20) // Límite máximo de 20 tags por parte
+                .ToList();
+            
+            // Si no hay tags, limpiar todo
+            if (!normalizedTags.Any())
             {
-                db.FreshdeskTags.Add(new FreshdeskTag
+                var existingTags = await db.ParteTags
+                    .Where(pt => pt.ParteId == parteId)
+                    .ToListAsync();
+                
+                if (existingTags.Any())
                 {
-                    Name = tagName,
-                    Source = "local", // Origen: partes de trabajo
-                    LastSeenAt = now
+                    db.ParteTags.RemoveRange(existingTags);
+                    await db.SaveChangesAsync();
+                    _logger.LogDebug("Todas las tags eliminadas del parte {ParteId}", parteId);
+                }
+                return;
+            }
+            
+            // Obtener tags actuales del parte
+            var currentTags = await db.ParteTags
+                .Where(pt => pt.ParteId == parteId)
+                .Select(pt => pt.TagName)
+                .ToListAsync();
+            
+            var currentSet = currentTags.ToHashSet();
+            var newSet = normalizedTags.ToHashSet();
+            
+            // Tags a eliminar
+            var tagsToRemove = currentSet.Except(newSet).ToList();
+            if (tagsToRemove.Any())
+            {
+                var toRemove = db.ParteTags.Where(pt => pt.ParteId == parteId && tagsToRemove.Contains(pt.TagName));
+                db.ParteTags.RemoveRange(toRemove);
+            }
+            
+            // Tags a agregar
+            var tagsToAdd = newSet.Except(currentSet).ToList();
+            foreach (var tagName in tagsToAdd)
+            {
+                // Upsert en catálogo de tags (freshdesk_tags)
+                var tag = await db.FreshdeskTags.FindAsync(tagName);
+                if (tag == null)
+                {
+                    db.FreshdeskTags.Add(new FreshdeskTag
+                    {
+                        Name = tagName,
+                        Source = "local", // Origen: partes de trabajo
+                        LastSeenAt = now
+                    });
+                }
+                else
+                {
+                    tag.LastSeenAt = now;
+                    // Si era de freshdesk, ahora es 'both'
+                    if (tag.Source == "freshdesk")
+                    {
+                        tag.Source = "both";
+                    }
+                }
+                
+                // Crear relación parte-tag
+                db.ParteTags.Add(new ParteTag
+                {
+                    ParteId = parteId,
+                    TagName = tagName
                 });
             }
-            else
+            
+            // Actualizar last_seen_at de tags que ya estaban y siguen
+            var tagsToUpdate = currentSet.Intersect(newSet).ToList();
+            if (tagsToUpdate.Any())
             {
-                tag.LastSeenAt = now;
-                // Si era de freshdesk, ahora es 'both'
-                if (tag.Source == "freshdesk")
+                var tagsEntities = await db.FreshdeskTags.Where(t => tagsToUpdate.Contains(t.Name)).ToListAsync();
+                foreach (var tag in tagsEntities)
                 {
-                    tag.Source = "both";
+                    tag.LastSeenAt = now;
                 }
             }
             
-            // Crear relación parte-tag
-            db.ParteTags.Add(new ParteTag
-            {
-                ParteId = parteId,
-                TagName = tagName
-            });
+            await db.SaveChangesAsync();
+            
+            _logger.LogDebug("Tags sync para parte {ParteId}: +{Add} -{Remove} ={Keep}", 
+                parteId, tagsToAdd.Count, tagsToRemove.Count, tagsToUpdate.Count);
         }
-        
-        // Actualizar last_seen_at de tags que ya estaban y siguen
-        var tagsToUpdate = currentSet.Intersect(newSet).ToList();
-        if (tagsToUpdate.Any())
+        catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P01") // UndefinedTable
         {
-            var tagsEntities = await db.FreshdeskTags.Where(t => tagsToUpdate.Contains(t.Name)).ToListAsync();
-            foreach (var tag in tagsEntities)
-            {
-                tag.LastSeenAt = now;
-            }
+            _logger.LogWarning("Tags deshabilitadas: tabla pss_dvnx.parte_tags o pss_dvnx.freshdesk_tags no existe. " +
+                "Los tags no serán sincronizados. Error: {Message}", ex.Message);
+            // NO lanzar excepción - continuar sin romper el endpoint
         }
-        
-        await db.SaveChangesAsync();
-        
-        _logger.LogDebug("Tags sync: +{Add} -{Remove} ={Keep}", tagsToAdd.Count, tagsToRemove.Count, tagsToUpdate.Count);
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al sincronizar tags para parte {ParteId}. Tags no se actualizaron pero el parte se guardó correctamente", parteId);
+            // NO lanzar excepción - el parte ya se guardó, solo falló el sync de tags
+        }
     }
 }
 
