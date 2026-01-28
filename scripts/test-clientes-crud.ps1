@@ -1,7 +1,7 @@
 ﻿# Script para probar el CRUD completo de /api/v1/clientes
 # Asegurarse de que la API esté corriendo en https://localhost:7096
 
-$baseUrl = "https://localhost:7096"
+$baseUrl = "https://localhost:2502"
 $email = "psantos@global-retail.com"
 $password = "12345678"
 
@@ -28,35 +28,49 @@ Write-Host "TEST CRUD CLIENTES (/api/v1/clientes)" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 1. LOGIN
-Write-Host "1. Login..." -ForegroundColor Yellow
+# 1. LOGIN DESKTOP
+Write-Host "1. Login Desktop..." -ForegroundColor Yellow
 $loginBody = @{
     email = $email
     password = $password
 } | ConvertTo-Json
 
+Write-Host "  Intentando login con: $email" -ForegroundColor Gray
+
 try {
     if ($PSVersionTable.PSVersion.Major -ge 6) {
         # PowerShell Core 6+
-        $loginResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/auth/login" `
+        $loginResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/auth/login-desktop" `
             -Method POST `
             -Body $loginBody `
             -ContentType "application/json" `
             -SkipCertificateCheck
     } else {
         # PowerShell 5.1
-        $loginResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/auth/login" `
+        $loginResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/auth/login-desktop" `
             -Method POST `
             -Body $loginBody `
             -ContentType "application/json"
     }
 
+    # ✅ Tokens en JSON (sin cookies)
     $token = $loginResponse.accessToken
-    Write-Host "✓ Login exitoso" -ForegroundColor Green
+    $refreshToken = $loginResponse.refreshToken
+    $sessionId = $loginResponse.sessionId
+    
+    Write-Host "✓ Login Desktop exitoso" -ForegroundColor Green
+    Write-Host "  Usuario: $($loginResponse.userName)" -ForegroundColor Gray
+    Write-Host "  Email: $($loginResponse.userEmail)" -ForegroundColor Gray
+    Write-Host "  Rol: $($loginResponse.userRole)" -ForegroundColor Gray
+    Write-Host "  Access Token (primeros 20 chars): $($token.Substring(0, [Math]::Min(20, $token.Length)))..." -ForegroundColor Gray
+    Write-Host "  Session ID: $sessionId" -ForegroundColor Gray
     Write-Host ""
 }
 catch {
-    Write-Host "✗ Error en login: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "✗ Error en login-desktop: $($_.Exception.Message)" -ForegroundColor Red
+    if ($_.ErrorDetails.Message) {
+        Write-Host "  Detalles: $($_.ErrorDetails.Message)" -ForegroundColor Gray
+    }
     exit 1
 }
 
