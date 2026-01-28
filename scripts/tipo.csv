@@ -1,0 +1,12 @@
+"id_tipo","nombre","descripcion"
+1,"Incidencia",NULL
+2,"Instalación",NULL
+3,"Aviso",NULL
+4,"Petición",NULL
+5,"Facturable",NULL
+6,"Duda",NULL
+7,"Desarrollo",NULL
+8,"Tarea",NULL
+9,"Ofertado",NULL
+10,"Llamada Overlay",""
+11,"HOTLINE",NULL
