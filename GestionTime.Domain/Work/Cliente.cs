@@ -10,4 +10,5 @@ public sealed class Cliente
     public string? Provincia { get; set; }
     public DateTime DataUpdate { get; set; }
     public string? DataHtml { get; set; }
+    public string? Nota { get; set; }
 }

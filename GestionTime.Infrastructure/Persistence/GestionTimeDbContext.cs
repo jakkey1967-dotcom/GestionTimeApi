@@ -79,6 +79,7 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Property(x => x.Provincia).HasColumnName("provincia");
             e.Property(x => x.DataUpdate).HasColumnName("data_update").HasDefaultValueSql("now()");
             e.Property(x => x.DataHtml).HasColumnName("data_html");
+            e.Property(x => x.Nota).HasColumnName("nota");
         });
 
         b.Entity<Grupo>(e =>
