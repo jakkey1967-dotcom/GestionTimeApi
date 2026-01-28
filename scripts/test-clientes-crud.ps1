@@ -2,8 +2,26 @@
 # Asegurarse de que la API esté corriendo en https://localhost:7096
 
 $baseUrl = "https://localhost:7096"
-$email = "admin@gestiontime.com"
-$password = "Admin123!"
+$email = "psantos@global-retail.com"
+$password = "12345678"
+
+# Ignorar errores de certificados SSL (compatible con PowerShell 5.1 y Core)
+if ($PSVersionTable.PSVersion.Major -lt 6) {
+    # PowerShell 5.1
+    add-type @"
+        using System.Net;
+        using System.Security.Cryptography.X509Certificates;
+        public class TrustAllCertsPolicy : ICertificatePolicy {
+            public bool CheckValidationResult(
+                ServicePoint srvPoint, X509Certificate certificate,
+                WebRequest request, int certificateProblem) {
+                return true;
+            }
+        }
+"@
+    [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+}
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "TEST CRUD CLIENTES (/api/v1/clientes)" -ForegroundColor Cyan
@@ -18,11 +36,20 @@ $loginBody = @{
 } | ConvertTo-Json
 
 try {
-    $loginResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/auth/login" `
-        -Method POST `
-        -Body $loginBody `
-        -ContentType "application/json" `
-        -SkipCertificateCheck
+    if ($PSVersionTable.PSVersion.Major -ge 6) {
+        # PowerShell Core 6+
+        $loginResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/auth/login" `
+            -Method POST `
+            -Body $loginBody `
+            -ContentType "application/json" `
+            -SkipCertificateCheck
+    } else {
+        # PowerShell 5.1
+        $loginResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/auth/login" `
+            -Method POST `
+            -Body $loginBody `
+            -ContentType "application/json"
+    }
 
     $token = $loginResponse.accessToken
     Write-Host "✓ Login exitoso" -ForegroundColor Green
@@ -38,13 +65,36 @@ $headers = @{
     "Content-Type" = "application/json"
 }
 
+# Función auxiliar para hacer llamadas REST compatibles con PowerShell 5.1 y Core
+function Invoke-ApiRequest {
+    param(
+        [string]$Uri,
+        [string]$Method = "GET",
+        [hashtable]$Headers,
+        [string]$Body = $null
+    )
+    
+    $params = @{
+        Uri = $Uri
+        Method = $Method
+        Headers = $Headers
+    }
+    
+    if ($Body) {
+        $params.Body = $Body
+    }
+    
+    if ($PSVersionTable.PSVersion.Major -ge 6) {
+        $params.SkipCertificateCheck = $true
+    }
+    
+    return Invoke-RestMethod @params
+}
+
 # 2. VERIFICAR QUE /api/v1/catalog/clientes NO CAMBIÓ
 Write-Host "2. Verificar endpoint de catalog (NO debe haber cambiado)..." -ForegroundColor Yellow
 try {
-    $catalogResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/catalog/clientes?limit=5" `
-        -Method GET `
-        -Headers $headers `
-        -SkipCertificateCheck
+    $catalogResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/catalog/clientes?limit=5" -Headers $headers
 
     Write-Host "✓ Endpoint /api/v1/catalog/clientes funciona correctamente" -ForegroundColor Green
     Write-Host "  Retornó $($catalogResponse.Count) clientes con formato: { id, nombre }" -ForegroundColor Gray
@@ -57,10 +107,7 @@ catch {
 # 3. GET LIST - Sin filtros
 Write-Host "3. GET /api/v1/clientes (lista sin filtros)..." -ForegroundColor Yellow
 try {
-    $clientesResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/clientes?page=1&size=5" `
-        -Method GET `
-        -Headers $headers `
-        -SkipCertificateCheck
+    $clientesResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes?page=1&size=5" -Headers $headers
 
     Write-Host "✓ Lista obtenida correctamente" -ForegroundColor Green
     Write-Host "  Total: $($clientesResponse.totalCount)" -ForegroundColor Gray
@@ -79,10 +126,7 @@ catch {
 # 4. GET LIST - Con filtro de búsqueda
 Write-Host "4. GET /api/v1/clientes?q=madrid (búsqueda de texto)..." -ForegroundColor Yellow
 try {
-    $searchResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/clientes?q=madrid&size=5" `
-        -Method GET `
-        -Headers $headers `
-        -SkipCertificateCheck
+    $searchResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes?q=madrid&size=5" -Headers $headers
 
     Write-Host "✓ Búsqueda realizada correctamente" -ForegroundColor Green
     Write-Host "  Resultados encontrados: $($searchResponse.totalCount)" -ForegroundColor Gray
@@ -104,11 +148,7 @@ $nuevoCliente = @{
 } | ConvertTo-Json
 
 try {
-    $createResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/clientes" `
-        -Method POST `
-        -Body $nuevoCliente `
-        -Headers $headers `
-        -SkipCertificateCheck
+    $createResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes" -Method POST -Headers $headers -Body $nuevoCliente
 
     $clienteId = $createResponse.id
     Write-Host "✓ Cliente creado correctamente" -ForegroundColor Green
@@ -126,10 +166,7 @@ catch {
 if ($clienteId) {
     Write-Host "6. GET /api/v1/clientes/$clienteId (obtener por ID)..." -ForegroundColor Yellow
     try {
-        $getByIdResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/clientes/$clienteId" `
-            -Method GET `
-            -Headers $headers `
-            -SkipCertificateCheck
+        $getByIdResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes/$clienteId" -Headers $headers
 
         Write-Host "✓ Cliente obtenido correctamente" -ForegroundColor Green
         Write-Host "  ID: $($getByIdResponse.id)" -ForegroundColor Gray
@@ -148,11 +185,7 @@ if ($clienteId) {
     } | ConvertTo-Json
 
     try {
-        $patchResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/clientes/$clienteId/nota" `
-            -Method PATCH `
-            -Body $updateNota `
-            -Headers $headers `
-            -SkipCertificateCheck
+        $patchResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes/$clienteId/nota" -Method PATCH -Headers $headers -Body $updateNota
 
         Write-Host "✓ Nota actualizada correctamente" -ForegroundColor Green
         Write-Host "  Nueva nota: $($patchResponse.nota)" -ForegroundColor Gray
@@ -174,11 +207,7 @@ if ($clienteId) {
     } | ConvertTo-Json
 
     try {
-        $putResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/clientes/$clienteId" `
-            -Method PUT `
-            -Body $updateCliente `
-            -Headers $headers `
-            -SkipCertificateCheck
+        $putResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes/$clienteId" -Method PUT -Headers $headers -Body $updateCliente
 
         Write-Host "✓ Cliente actualizado correctamente" -ForegroundColor Green
         Write-Host "  Nombre: $($putResponse.nombre)" -ForegroundColor Gray
@@ -193,10 +222,7 @@ if ($clienteId) {
     # 9. Probar filtro hasNota
     Write-Host "9. GET /api/v1/clientes?hasNota=true (clientes con nota)..." -ForegroundColor Yellow
     try {
-        $hasNotaResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/clientes?hasNota=true&size=5" `
-            -Method GET `
-            -Headers $headers `
-            -SkipCertificateCheck
+        $hasNotaResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes?hasNota=true&size=5" -Headers $headers
 
         Write-Host "✓ Filtro hasNota funciona correctamente" -ForegroundColor Green
         Write-Host "  Clientes con nota: $($hasNotaResponse.totalCount)" -ForegroundColor Gray
@@ -209,10 +235,7 @@ if ($clienteId) {
     # 10. DELETE - Eliminar cliente
     Write-Host "10. DELETE /api/v1/clientes/$clienteId (eliminar cliente)..." -ForegroundColor Yellow
     try {
-        Invoke-RestMethod -Uri "$baseUrl/api/v1/clientes/$clienteId" `
-            -Method DELETE `
-            -Headers $headers `
-            -SkipCertificateCheck
+        Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes/$clienteId" -Method DELETE -Headers $headers
 
         Write-Host "✓ Cliente eliminado correctamente" -ForegroundColor Green
         Write-Host ""
@@ -224,10 +247,7 @@ if ($clienteId) {
     # 11. Verificar que el cliente fue eliminado
     Write-Host "11. GET /api/v1/clientes/$clienteId (verificar eliminación)..." -ForegroundColor Yellow
     try {
-        $verifyDelete = Invoke-RestMethod -Uri "$baseUrl/api/v1/clientes/$clienteId" `
-            -Method GET `
-            -Headers $headers `
-            -SkipCertificateCheck
+        $verifyDelete = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes/$clienteId" -Headers $headers
 
         Write-Host "✗ El cliente NO fue eliminado (todavía existe)" -ForegroundColor Red
     }
