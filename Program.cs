@@ -3,6 +3,7 @@ using GestionTime.Api.Middleware;
 using GestionTime.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -156,8 +157,72 @@ try
         Log.Information("✅ Serilog configurado: Consola + Archivo (logs/log-.txt)");
     });
 
-    // Controllers
-    builder.Services.AddControllers();
+    // Controllers con filtro de validación personalizado
+    builder.Services.AddControllers(options =>
+    {
+        // Agregar filtro global de logging de validación
+        options.Filters.Add<GestionTime.Api.Filters.ValidationLoggingFilter>();
+    })
+    .AddJsonOptions(options =>
+    {
+        // ✅ Permitir case-insensitive en propiedades JSON (nombre = Nombre)
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    })
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // Personalizar la respuesta automática de validación
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(e => e.Value?.Errors.Count > 0)
+                .ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage ?? e.Exception?.Message ?? "Error de validación").ToArray()
+                );
+
+            // Determinar qué endpoint falló para dar ejemplo apropiado
+            var routeData = context.HttpContext.GetRouteData();
+            var controller = routeData.Values["controller"]?.ToString();
+            var action = routeData.Values["action"]?.ToString();
+
+            object? example = null;
+            string? suggestion = null;
+
+            if (controller == "Tipos")
+            {
+                if (action == "Create")
+                {
+                    example = new { Nombre = "Instalación", Descripcion = "Trabajos de instalación de equipos" };
+                    suggestion = "Envía un JSON con las propiedades en PascalCase: Nombre (requerido, max 120 chars) y Descripcion (opcional, max 500 chars)";
+                }
+                else if (action == "Update")
+                {
+                    example = new { Nombre = "Instalación y Configuración", Descripcion = "Trabajos completos" };
+                    suggestion = "PUT requiere el objeto completo. Envía todas las propiedades en PascalCase";
+                }
+            }
+            else if (controller == "Grupos")
+            {
+                if (action == "Create")
+                {
+                    example = new { Nombre = "Soporte Premium", Descripcion = "Clientes premium 24/7" };
+                    suggestion = "Envía un JSON con las propiedades en PascalCase: Nombre (requerido, max 120 chars) y Descripcion (opcional, max 500 chars)";
+                }
+                else if (action == "Update")
+                {
+                    example = new { Nombre = "Soporte VIP", Descripcion = "Clientes VIP prioritarios" };
+                    suggestion = "PUT requiere el objeto completo. Envía todas las propiedades en PascalCase";
+                }
+            }
+
+            var problemDetails = new GestionTime.Api.Filters.CustomValidationProblemDetails(errors, suggestion, example);
+
+            return new BadRequestObjectResult(problemDetails);
+        };
+    });
+
+    // Registrar el filtro de validación
+    builder.Services.AddScoped<GestionTime.Api.Filters.ValidationLoggingFilter>();
 
     // Health checks (básico para compatibilidad con Docker)
     builder.Services.AddHealthChecks();
@@ -246,14 +311,26 @@ try
     
     Log.Information("Schema de base de datos: {Schema}", dbSchema);
     
-    // ✅ ASEGURAR QUE LA BD SEA SIEMPRE pss_dvnx
+    // ✅ ASEGURAR QUE LA BD SEA SIEMPRE pss_dvnx Y CONFIGURAR SEARCH PATH
     var csBuilder = new NpgsqlConnectionStringBuilder(connectionString);
     if (csBuilder.Database != "pss_dvnx")
     {
         Log.Warning("⚠️  Ajustando base de datos de '{OldDb}' a 'pss_dvnx'", csBuilder.Database);
         csBuilder.Database = "pss_dvnx";
-        connectionString = csBuilder.ToString();
     }
+    
+    // ✅ CONFIGURAR SEARCH PATH para que encuentre las tablas en el esquema correcto
+    if (string.IsNullOrEmpty(csBuilder.SearchPath))
+    {
+        csBuilder.SearchPath = dbSchema;
+        Log.Information("✅ Search Path configurado: {SearchPath}", dbSchema);
+    }
+    else
+    {
+        Log.Information("ℹ️  Search Path ya configurado: {SearchPath}", csBuilder.SearchPath);
+    }
+    
+    connectionString = csBuilder.ToString();
     
     Log.Information("📦 Base de datos: pss_dvnx | Schema: {Schema}", dbSchema);
     
@@ -287,6 +364,10 @@ try
     // ✅ Servicio centralizado de configuración de clientes
     builder.Services.AddSingleton<GestionTime.Api.Services.ClientConfigurationService>();
     
+    // ✅ CRUD Services para catálogos
+    builder.Services.AddScoped<GestionTime.Api.Services.TipoService>();
+    builder.Services.AddScoped<GestionTime.Api.Services.GrupoService>();
+    
     // ✅ Freshdesk Integration
     builder.Services.Configure<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions>(
         builder.Configuration.GetSection(GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions.SectionName));
@@ -310,10 +391,10 @@ try
         Log.Information("✅ Forwarded headers habilitados (HTTPS via proxy)");
     }
 
-    // 🔧 Aplicar migraciones automáticamente
+    // 🔧 Verificar conexión a base de datos (SIN aplicar migraciones)
     try
     {
-        Log.Information("🔧 Verificando estado de base de datos...");
+        Log.Information("🔧 Verificando conexión a base de datos...");
         
         using (var scope = app.Services.CreateScope())
         {
@@ -328,60 +409,32 @@ try
             
             Log.Information("✅ Conexión a BD establecida");
             
-            var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+            // ⚠️ NO APLICAR MIGRACIONES AUTOMÁTICAMENTE
+            // Si restauraste la BD, las tablas ya existen y no necesitas migraciones
+            // Para aplicar migraciones manualmente usa: dotnet ef database update
+            Log.Information("ℹ️  Migraciones deshabilitadas. Las tablas deben existir en la BD.");
             
-            if (pendingMigrations.Any())
+            // Verificar que las tablas existen haciendo una query simple
+            try
             {
-                Log.Information("📦 Aplicando {Count} migraciones pendientes...", pendingMigrations.Count());
-                foreach (var migration in pendingMigrations)
-                {
-                    Log.Information("  • {Migration}", migration);
-                }
-                
-                try
-                {
-                    await db.Database.MigrateAsync();
-                    Log.Information("✅ Migraciones aplicadas correctamente");
-                }
-                catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "42P07")
-                {
-                    // Error 42P07: La tabla ya existe
-                    Log.Warning("⚠️ Las tablas ya existen. Marcando migración como aplicada...");
-                    
-                    // Marcar migración como aplicada manualmente
-                    var appliedMigrations = await db.Database.GetAppliedMigrationsAsync();
-                    var lastApplied = appliedMigrations.LastOrDefault();
-                    
-                    if (lastApplied != null)
-                    {
-                        Log.Information("✅ Migración ya aplicada: {Migration}", lastApplied);
-                    }
-                    else
-                    {
-                        Log.Warning("⚠️ No se puede verificar migraciones aplicadas, continuando arranque...");
-                    }
-                }
+                var userCount = await db.Users.CountAsync();
+                Log.Information("✅ Base de datos operativa ({UserCount} usuarios)", userCount);
             }
-            else
+            catch (Exception ex)
             {
-                Log.Information("✅ Base de datos actualizada (sin migraciones pendientes)");
+                Log.Error(ex, "❌ Error verificando tablas. ¿La BD está correctamente restaurada?");
+                throw;
             }
         }
     }
     catch (Exception ex)
     {
-        Log.Error(ex, "❌ ERROR verificando/aplicando migraciones");
-        
-        // Si es error de tabla duplicada, es probable que la BD ya esté configurada
-        if (ex.Message.Contains("already exists") || ex.Message.Contains("42P07"))
-        {
-            Log.Warning("⚠️ Las tablas ya existen. Continuando arranque...");
-        }
-        else
-        {
-            throw;
-        }
+        Log.Error(ex, "❌ ERROR verificando base de datos");
+        throw;
     }
+
+    // ✅ Middleware de logging de request body (ANTES de Serilog)
+    app.UseMiddleware<GestionTime.Api.Middleware.RequestBodyLoggingMiddleware>();
 
     // Request logging middleware de Serilog
     app.UseSerilogRequestLogging(options =>
