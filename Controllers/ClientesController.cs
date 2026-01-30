@@ -177,39 +177,53 @@ public class ClientesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ClienteDto>> CreateCliente([FromBody] ClienteCreateDto dto)
     {
-        _logger.LogInformation("CreateCliente: Creando cliente con nombre={Nombre}", dto.Nombre);
-
-        var cliente = new Cliente
+        try
         {
-            Nombre = dto.Nombre?.Trim(),
-            IdPuntoop = dto.IdPuntoop,
-            LocalNum = dto.LocalNum,
-            NombreComercial = string.IsNullOrWhiteSpace(dto.NombreComercial) ? null : dto.NombreComercial.Trim(),
-            Provincia = string.IsNullOrWhiteSpace(dto.Provincia) ? null : dto.Provincia.Trim(),
-            DataUpdate = dto.DataUpdate ?? DateTime.UtcNow,
-            DataHtml = dto.DataHtml,
-            Nota = string.IsNullOrWhiteSpace(dto.Nota) ? null : dto.Nota.Trim()
-        };
+            _logger.LogInformation("CreateCliente: Creando cliente con nombre={Nombre}", dto?.Nombre);
 
-        _db.Clientes.Add(cliente);
-        await _db.SaveChangesAsync();
+            if (dto == null)
+            {
+                _logger.LogWarning("CreateCliente: DTO es null");
+                return BadRequest(new { message = "El cuerpo de la petición no puede estar vacío" });
+            }
 
-        _logger.LogInformation("CreateCliente: Cliente creado con id={Id}, nombre={Nombre}", cliente.Id, cliente.Nombre);
+            var cliente = new Cliente
+            {
+                Nombre = dto.Nombre?.Trim(),
+                IdPuntoop = dto.IdPuntoop,
+                LocalNum = dto.LocalNum,
+                NombreComercial = string.IsNullOrWhiteSpace(dto.NombreComercial) ? null : dto.NombreComercial.Trim(),
+                Provincia = string.IsNullOrWhiteSpace(dto.Provincia) ? null : dto.Provincia.Trim(),
+                DataUpdate = dto.DataUpdate ?? DateTime.UtcNow,
+                DataHtml = dto.DataHtml,
+                Nota = string.IsNullOrWhiteSpace(dto.Nota) ? null : dto.Nota.Trim()
+            };
 
-        var result = new ClienteDto
+            _db.Clientes.Add(cliente);
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation("CreateCliente: Cliente creado con id={Id}, nombre={Nombre}", cliente.Id, cliente.Nombre);
+
+            var result = new ClienteDto
+            {
+                Id = cliente.Id,
+                Nombre = cliente.Nombre,
+                IdPuntoop = cliente.IdPuntoop,
+                LocalNum = cliente.LocalNum,
+                NombreComercial = cliente.NombreComercial,
+                Provincia = cliente.Provincia,
+                DataUpdate = cliente.DataUpdate,
+                DataHtml = cliente.DataHtml,
+                Nota = cliente.Nota
+            };
+
+            return CreatedAtAction(nameof(GetCliente), new { id = cliente.Id }, result);
+        }
+        catch (Exception ex)
         {
-            Id = cliente.Id,
-            Nombre = cliente.Nombre,
-            IdPuntoop = cliente.IdPuntoop,
-            LocalNum = cliente.LocalNum,
-            NombreComercial = cliente.NombreComercial,
-            Provincia = cliente.Provincia,
-            DataUpdate = cliente.DataUpdate,
-            DataHtml = cliente.DataHtml,
-            Nota = cliente.Nota
-        };
-
-        return CreatedAtAction(nameof(GetCliente), new { id = cliente.Id }, result);
+            _logger.LogError(ex, "CreateCliente: Error al crear cliente - {Message}", ex.Message);
+            return BadRequest(new { message = "Error al crear cliente", detail = ex.Message });
+        }
     }
 
     /// <summary>

@@ -17,7 +17,7 @@ Write-Host "   https://localhost:2502/swagger" -ForegroundColor White
 Write-Host ""
 Write-Host "📝 Pasos para probar:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "1️⃣  POST /api/v1/auth/login" -ForegroundColor Green
+Write-Host "1️⃣  POST /api/v1/auth/login-desktop" -ForegroundColor Green
 Write-Host "   • Click 'Try it out'" -ForegroundColor Gray
 Write-Host "   • Pon el JSON:" -ForegroundColor Gray
 Write-Host '     {' -ForegroundColor White
@@ -25,20 +25,26 @@ Write-Host '       "email": "psantos@global-retail.com",' -ForegroundColor White
 Write-Host '       "password": "12345678"' -ForegroundColor White
 Write-Host '     }' -ForegroundColor White
 Write-Host "   • Click 'Execute'" -ForegroundColor Gray
-Write-Host "   • ✅ Deberías ver 200 OK con cookies" -ForegroundColor Green
+Write-Host "   • ✅ Deberías ver 200 OK con accessToken y refreshToken" -ForegroundColor Green
+Write-Host "   • 🔑 COPIA el accessToken para usarlo en los siguientes pasos" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "2️⃣  GET /api/freshdesk/test-connection" -ForegroundColor Green
+Write-Host "2️⃣  Autorizar en Swagger" -ForegroundColor Green
+Write-Host "   • Click en el botón 'Authorize' 🔓 (arriba a la derecha)" -ForegroundColor Gray
+Write-Host "   • En 'Bearer', pega: Bearer <accessToken>" -ForegroundColor Gray
+Write-Host "   • Click 'Authorize' y luego 'Close'" -ForegroundColor Gray
+Write-Host ""
+Write-Host "3️⃣  GET /api/freshdesk/test-connection" -ForegroundColor Green
 Write-Host "   • Click 'Try it out'" -ForegroundColor Gray
 Write-Host "   • Click 'Execute'" -ForegroundColor Gray
 Write-Host "   • ✅ Debería conectarse a Freshdesk" -ForegroundColor Green
 Write-Host ""
-Write-Host "3️⃣  GET /api/freshdesk/tickets/suggest" -ForegroundColor Green
+Write-Host "4️⃣  GET /api/freshdesk/tickets/suggest" -ForegroundColor Green
 Write-Host "   • Click 'Try it out'" -ForegroundColor Gray
 Write-Host "   • Pon limit: 5" -ForegroundColor Gray
 Write-Host "   • Click 'Execute'" -ForegroundColor Gray
 Write-Host "   • ✅ Debería traer tickets de Freshdesk" -ForegroundColor Green
 Write-Host ""
-Write-Host "4️⃣  GET /api/freshdesk/tags/suggest" -ForegroundColor Green
+Write-Host "5️⃣  GET /api/freshdesk/tags/suggest" -ForegroundColor Green
 Write-Host "   • Click 'Try it out'" -ForegroundColor Gray
 Write-Host "   • Pon limit: 10" -ForegroundColor Gray
 Write-Host "   • Click 'Execute'" -ForegroundColor Gray

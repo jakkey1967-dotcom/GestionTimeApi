@@ -7,6 +7,7 @@
     <NoWarn>$(NoWarn);CS7022</NoWarn>
     <!-- Deshabilitar inclusión automática de Content para evitar duplicados -->
     <EnableDefaultContentItems>false</EnableDefaultContentItems>
+    <UserSecretsId>31ada7ab-731b-4fa8-b646-1367b69d56aa</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

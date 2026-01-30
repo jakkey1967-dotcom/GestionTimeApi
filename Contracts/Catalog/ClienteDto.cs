@@ -3,15 +3,15 @@
 /// <summary>
 /// DTO completo de cliente (para GET)
 /// </summary>
-public sealed record ClienteDto
+public sealed class ClienteDto
 {
-    public int Id { get; init; }
-    public string? Nombre { get; init; }
-    public int? IdPuntoop { get; init; }
-    public int? LocalNum { get; init; }
-    public string? NombreComercial { get; init; }
-    public string? Provincia { get; init; }
-    public DateTime DataUpdate { get; init; }
-    public string? DataHtml { get; init; }
-    public string? Nota { get; init; }
+    public int Id { get; set; }
+    public string? Nombre { get; set; }
+    public int? IdPuntoop { get; set; }
+    public int? LocalNum { get; set; }
+    public string? NombreComercial { get; set; }
+    public string? Provincia { get; set; }
+    public DateTime DataUpdate { get; set; }
+    public string? DataHtml { get; set; }
+    public string? Nota { get; set; }
 }

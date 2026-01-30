@@ -21,6 +21,10 @@ public class RequestBodyLoggingMiddleware
         // Solo loguear POST/PUT/PATCH con body
         if (context.Request.Method == "POST" || context.Request.Method == "PUT" || context.Request.Method == "PATCH")
         {
+            _logger.LogInformation("🔍 RequestBodyLoggingMiddleware - Processing {Method} {Path}", 
+                context.Request.Method, 
+                context.Request.Path);
+
             // Habilitar buffering para poder leer el body múltiples veces
             context.Request.EnableBuffering();
 
@@ -32,6 +36,8 @@ public class RequestBodyLoggingMiddleware
 
             // Guardar para uso posterior si hay error
             context.Items["OriginalRequestBody"] = bodyAsText;
+            
+            _logger.LogDebug("📦 Request body length: {Length} bytes", bodyAsText?.Length ?? 0);
 
             // Capturar la respuesta
             var originalBodyStream = context.Response.Body;

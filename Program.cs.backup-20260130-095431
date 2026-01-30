@@ -105,7 +105,7 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    // ?? Configurar URLs para Render.com (usa PORT de variable de entorno)
+    // 🌐 Configurar URLs para Render.com (usa PORT de variable de entorno)
     var port = Environment.GetEnvironmentVariable("PORT") ?? "2501";
     var isRender = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PORT"));
     var isProduction = !builder.Environment.IsDevelopment();
@@ -116,13 +116,13 @@ try
         builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
         Log.Information("Configurado para producción/Render: HTTP={HttpPort} (HTTPS manejado por proxy)", port);
         
-        // ? FORZAR HTTPS para URLs generadas (emails, redirects, etc.)
+        // ✅ FORZAR HTTPS para URLs generadas (emails, redirects, etc.)
         builder.Services.Configure<Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionOptions>(options =>
         {
             options.HttpsPort = 443; // Puerto HTTPS estándar
         });
         
-        // ? Configurar para que la app sepa que está detrás de un proxy HTTPS
+        // ✅ Configurar para que la app sepa que está detrás de un proxy HTTPS
         builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | 
@@ -138,7 +138,7 @@ try
         Log.Information("Configurado para desarrollo local: HTTP={HttpPort}, HTTPS={HttpsPort}", port, "2502");
     }
 
-    // ? Configurar Serilog con consola Y archivo
+    // ✅ Configurar Serilog con consola Y archivo
     builder.Host.UseSerilog((context, configuration) =>
     {
         configuration
@@ -154,7 +154,7 @@ try
                 retainedFileCountLimit: 7,
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
 
-        Log.Information("? Serilog configurado: Consola + Archivo (logs/log-.txt)");
+        Log.Information("✅ Serilog configurado: Consola + Archivo (logs/log-.txt)");
     });
 
     // Controllers con filtro de validación personalizado
@@ -165,7 +165,7 @@ try
     })
     .AddJsonOptions(options =>
     {
-        // ? Permitir case-insensitive en propiedades JSON (nombre = Nombre)
+        // ✅ Permitir case-insensitive en propiedades JSON (nombre = Nombre)
         options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     })
     .ConfigureApiBehaviorOptions(options =>
@@ -272,23 +272,9 @@ try
             {
                 OnMessageReceived = ctx =>
                 {
-                    // ? PRIORIDAD 1: Leer desde header Authorization: Bearer {token}
-                    // Esto es lo que envía el Desktop y aplicaciones móviles
-                    var authHeader = ctx.Request.Headers["Authorization"].ToString();
-                    if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                    {
-                        ctx.Token = authHeader.Substring("Bearer ".Length).Trim();
-                        return Task.CompletedTask;
-                    }
+                    if (ctx.Request.Cookies.TryGetValue("access_token", out var token))
+                        ctx.Token = token;
 
-                    // ? PRIORIDAD 2: Leer desde cookie "access_token" (para navegadores web)
-                    if (ctx.Request.Cookies.TryGetValue("access_token", out var cookieToken))
-                    {
-                        ctx.Token = cookieToken;
-                        return Task.CompletedTask;
-                    }
-
-                    // ?? No se encontró token en ningún lugar
                     return Task.CompletedTask;
                 }
             };
@@ -299,7 +285,7 @@ try
     // Configurar Identity Options
     builder.Services.Configure<Microsoft.AspNetCore.Identity.IdentityOptions>(options =>
     {
-        // ?? DESHABILITAR verificación de email temporalmente (mientras se soluciona SMTP)
+        // ⚠️ DESHABILITAR verificación de email temporalmente (mientras se soluciona SMTP)
         options.SignIn.RequireConfirmedEmail = false;
         
         // Relajar requisitos de contraseña para desarrollo
@@ -318,44 +304,44 @@ try
     var connectionString = GetConnectionString(builder.Configuration);
     Log.Information("Usando connection string (oculto por seguridad)");
     
-    // ? Obtener schema desde variable de entorno o configuración
+    // ✅ Obtener schema desde variable de entorno o configuración
     var dbSchema = Environment.GetEnvironmentVariable("DB_SCHEMA") 
                    ?? builder.Configuration["Database:Schema"] 
                    ?? "pss_dvnx";
     
     Log.Information("Schema de base de datos: {Schema}", dbSchema);
     
-    // ? ASEGURAR QUE LA BD SEA SIEMPRE pss_dvnx Y CONFIGURAR SEARCH PATH
+    // ✅ ASEGURAR QUE LA BD SEA SIEMPRE pss_dvnx Y CONFIGURAR SEARCH PATH
     var csBuilder = new NpgsqlConnectionStringBuilder(connectionString);
     if (csBuilder.Database != "pss_dvnx")
     {
-        Log.Warning("??  Ajustando base de datos de '{OldDb}' a 'pss_dvnx'", csBuilder.Database);
+        Log.Warning("⚠️  Ajustando base de datos de '{OldDb}' a 'pss_dvnx'", csBuilder.Database);
         csBuilder.Database = "pss_dvnx";
     }
     
-    // ? CONFIGURAR SEARCH PATH para que encuentre las tablas en el esquema correcto
+    // ✅ CONFIGURAR SEARCH PATH para que encuentre las tablas en el esquema correcto
     if (string.IsNullOrEmpty(csBuilder.SearchPath))
     {
         csBuilder.SearchPath = dbSchema;
-        Log.Information("? Search Path configurado: {SearchPath}", dbSchema);
+        Log.Information("✅ Search Path configurado: {SearchPath}", dbSchema);
     }
     else
     {
-        Log.Information("??  Search Path ya configurado: {SearchPath}", csBuilder.SearchPath);
+        Log.Information("ℹ️  Search Path ya configurado: {SearchPath}", csBuilder.SearchPath);
     }
     
     connectionString = csBuilder.ToString();
     
-    Log.Information("?? Base de datos: pss_dvnx | Schema: {Schema}", dbSchema);
+    Log.Information("📦 Base de datos: pss_dvnx | Schema: {Schema}", dbSchema);
     
-    // ? CREAR BASE DE DATOS Y SCHEMA SI NO EXISTEN (solo en desarrollo local)
+    // ✅ CREAR BASE DE DATOS Y SCHEMA SI NO EXISTEN (solo en desarrollo local)
     if (builder.Environment.IsDevelopment() && connectionString.Contains("localhost"))
     {
         await EnsureDatabaseAndSchemaExistAsync(connectionString, dbSchema);
     }
     else
     {
-        Log.Information("??  Saltando verificación de BD (conexión remota)");
+        Log.Information("⏭️  Saltando verificación de BD (conexión remota)");
     }
     
     builder.Services.AddDbContext<GestionTimeDbContext>((serviceProvider, opt) =>
@@ -375,40 +361,40 @@ try
     builder.Services.AddScoped<GestionTime.Api.Services.IEmailService, GestionTime.Api.Services.SmtpEmailService>();
     
     
-    // ? Servicio centralizado de configuración de clientes
+    // ✅ Servicio centralizado de configuración de clientes
     builder.Services.AddSingleton<GestionTime.Api.Services.ClientConfigurationService>();
     
-    // ? CRUD Services para catálogos
+    // ✅ CRUD Services para catálogos
     builder.Services.AddScoped<GestionTime.Api.Services.TipoService>();
     builder.Services.AddScoped<GestionTime.Api.Services.GrupoService>();
     
-    // ? Freshdesk Integration
+    // ✅ Freshdesk Integration
     builder.Services.Configure<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions>(
         builder.Configuration.GetSection(GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions.SectionName));
     builder.Services.AddHttpClient<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskClient>();
     builder.Services.AddScoped<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskService>();
     
-    // ? Freshdesk Background Service - Sincronización automática de tags
+    // ✅ Freshdesk Background Service - Sincronización automática de tags
     builder.Services.AddHostedService<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskSyncBackgroundService>();
     
-    // ? Data Protection - Persistir claves en PostgreSQL
+    // ✅ Data Protection - Persistir claves en PostgreSQL
     builder.Services.AddDataProtection()
         .PersistKeysToDbContext<GestionTimeDbContext>()
         .SetApplicationName("GestionTimeApi");
 
     var app = builder.Build();
 
-    // ? Habilitar forwarded headers en producción (para HTTPS detrás de proxy)
+    // ✅ Habilitar forwarded headers en producción (para HTTPS detrás de proxy)
     if (isRender || isProduction)
     {
         app.UseForwardedHeaders();
-        Log.Information("? Forwarded headers habilitados (HTTPS via proxy)");
+        Log.Information("✅ Forwarded headers habilitados (HTTPS via proxy)");
     }
 
-    // ?? Verificar conexión a base de datos (SIN aplicar migraciones)
+    // 🔧 Verificar conexión a base de datos (SIN aplicar migraciones)
     try
     {
-        Log.Information("?? Verificando conexión a base de datos...");
+        Log.Information("🔧 Verificando conexión a base de datos...");
         
         using (var scope = app.Services.CreateScope())
         {
@@ -417,37 +403,37 @@ try
             var canConnect = await db.Database.CanConnectAsync();
             if (!canConnect)
             {
-                Log.Error("? No se puede conectar a la base de datos");
+                Log.Error("❌ No se puede conectar a la base de datos");
                 throw new Exception("No se puede conectar a la base de datos");
             }
             
-            Log.Information("? Conexión a BD establecida");
+            Log.Information("✅ Conexión a BD establecida");
             
-            // ?? NO APLICAR MIGRACIONES AUTOMÁTICAMENTE
+            // ⚠️ NO APLICAR MIGRACIONES AUTOMÁTICAMENTE
             // Si restauraste la BD, las tablas ya existen y no necesitas migraciones
             // Para aplicar migraciones manualmente usa: dotnet ef database update
-            Log.Information("??  Migraciones deshabilitadas. Las tablas deben existir en la BD.");
+            Log.Information("ℹ️  Migraciones deshabilitadas. Las tablas deben existir en la BD.");
             
             // Verificar que las tablas existen haciendo una query simple
             try
             {
                 var userCount = await db.Users.CountAsync();
-                Log.Information("? Base de datos operativa ({UserCount} usuarios)", userCount);
+                Log.Information("✅ Base de datos operativa ({UserCount} usuarios)", userCount);
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "? Error verificando tablas. ¿La BD está correctamente restaurada?");
+                Log.Error(ex, "❌ Error verificando tablas. ¿La BD está correctamente restaurada?");
                 throw;
             }
         }
     }
     catch (Exception ex)
     {
-        Log.Error(ex, "? ERROR verificando base de datos");
+        Log.Error(ex, "❌ ERROR verificando base de datos");
         throw;
     }
 
-    // ? Middleware de logging de request body (ANTES de Serilog)
+    // ✅ Middleware de logging de request body (ANTES de Serilog)
     app.UseMiddleware<GestionTime.Api.Middleware.RequestBodyLoggingMiddleware>();
 
     // Request logging middleware de Serilog
@@ -456,16 +442,16 @@ try
         options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} respondió {StatusCode} en {Elapsed:0.0000} ms";
     });
 
-    // ?? Seed automático con script SQL completo
+    // 🚀 Seed automático con script SQL completo
     try
     {
-        Log.Information("?? Ejecutando seed de base de datos...");
+        Log.Information("🚀 Ejecutando seed de base de datos...");
         await GestionTime.Api.Startup.DbSeeder.SeedAsync(app.Services);
-        Log.Information("? Seed completado exitosamente");
+        Log.Information("✅ Seed completado exitosamente");
     }
     catch (Exception ex)
     {
-        Log.Error(ex, "? Error durante el seed");
+        Log.Error(ex, "❌ Error durante el seed");
         
         // No fallar el arranque si es error de BD ya inicializada
         var message = ex.Message.ToLowerInvariant();
@@ -476,15 +462,15 @@ try
         
         if (isDbAlreadySetup)
         {
-            Log.Warning("?? Base de datos ya inicializada. Continuando arranque...");
+            Log.Warning("⚠️ Base de datos ya inicializada. Continuando arranque...");
         }
         else
         {
-            Log.Warning("?? Error en seed pero continuando arranke: {Message}", ex.Message);
+            Log.Warning("⚠️ Error en seed pero continuando arranke: {Message}", ex.Message);
         }
     }
 
-    // ? Health checks endpoint con JSON detallado
+    // ✅ Health checks endpoint con JSON detallado
     app.MapGet("/health", async (GestionTimeDbContext db, GestionTime.Api.Services.ClientConfigurationService clientConfig) =>
     {
         try
@@ -501,14 +487,14 @@ try
                 timestamp = DateTime.UtcNow,
                 service = "GestionTime API",
                 version = "1.0.0",
-                client = currentClient.Name,                    // ? Nombre descriptivo
-                clientId = currentClient.Id,                    // ? ID técnico
-                schema = clientConfig.GetDatabaseSchema(),      // ? Schema de BD
-                environment = app.Environment.EnvironmentName,  // ? Development/Production
+                client = currentClient.Name,                    // ✅ Nombre descriptivo
+                clientId = currentClient.Id,                    // ✅ ID técnico
+                schema = clientConfig.GetDatabaseSchema(),      // ✅ Schema de BD
+                environment = app.Environment.EnvironmentName,  // ✅ Development/Production
                 uptime = $"{uptime.Days}d {uptime.Hours}h {uptime.Minutes}m {uptime.Seconds}s",
                 database = canConnect ? "connected" : "disconnected",
                 
-                // ? Información adicional de configuración
+                // ✅ Información adicional de configuración
                 configuration = new
                 {
                     jwtAccessMinutes = clientConfig.GetJwtConfig().AccessMinutes,
@@ -540,7 +526,7 @@ try
     .Produces<object>(503)
     .ExcludeFromDescription();
 
-    // ? ENDPOINT RAÍZ - Muestra información según el entorno
+    // ✅ ENDPOINT RAÍZ - Muestra información según el entorno
     app.MapGet("/", async (GestionTimeDbContext db, GestionTime.Api.Services.ClientConfigurationService clientConfig) =>
     {
         // En Development, mostrar diagnósticos completos
@@ -667,11 +653,11 @@ try
             <p>Sistema de Gestión de Tiempo y Recursos</p>
         </div>
         <div class=""content"">
-            <div class=""status"">? API Online</div>
+            <div class=""status"">✅ API Online</div>
             <p style=""color: #6c757d; margin-bottom: 30px;"">La API está funcionando correctamente</p>
             <div class=""links"">
-                <a href=""/swagger"" class=""link-button"">?? Documentación API</a>
-                <a href=""/health"" class=""link-button secondary"">?? Health Check</a>
+                <a href=""/swagger"" class=""link-button"">📚 Documentación API</a>
+                <a href=""/health"" class=""link-button secondary"">🏥 Health Check</a>
             </div>
         </div>
         <div class=""footer"">
@@ -693,7 +679,7 @@ try
         c.RoutePrefix = "swagger";
         c.DocumentTitle = "GestionTime API - Documentación";
         
-        // ? Habilitar envío de cookies con credenciales
+        // ✅ Habilitar envío de cookies con credenciales
         c.ConfigObject.AdditionalItems["persistAuthorization"] = true;
         c.ConfigObject.AdditionalItems["withCredentials"] = true;
     });
@@ -704,17 +690,17 @@ try
         app.UseHttpsRedirection();
     }
     
-    // ? Servir archivos estáticos con prioridad por cliente
+    // ✅ Servir archivos estáticos con prioridad por cliente
     var clientConfigService = app.Services.GetRequiredService<GestionTime.Api.Services.ClientConfigurationService>();
     
-    Log.Information("+------------------------------------------------------+");
-    Log.Information("¦     Configurando Archivos Estáticos Multi-Tenant     ¦");
-    Log.Information("+------------------------------------------------------+");
+    Log.Information("╔══════════════════════════════════════════════════════╗");
+    Log.Information("║     Configurando Archivos Estáticos Multi-Tenant     ║");
+    Log.Information("╚══════════════════════════════════════════════════════╝");
     
     var currentClient = clientConfigService.GetCurrentClient();
-    Log.Information("?? Cliente activo: {ClientId} ({ClientName})", currentClient.Id, currentClient.Name);
-    Log.Information("???  Logo configurado: {Logo}", currentClient.Logo);
-    Log.Information("?? Logo URL: {LogoPath}", clientConfigService.GetLogoPath());
+    Log.Information("📋 Cliente activo: {ClientId} ({ClientName})", currentClient.Id, currentClient.Name);
+    Log.Information("🖼️  Logo configurado: {Logo}", currentClient.Logo);
+    Log.Information("🌐 Logo URL: {LogoPath}", clientConfigService.GetLogoPath());
     
     if (clientConfigService.HasClientSpecificWwwroot())
     {
@@ -724,14 +710,14 @@ try
         // Verificar que el directorio existe
         if (Directory.Exists(clientWwwrootFullPath))
         {
-            Log.Information("? 1?? Prioridad: {ClientPath}", clientWwwrootFullPath);
+            Log.Information("✅ 1️⃣ Prioridad: {ClientPath}", clientWwwrootFullPath);
             
             // Verificar archivos en el directorio
             var imagesPath = Path.Combine(clientWwwrootFullPath, "images");
             if (Directory.Exists(imagesPath))
             {
                 var files = Directory.GetFiles(imagesPath, "*.png");
-                Log.Information("   ?? Archivos en images/: {Count} archivos", files.Length);
+                Log.Information("   📁 Archivos en images/: {Count} archivos", files.Length);
                 foreach (var file in files.Take(5))
                 {
                     var fileName = Path.GetFileName(file);
@@ -746,20 +732,20 @@ try
                 RequestPath = "",
                 OnPrepareResponse = ctx =>
                 {
-                    Log.Information("? Sirviendo desde cliente: {Path}", ctx.File.Name);
+                    Log.Information("✅ Sirviendo desde cliente: {Path}", ctx.File.Name);
                 }
             });
         }
         else
         {
-            Log.Warning("??  Carpeta cliente no encontrada: {Path}", clientWwwrootFullPath);
+            Log.Warning("⚠️  Carpeta cliente no encontrada: {Path}", clientWwwrootFullPath);
         }
         
-        Log.Information("? 2?? Fallback: wwwroot (archivos comunes)");
+        Log.Information("✅ 2️⃣ Fallback: wwwroot (archivos comunes)");
     }
     else
     {
-        Log.Information("??  No hay carpeta específica para el cliente, usando solo wwwroot común");
+        Log.Information("ℹ️  No hay carpeta específica para el cliente, usando solo wwwroot común");
     }
     
     // SIEMPRE: Archivos comunes (fallback para todos los clientes)
@@ -767,23 +753,23 @@ try
     {
         OnPrepareResponse = ctx =>
         {
-            Log.Information("?? Sirviendo desde común: {Path}", ctx.File.Name);
+            Log.Information("📦 Sirviendo desde común: {Path}", ctx.File.Name);
         }
     });
     
-    Log.Information("------------------------------------------------------");
+    Log.Information("══════════════════════════════════════════════════════");
 
     // Pipeline de autenticación/autorización
     app.UseCors("WebClient");
     app.UseAuthentication();
     app.UseAuthorization();
     
-    // ? Middleware de presencia (después de autenticación)
+    // ✅ Middleware de presencia (después de autenticación)
     app.UsePresenceTracking();
 
     app.MapControllers();
     
-    // ? Health Check endpoint para Render
+    // ✅ Health Check endpoint para Render
     app.MapHealthChecks("/health");
 
     Log.Information("GestionTime API iniciada correctamente en puerto {Port}", port);
@@ -855,10 +841,10 @@ static string GetConnectionString(IConfiguration configuration)
 /// </summary>
 static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebApplication app)
 {
-    var apiStatus = "? Online";
+    var apiStatus = "✅ Online";
     var apiStatusClass = "status-ok";
     
-    var dbStatus = "? Desconectado";
+    var dbStatus = "❌ Desconectado";
     var dbStatusClass = "status-error";
     var dbLatency = 0;
     var migrationsApplied = 0;
@@ -878,14 +864,14 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
         migrationsApplied = appliedMigrations.Count();
         migrationsPending = pendingMigrations.Count();
         
-        dbStatus = "? Conectado";
+        dbStatus = "✅ Conectado";
         dbStatusClass = "status-ok";
     }
     catch (Exception ex)
     {
         sw.Stop();
         dbLatency = (int)sw.ElapsedMilliseconds;
-        dbStatus = $"? Error: {ex.Message[..Math.Min(50, ex.Message.Length)]}...";
+        dbStatus = $"❌ Error: {ex.Message[..Math.Min(50, ex.Message.Length)]}...";
     }
 
     var process = System.Diagnostics.Process.GetCurrentProcess();
@@ -899,8 +885,8 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
     var gcGen2 = GC.CollectionCount(2);
 
     var envBadge = environment == "Development" 
-        ? "<span style=\"background: #ffc107; color: #000; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">?? DEV</span>"
-        : "<span style=\"background: #28a745; color: #fff; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">?? PROD</span>";
+        ? "<span style=\"background: #ffc107; color: #000; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🔧 DEV</span>"
+        : "<span style=\"background: #28a745; color: #fff; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🚀 PROD</span>";
 
     var html = $@"
 <!DOCTYPE html>
@@ -1090,7 +1076,7 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
                     <h3>Base de Datos</h3>
                     <div class=""value"">{dbStatus}</div>
                     <div class=""detail"">Latencia: {dbLatency}ms</div>
-                    {(migrationsPending > 0 ? $@"<span class=""badge badge-warning"">?? {migrationsPending} pendiente(s)</span>" : $@"<span class=""badge badge-success"">? {migrationsApplied} aplicada(s)</span>")}
+                    {(migrationsPending > 0 ? $@"<span class=""badge badge-warning"">⚠️ {migrationsPending} pendiente(s)</span>" : $@"<span class=""badge badge-success"">✓ {migrationsApplied} aplicada(s)</span>")}
                 </div>
             </div>
             <div class=""info-grid"">
@@ -1120,8 +1106,8 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
                 </div>
             </div>
             <div class=""links"">
-                <a href=""/swagger"" class=""link-button"">?? Documentación API</a>
-                <a href=""/health"" class=""link-button secondary"">?? Health Check</a>
+                <a href=""/swagger"" class=""link-button"">📚 Documentación API</a>
+                <a href=""/health"" class=""link-button secondary"">🏥 Health Check</a>
             </div>
         </div>
         <div class=""footer"">
@@ -1145,7 +1131,7 @@ static async Task EnsureDatabaseAndSchemaExistAsync(string connectionString, str
 {
     try
     {
-        Log.Information("?? Verificando base de datos pss_dvnx y schema {Schema}...", schema);
+        Log.Information("🔍 Verificando base de datos pss_dvnx y schema {Schema}...", schema);
         
         // La BD ya debe ser pss_dvnx en este punto
         var builder = new NpgsqlConnectionStringBuilder(connectionString);
@@ -1175,14 +1161,14 @@ static async Task EnsureDatabaseAndSchemaExistAsync(string connectionString, str
             
             if (!dbExists)
             {
-                Log.Information("?? Creando base de datos 'pss_dvnx'...");
+                Log.Information("📦 Creando base de datos 'pss_dvnx'...");
                 var createDbCmd = new NpgsqlCommand("CREATE DATABASE pss_dvnx", conn);
                 await createDbCmd.ExecuteNonQueryAsync();
-                Log.Information("? Base de datos 'pss_dvnx' creada");
+                Log.Information("✅ Base de datos 'pss_dvnx' creada");
             }
             else
             {
-                Log.Information("? Base de datos 'pss_dvnx' existe");
+                Log.Information("✅ Base de datos 'pss_dvnx' existe");
             }
         }
         
@@ -1200,14 +1186,14 @@ static async Task EnsureDatabaseAndSchemaExistAsync(string connectionString, str
             
             if (!schemaExists)
             {
-                Log.Information("?? Creando schema '{Schema}'...", schema);
+                Log.Information("📦 Creando schema '{Schema}'...", schema);
                 var createSchemaCmd = new NpgsqlCommand($"CREATE SCHEMA \"{schema}\"", conn);
                 await createSchemaCmd.ExecuteNonQueryAsync();
-                Log.Information("? Schema '{Schema}' creado", schema);
+                Log.Information("✅ Schema '{Schema}' creado", schema);
             }
             else
             {
-                Log.Information("? Schema '{Schema}' existe", schema);
+                Log.Information("✅ Schema '{Schema}' existe", schema);
             }
             
             // 2.2 Habilitar extensión pgcrypto
@@ -1215,11 +1201,11 @@ static async Task EnsureDatabaseAndSchemaExistAsync(string connectionString, str
             {
                 var enablePgcryptoCmd = new NpgsqlCommand("CREATE EXTENSION IF NOT EXISTS pgcrypto", conn);
                 await enablePgcryptoCmd.ExecuteNonQueryAsync();
-                Log.Information("? Extensión pgcrypto habilitada");
+                Log.Information("✅ Extensión pgcrypto habilitada");
             }
             catch (Exception ex)
             {
-                Log.Warning("??  pgcrypto: {Message}", ex.Message);
+                Log.Warning("⚠️  pgcrypto: {Message}", ex.Message);
             }
             
             // 2.3 Listar schemas existentes
@@ -1237,14 +1223,14 @@ static async Task EnsureDatabaseAndSchemaExistAsync(string connectionString, str
                 schemas.Add(reader.GetString(0));
             }
             
-            Log.Information("?? Schemas en pss_dvnx: {Schemas}", string.Join(", ", schemas));
+            Log.Information("📋 Schemas en pss_dvnx: {Schemas}", string.Join(", ", schemas));
         }
         
-        Log.Information("? Verificación completada");
+        Log.Information("✅ Verificación completada");
     }
     catch (Exception ex)
     {
-        Log.Error(ex, "? Error en verificación de BD/schema");
+        Log.Error(ex, "❌ Error en verificación de BD/schema");
         throw;
     }
 }

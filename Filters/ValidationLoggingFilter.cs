@@ -18,6 +18,13 @@ public class ValidationLoggingFilter : IActionFilter
 
     public void OnActionExecuting(ActionExecutingContext context)
     {
+        // Log siempre para confirmar que el filtro se ejecuta
+        _logger.LogInformation("🔍 ValidationLoggingFilter.OnActionExecuting - {Controller}.{Action} - ModelState.IsValid={IsValid}, ErrorCount={ErrorCount}",
+            context.RouteData.Values["controller"],
+            context.RouteData.Values["action"],
+            context.ModelState.IsValid,
+            context.ModelState.ErrorCount);
+
         // Si ModelState es inválido, loguear detalles ANTES de que [ApiController] lo maneje
         if (!context.ModelState.IsValid)
         {
