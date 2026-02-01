@@ -582,7 +582,300 @@ public class FreshdeskClient
             throw;
         }
     }
+    
+    /// <summary>
+    /// Obtiene una página de tickets de Freshdesk
+    /// GET /api/v2/tickets?per_page=100&page=1
+    /// </summary>
+    public async Task<List<FreshdeskTicketDto>> GetTicketsPageAsync(
+        int page = 1, 
+        int perPage = 100, 
+        CancellationToken ct = default)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            var url = $"/api/v2/tickets?per_page={perPage}&page={page}";
+            _logger.LogInformation("📥 Obteniendo página {Page} de tickets (perPage: {PerPage})", page, perPage);
+            _logger.LogDebug("   URL: {BaseUrl}{Path}", _options.BaseUrl, url);
+            
+            var response = await _httpClient.GetAsync(url, ct);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogError("   ❌ Error de Freshdesk: Status={Status}, Body={Body}", 
+                    response.StatusCode, errorContent);
+            }
+            
+            response.EnsureSuccessStatusCode();
+            
+            var tickets = await response.Content.ReadFromJsonAsync<List<FreshdeskTicketDto>>(JsonOptions, ct) 
+                         ?? new List<FreshdeskTicketDto>();
+            
+            sw.Stop();
+            _logger.LogInformation("   ✅ Obtenidos {Count} tickets en {Ms}ms", tickets.Count, sw.ElapsedMilliseconds);
+            
+            return tickets;
+        }
+        catch (HttpRequestException ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "❌ Error HTTP al obtener página {Page} (duración: {Ms}ms)", page, sw.ElapsedMilliseconds);
+            
+            if (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                throw new InvalidOperationException("Rate limit alcanzado en Freshdesk API", ex);
+            
+            throw;
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "❌ Error inesperado al obtener página {Page} (duración: {Ms}ms)", page, sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Obtiene tickets actualizados desde una fecha específica
+    /// GET /api/v2/tickets?updated_since=2025-01-01T00:00:00Z&per_page=100&page=1
+    /// </summary>
+    public async Task<List<FreshdeskTicketDto>> GetTicketsUpdatedSinceAsync(
+        DateTime updatedSince,
+        int page = 1,
+        int perPage = 100,
+        CancellationToken ct = default)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            // Freshdesk espera ISO 8601 en UTC
+            var updatedSinceStr = updatedSince.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+            var url = $"/api/v2/tickets?updated_since={Uri.EscapeDataString(updatedSinceStr)}&per_page={perPage}&page={page}";
+            
+            _logger.LogInformation("📥 Obteniendo tickets actualizados desde {UpdatedSince} (página {Page}, perPage: {PerPage})", 
+                updatedSinceStr, page, perPage);
+            _logger.LogDebug("   URL: {BaseUrl}{Path}", _options.BaseUrl, url);
+            
+            var response = await _httpClient.GetAsync(url, ct);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogError("   ❌ Error de Freshdesk: Status={Status}, Body={Body}", 
+                    response.StatusCode, errorContent);
+            }
+            
+            response.EnsureSuccessStatusCode();
+            
+            var tickets = await response.Content.ReadFromJsonAsync<List<FreshdeskTicketDto>>(JsonOptions, ct) 
+                         ?? new List<FreshdeskTicketDto>();
+            
+            sw.Stop();
+            _logger.LogInformation("   ✅ Obtenidos {Count} tickets en {Ms}ms", tickets.Count, sw.ElapsedMilliseconds);
+            
+            return tickets;
+        }
+        catch (HttpRequestException ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "❌ Error HTTP al obtener tickets desde {UpdatedSince} (duración: {Ms}ms)", 
+                updatedSince, sw.ElapsedMilliseconds);
+            
+            if (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                throw new InvalidOperationException("Rate limit alcanzado en Freshdesk API", ex);
+            
+            throw;
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "❌ Error inesperado al obtener tickets desde {UpdatedSince} (duración: {Ms}ms)", 
+                updatedSince, sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Obtiene una página de companies de Freshdesk
+    /// GET /api/v2/companies?per_page=100&page=1
+    /// </summary>
+    public async Task<List<FreshdeskCompanyDto>> GetCompaniesPageAsync(
+        int page = 1, 
+        int perPage = 100, 
+        CancellationToken ct = default)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            var url = $"/api/v2/companies?per_page={perPage}&page={page}";
+            _logger.LogInformation("🏢 Obteniendo página {Page} de companies (perPage: {PerPage})", page, perPage);
+            _logger.LogDebug("   URL: {BaseUrl}{Path}", _options.BaseUrl, url);
+            
+            var response = await _httpClient.GetAsync(url, ct);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogError("   ❌ Error de Freshdesk: Status={Status}, Body={Body}", 
+                    response.StatusCode, errorContent);
+            }
+            
+            response.EnsureSuccessStatusCode();
+            
+            var companies = await response.Content.ReadFromJsonAsync<List<FreshdeskCompanyDto>>(JsonOptions, ct) 
+                         ?? new List<FreshdeskCompanyDto>();
+            
+            sw.Stop();
+            _logger.LogInformation("   ✅ Obtenidas {Count} companies en {Ms}ms", companies.Count, sw.ElapsedMilliseconds);
+            
+            return companies;
+        }
+        catch (HttpRequestException ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "❌ Error HTTP al obtener página {Page} de companies (duración: {Ms}ms)", page, sw.ElapsedMilliseconds);
+            
+            if (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                throw new InvalidOperationException("Rate limit alcanzado en Freshdesk API", ex);
+            
+            throw;
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "❌ Error inesperado al obtener página {Page} de companies (duración: {Ms}ms)", page, sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Obtiene información del agente actual (dueño de la API Key)
+    /// GET /api/v2/agents/me
+    /// </summary>
+    public async Task<FreshdeskAgentMeDto?> GetCurrentAgentAsync(CancellationToken ct = default)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            var url = "/api/v2/agents/me";
+            _logger.LogInformation("👤 Obteniendo información del agente actual (me)");
+            _logger.LogDebug("   URL: {BaseUrl}{Path}", _options.BaseUrl, url);
+            
+            var response = await _httpClient.GetAsync(url, ct);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogError("   ❌ Error de Freshdesk: Status={Status}, Body={Body}", 
+                    response.StatusCode, errorContent);
+            }
+            
+            response.EnsureSuccessStatusCode();
+            
+            var agent = await response.Content.ReadFromJsonAsync<FreshdeskAgentMeDto>(JsonOptions, ct);
+            
+            sw.Stop();
+            _logger.LogInformation("   ✅ Obtenida información del agente en {Ms}ms", sw.ElapsedMilliseconds);
+            
+            return agent;
+        }
+        catch (HttpRequestException ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "❌ Error HTTP al obtener agente actual (duración: {Ms}ms)", sw.ElapsedMilliseconds);
+            
+            if (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                throw new InvalidOperationException("Rate limit alcanzado en Freshdesk API", ex);
+            
+            throw;
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "❌ Error inesperado al obtener agente actual (duración: {Ms}ms)", sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Obtiene una página de agentes de Freshdesk
+    /// GET /api/v2/agents?per_page=100&page=1
+    /// </summary>
+    public async Task<List<FreshdeskAgentDto>> GetAgentsPageAsync(
+        int page = 1, 
+        int perPage = 100, 
+        CancellationToken ct = default)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            var url = $"/api/v2/agents?per_page={perPage}&page={page}";
+            _logger.LogInformation("👥 Obteniendo página {Page} de agents (perPage: {PerPage})", page, perPage);
+            _logger.LogDebug("   URL: {BaseUrl}{Path}", _options.BaseUrl, url);
+            
+            var response = await _httpClient.GetAsync(url, ct);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogError("   ❌ Error de Freshdesk: Status={Status}, Body={Body}", 
+                    response.StatusCode, errorContent);
+            }
+            
+            response.EnsureSuccessStatusCode();
+            
+            var agents = await response.Content.ReadFromJsonAsync<List<FreshdeskAgentDto>>(JsonOptions, ct) 
+                         ?? new List<FreshdeskAgentDto>();
+            
+            sw.Stop();
+            _logger.LogInformation("   ✅ Obtenidos {Count} agents en {Ms}ms", agents.Count, sw.ElapsedMilliseconds);
+            
+            return agents;
+        }
+        catch (HttpRequestException ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "❌ Error HTTP al obtener página {Page} de agents (duración: {Ms}ms)", page, sw.ElapsedMilliseconds);
+            
+            if (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                throw new InvalidOperationException("Rate limit alcanzado en Freshdesk API", ex);
+            
+            throw;
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "❌ Error inesperado al obtener página {Page} de agents (duración: {Ms}ms)", page, sw.ElapsedMilliseconds);
+            throw;
+        }
+    }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

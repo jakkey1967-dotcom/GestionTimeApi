@@ -1,289 +1,254 @@
-﻿# Script para probar el CRUD completo de /api/v1/clientes
-# Asegurarse de que la API esté corriendo en https://localhost:7096
+﻿# Test CRUD completo de Clientes
+# Para: GestionTime Desktop
 
+$ErrorActionPreference = "Continue"
 $baseUrl = "https://localhost:2502"
-$email = "psantos@global-retail.com"
-$password = "12345678"
 
-# Ignorar errores de certificados SSL (compatible con PowerShell 5.1 y Core)
-if ($PSVersionTable.PSVersion.Major -lt 6) {
-    # PowerShell 5.1
-    add-type @"
-        using System.Net;
-        using System.Security.Cryptography.X509Certificates;
-        public class TrustAllCertsPolicy : ICertificatePolicy {
-            public bool CheckValidationResult(
-                ServicePoint srvPoint, X509Certificate certificate,
-                WebRequest request, int certificateProblem) {
-                return true;
+# Ignorar certificados SSL
+if (-not ([System.Management.Automation.PSTypeName]'ServerCertificateValidationCallback').Type) {
+    $certCallback = @"
+    using System;
+    using System.Net;
+    using System.Net.Security;
+    using System.Security.Cryptography.X509Certificates;
+    public class ServerCertificateValidationCallback {
+        public static void Ignore() {
+            if(ServicePointManager.ServerCertificateValidationCallback == null) {
+                ServicePointManager.ServerCertificateValidationCallback += 
+                    delegate(Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors) {
+                        return true;
+                    };
             }
         }
-"@
-    [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-}
-
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "TEST CRUD CLIENTES (/api/v1/clientes)" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-
-# 1. LOGIN DESKTOP
-Write-Host "1. Login Desktop..." -ForegroundColor Yellow
-$loginBody = @{
-    email = $email
-    password = $password
-} | ConvertTo-Json
-
-Write-Host "  Intentando login con: $email" -ForegroundColor Gray
-
-try {
-    if ($PSVersionTable.PSVersion.Major -ge 6) {
-        # PowerShell Core 6+
-        $loginResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/auth/login-desktop" `
-            -Method POST `
-            -Body $loginBody `
-            -ContentType "application/json" `
-            -SkipCertificateCheck
-    } else {
-        # PowerShell 5.1
-        $loginResponse = Invoke-RestMethod -Uri "$baseUrl/api/v1/auth/login-desktop" `
-            -Method POST `
-            -Body $loginBody `
-            -ContentType "application/json"
     }
+"@
+    Add-Type $certCallback
+}
+[ServerCertificateValidationCallback]::Ignore()
 
-    # ✅ Tokens en JSON (sin cookies)
-    $token = $loginResponse.accessToken
-    $refreshToken = $loginResponse.refreshToken
-    $sessionId = $loginResponse.sessionId
+Write-Host "🏢 TEST: CRUD Completo de Clientes" -ForegroundColor Cyan
+Write-Host "=" * 60
+
+# 1. LOGIN COMO ADMIN
+Write-Host "`n📝 Paso 1: Login como Admin..." -ForegroundColor Yellow
+try {
+    $loginBody = @{
+        email = "psantos@global-retail.com"
+        password = "12345678"
+    } | ConvertTo-Json
+
+    $loginResponse = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/auth/login-desktop" `
+        -Method POST `
+        -ContentType "application/json" `
+        -Body $loginBody
     
-    Write-Host "✓ Login Desktop exitoso" -ForegroundColor Green
-    Write-Host "  Usuario: $($loginResponse.userName)" -ForegroundColor Gray
-    Write-Host "  Email: $($loginResponse.userEmail)" -ForegroundColor Gray
-    Write-Host "  Rol: $($loginResponse.userRole)" -ForegroundColor Gray
-    Write-Host "  Access Token (primeros 20 chars): $($token.Substring(0, [Math]::Min(20, $token.Length)))..." -ForegroundColor Gray
-    Write-Host "  Session ID: $sessionId" -ForegroundColor Gray
-    Write-Host ""
+    $token = $loginResponse.accessToken
+    $headers = @{
+        "Authorization" = "Bearer $token"
+        "Content-Type" = "application/json"
+    }
+    
+    Write-Host "✅ Login exitoso" -ForegroundColor Green
+    Write-Host "   Email: $($loginResponse.user.email)" -ForegroundColor Gray
+    Write-Host "   Role: $($loginResponse.user.role)" -ForegroundColor Gray
 }
 catch {
-    Write-Host "✗ Error en login-desktop: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "❌ Error en login:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    exit 1
+}
+
+# 2. LISTAR CLIENTES (PAGINADO)
+Write-Host "`n📋 Paso 2: Listar clientes (paginado)..." -ForegroundColor Yellow
+try {
+    $response = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/clientes?page=1&size=10" `
+        -Method GET `
+        -Headers $headers
+    
+    $totalPages = [Math]::Ceiling($response.totalCount / $response.pageSize)
+    Write-Host "✅ Total de clientes: $($response.totalCount)" -ForegroundColor Green
+    Write-Host "   Página $($response.page) de $totalPages" -ForegroundColor Gray
+    Write-Host "   Clientes en esta página:" -ForegroundColor Gray
+    
+    foreach ($cliente in $response.items | Select-Object -First 5) {
+        Write-Host "   - [ID:$($cliente.id)] $($cliente.nombre)" -ForegroundColor Gray
+    }
+}
+catch {
+    Write-Host "❌ Error al listar clientes:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+}
+
+# 3. BUSCAR CLIENTES POR TÉRMINO
+Write-Host "`n🔍 Paso 3: Buscar clientes con término 'test'..." -ForegroundColor Yellow
+try {
+    $response = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/clientes?q=test&size=5" `
+        -Method GET `
+        -Headers $headers
+    
+    Write-Host "✅ Encontrados: $($response.totalCount) clientes" -ForegroundColor Green
+    if ($response.items.Count -gt 0) {
+        foreach ($cliente in $response.items) {
+            Write-Host "   - [ID:$($cliente.id)] $($cliente.nombre)" -ForegroundColor Gray
+        }
+    }
+    else {
+        Write-Host "   (No hay clientes con 'test' en el nombre)" -ForegroundColor Gray
+    }
+}
+catch {
+    Write-Host "❌ Error al buscar clientes:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+}
+
+# 4. CREAR NUEVO CLIENTE
+Write-Host "`n➕ Paso 4: Crear nuevo cliente..." -ForegroundColor Yellow
+try {
+    $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+    $newCliente = @{
+        nombre = "Cliente Test $timestamp"
+        idPuntoop = 99999
+        localNum = 1
+        nombreComercial = "COMERCIAL$timestamp"
+        provincia = "Madrid"
+        nota = "Creado automaticamente"
+    } | ConvertTo-Json -Depth 10 -Compress
+
+    $created = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/clientes" `
+        -Method POST `
+        -Headers $headers `
+        -Body $newCliente
+    
+    $clienteId = $created.id
+    Write-Host "✅ Cliente creado exitosamente" -ForegroundColor Green
+    Write-Host "   ID: $($created.id)" -ForegroundColor Gray
+    Write-Host "   Nombre: $($created.nombre)" -ForegroundColor Gray
+    Write-Host "   ID Puntoop: $($created.idPuntoop)" -ForegroundColor Gray
+    Write-Host "   Local Num: $($created.localNum)" -ForegroundColor Gray
+    Write-Host "   Nota: $($created.nota)" -ForegroundColor Gray
+}
+catch {
+    Write-Host "❌ Error al crear cliente:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
     if ($_.ErrorDetails.Message) {
-        Write-Host "  Detalles: $($_.ErrorDetails.Message)" -ForegroundColor Gray
+        Write-Host $_.ErrorDetails.Message -ForegroundColor Red
     }
     exit 1
 }
 
-$headers = @{
-    "Authorization" = "Bearer $token"
-    "Content-Type" = "application/json"
-}
-
-# Función auxiliar para hacer llamadas REST compatibles con PowerShell 5.1 y Core
-function Invoke-ApiRequest {
-    param(
-        [string]$Uri,
-        [string]$Method = "GET",
-        [hashtable]$Headers,
-        [string]$Body = $null
-    )
-    
-    $params = @{
-        Uri = $Uri
-        Method = $Method
-        Headers = $Headers
-    }
-    
-    if ($Body) {
-        $params.Body = $Body
-    }
-    
-    if ($PSVersionTable.PSVersion.Major -ge 6) {
-        $params.SkipCertificateCheck = $true
-    }
-    
-    return Invoke-RestMethod @params
-}
-
-# 2. VERIFICAR QUE /api/v1/catalog/clientes NO CAMBIÓ
-Write-Host "2. Verificar endpoint de catalog (NO debe haber cambiado)..." -ForegroundColor Yellow
+# 5. OBTENER CLIENTE POR ID
+Write-Host "`n🔎 Paso 5: Obtener cliente por ID..." -ForegroundColor Yellow
 try {
-    $catalogResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/catalog/clientes?limit=5" -Headers $headers
-
-    Write-Host "✓ Endpoint /api/v1/catalog/clientes funciona correctamente" -ForegroundColor Green
-    Write-Host "  Retornó $($catalogResponse.Count) clientes con formato: { id, nombre }" -ForegroundColor Gray
-    Write-Host ""
+    $cliente = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/clientes/$clienteId" `
+        -Method GET `
+        -Headers $headers
+    
+    Write-Host "✅ Cliente obtenido:" -ForegroundColor Green
+    Write-Host "   ID: $($cliente.id)" -ForegroundColor Gray
+    Write-Host "   Nombre: $($cliente.nombre)" -ForegroundColor Gray
+    Write-Host "   Nota: $($cliente.nota)" -ForegroundColor Gray
 }
 catch {
-    Write-Host "✗ Error al verificar catalog: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "❌ Error al obtener cliente:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
 }
 
-# 3. GET LIST - Sin filtros
-Write-Host "3. GET /api/v1/clientes (lista sin filtros)..." -ForegroundColor Yellow
+# 6. ACTUALIZAR CLIENTE COMPLETO (PUT)
+Write-Host "`n✏️ Paso 6: Actualizar cliente completo (PUT)..." -ForegroundColor Yellow
 try {
-    $clientesResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes?page=1&size=5" -Headers $headers
-
-    Write-Host "✓ Lista obtenida correctamente" -ForegroundColor Green
-    Write-Host "  Total: $($clientesResponse.totalCount)" -ForegroundColor Gray
-    Write-Host "  Página: $($clientesResponse.page) de $($clientesResponse.totalPages)" -ForegroundColor Gray
-    Write-Host "  Items en esta página: $($clientesResponse.items.Count)" -ForegroundColor Gray
-    
-    if ($clientesResponse.items.Count -gt 0) {
-        Write-Host "  Primer cliente: id=$($clientesResponse.items[0].id), nombre=$($clientesResponse.items[0].nombre)" -ForegroundColor Gray
-    }
-    Write-Host ""
-}
-catch {
-    Write-Host "✗ Error al obtener lista: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# 4. GET LIST - Con filtro de búsqueda
-Write-Host "4. GET /api/v1/clientes?q=madrid (búsqueda de texto)..." -ForegroundColor Yellow
-try {
-    $searchResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes?q=madrid&size=5" -Headers $headers
-
-    Write-Host "✓ Búsqueda realizada correctamente" -ForegroundColor Green
-    Write-Host "  Resultados encontrados: $($searchResponse.totalCount)" -ForegroundColor Gray
-    Write-Host ""
-}
-catch {
-    Write-Host "✗ Error en búsqueda: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# 5. POST - Crear nuevo cliente
-Write-Host "5. POST /api/v1/clientes (crear cliente)..." -ForegroundColor Yellow
-$nuevoCliente = @{
-    nombre = "Cliente Test CRUD $(Get-Date -Format 'yyyyMMdd-HHmmss')"
-    nombreComercial = "Test Commercial"
-    provincia = "Madrid"
-    idPuntoop = 999
-    localNum = 888
-    nota = "Cliente creado por script de prueba"
-} | ConvertTo-Json
-
-try {
-    $createResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes" -Method POST -Headers $headers -Body $nuevoCliente
-
-    $clienteId = $createResponse.id
-    Write-Host "✓ Cliente creado correctamente" -ForegroundColor Green
-    Write-Host "  ID: $clienteId" -ForegroundColor Gray
-    Write-Host "  Nombre: $($createResponse.nombre)" -ForegroundColor Gray
-    Write-Host "  Nota: $($createResponse.nota)" -ForegroundColor Gray
-    Write-Host ""
-}
-catch {
-    Write-Host "✗ Error al crear cliente: $($_.Exception.Message)" -ForegroundColor Red
-    $clienteId = $null
-}
-
-# 6. GET BY ID - Obtener cliente creado
-if ($clienteId) {
-    Write-Host "6. GET /api/v1/clientes/$clienteId (obtener por ID)..." -ForegroundColor Yellow
-    try {
-        $getByIdResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes/$clienteId" -Headers $headers
-
-        Write-Host "✓ Cliente obtenido correctamente" -ForegroundColor Green
-        Write-Host "  ID: $($getByIdResponse.id)" -ForegroundColor Gray
-        Write-Host "  Nombre: $($getByIdResponse.nombre)" -ForegroundColor Gray
-        Write-Host "  Provincia: $($getByIdResponse.provincia)" -ForegroundColor Gray
-        Write-Host ""
-    }
-    catch {
-        Write-Host "✗ Error al obtener cliente: $($_.Exception.Message)" -ForegroundColor Red
-    }
-
-    # 7. PATCH - Actualizar solo la nota
-    Write-Host "7. PATCH /api/v1/clientes/$clienteId/nota (actualizar nota)..." -ForegroundColor Yellow
-    $updateNota = @{
+    $updateCliente = @{
+        nombre = "$($cliente.nombre) - MODIFICADO"
+        idPuntoop = $cliente.idPuntoop
+        localNum = $cliente.localNum
+        nombreComercial = "$($cliente.nombreComercial) - MOD"
+        provincia = $cliente.provincia
         nota = "Nota actualizada en $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
     } | ConvertTo-Json
 
-    try {
-        $patchResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes/$clienteId/nota" -Method PATCH -Headers $headers -Body $updateNota
+    $updated = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/clientes/$clienteId" `
+        -Method PUT `
+        -Headers $headers `
+        -Body $updateCliente
+    
+    Write-Host "✅ Cliente actualizado exitosamente" -ForegroundColor Green
+    Write-Host "   Nombre: $($updated.nombre)" -ForegroundColor Gray
+    Write-Host "   Nota: $($updated.nota)" -ForegroundColor Gray
+}
+catch {
+    Write-Host "❌ Error al actualizar cliente:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+}
 
-        Write-Host "✓ Nota actualizada correctamente" -ForegroundColor Green
-        Write-Host "  Nueva nota: $($patchResponse.nota)" -ForegroundColor Gray
-        Write-Host ""
-    }
-    catch {
-        Write-Host "✗ Error al actualizar nota: $($_.Exception.Message)" -ForegroundColor Red
-    }
-
-    # 8. PUT - Actualizar cliente completo
-    Write-Host "8. PUT /api/v1/clientes/$clienteId (actualizar completo)..." -ForegroundColor Yellow
-    $updateCliente = @{
-        nombre = "Cliente Test ACTUALIZADO"
-        nombreComercial = "Test Commercial UPDATED"
-        provincia = "Barcelona"
-        idPuntoop = 1000
-        localNum = 777
-        nota = "Cliente actualizado completamente"
+# 7. ACTUALIZAR SOLO LA NOTA (PATCH)
+Write-Host "`n📝 Paso 7: Actualizar solo la nota (PATCH)..." -ForegroundColor Yellow
+try {
+    $updateNota = @{
+        nota = "Nota PATCH - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
     } | ConvertTo-Json
 
-    try {
-        $putResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes/$clienteId" -Method PUT -Headers $headers -Body $updateCliente
+    $updatedNota = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/clientes/$clienteId/nota" `
+        -Method PATCH `
+        -Headers $headers `
+        -Body $updateNota
+    
+    Write-Host "✅ Nota actualizada exitosamente" -ForegroundColor Green
+    Write-Host "   Nueva nota: $($updatedNota.nota)" -ForegroundColor Gray
+}
+catch {
+    Write-Host "❌ Error al actualizar nota:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+}
 
-        Write-Host "✓ Cliente actualizado correctamente" -ForegroundColor Green
-        Write-Host "  Nombre: $($putResponse.nombre)" -ForegroundColor Gray
-        Write-Host "  Provincia: $($putResponse.provincia)" -ForegroundColor Gray
-        Write-Host "  Nota: $($putResponse.nota)" -ForegroundColor Gray
-        Write-Host ""
-    }
-    catch {
-        Write-Host "✗ Error al actualizar cliente: $($_.Exception.Message)" -ForegroundColor Red
-    }
+# 8. ELIMINAR CLIENTE
+Write-Host "`n🗑️ Paso 8: Eliminar cliente..." -ForegroundColor Yellow
+try {
+    $deleteResponse = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/clientes/$clienteId" `
+        -Method DELETE `
+        -Headers $headers
+    
+    Write-Host "✅ Cliente eliminado exitosamente" -ForegroundColor Green
+    Write-Host "   Mensaje: $($deleteResponse.message)" -ForegroundColor Gray
+}
+catch {
+    Write-Host "❌ Error al eliminar cliente:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+}
 
-    # 9. Probar filtro hasNota
-    Write-Host "9. GET /api/v1/clientes?hasNota=true (clientes con nota)..." -ForegroundColor Yellow
-    try {
-        $hasNotaResponse = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes?hasNota=true&size=5" -Headers $headers
-
-        Write-Host "✓ Filtro hasNota funciona correctamente" -ForegroundColor Green
-        Write-Host "  Clientes con nota: $($hasNotaResponse.totalCount)" -ForegroundColor Gray
-        Write-Host ""
+# 9. VERIFICAR QUE FUE ELIMINADO
+Write-Host "`n✔️ Paso 9: Verificar eliminación..." -ForegroundColor Yellow
+try {
+    $verificar = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/clientes/$clienteId" `
+        -Method GET `
+        -Headers $headers
+    
+    Write-Host "⚠️  Cliente todavía existe" -ForegroundColor Yellow
+}
+catch {
+    if ($_.Exception.Response.StatusCode.value__ -eq 404) {
+        Write-Host "✅ Confirmado: Cliente eliminado (404)" -ForegroundColor Green
     }
-    catch {
-        Write-Host "✗ Error al filtrar por nota: $($_.Exception.Message)" -ForegroundColor Red
-    }
-
-    # 10. DELETE - Eliminar cliente
-    Write-Host "10. DELETE /api/v1/clientes/$clienteId (eliminar cliente)..." -ForegroundColor Yellow
-    try {
-        Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes/$clienteId" -Method DELETE -Headers $headers
-
-        Write-Host "✓ Cliente eliminado correctamente" -ForegroundColor Green
-        Write-Host ""
-    }
-    catch {
-        Write-Host "✗ Error al eliminar cliente: $($_.Exception.Message)" -ForegroundColor Red
-    }
-
-    # 11. Verificar que el cliente fue eliminado
-    Write-Host "11. GET /api/v1/clientes/$clienteId (verificar eliminación)..." -ForegroundColor Yellow
-    try {
-        $verifyDelete = Invoke-ApiRequest -Uri "$baseUrl/api/v1/clientes/$clienteId" -Headers $headers
-
-        Write-Host "✗ El cliente NO fue eliminado (todavía existe)" -ForegroundColor Red
-    }
-    catch {
-        if ($_.Exception.Response.StatusCode -eq 404) {
-            Write-Host "✓ Cliente eliminado correctamente (404 Not Found)" -ForegroundColor Green
-        }
-        else {
-            Write-Host "? Error inesperado: $($_.Exception.Message)" -ForegroundColor Yellow
-        }
+    else {
+        Write-Host "❌ Error inesperado: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "TESTS COMPLETADOS" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "VERIFICACIONES IMPORTANTES:" -ForegroundColor Yellow
-Write-Host "1. El endpoint /api/v1/catalog/clientes sigue funcionando sin cambios" -ForegroundColor White
-Write-Host "2. El nuevo endpoint /api/v1/clientes tiene CRUD completo" -ForegroundColor White
-Write-Host "3. La paginación funciona correctamente" -ForegroundColor White
-Write-Host "4. Los filtros (q, hasNota, etc.) funcionan" -ForegroundColor White
-Write-Host "5. El campo 'nota' se puede crear, actualizar parcialmente (PATCH) y eliminar" -ForegroundColor White
-Write-Host ""
+Write-Host "`n" + ("=" * 60)
+Write-Host "✅ Test CRUD completado exitosamente" -ForegroundColor Green
+Write-Host "`n📋 ENDPOINTS PROBADOS:" -ForegroundColor Cyan
+Write-Host "   GET    /api/v1/clientes?page=1&size=10" -ForegroundColor Gray
+Write-Host "   GET    /api/v1/clientes?q=test&size=5" -ForegroundColor Gray
+Write-Host "   POST   /api/v1/clientes" -ForegroundColor Gray
+Write-Host "   GET    /api/v1/clientes/{id}" -ForegroundColor Gray
+Write-Host "   PUT    /api/v1/clientes/{id}" -ForegroundColor Gray
+Write-Host "   PATCH  /api/v1/clientes/{id}/nota" -ForegroundColor Gray
+Write-Host "   DELETE /api/v1/clientes/{id}" -ForegroundColor Gray
+

@@ -147,6 +147,127 @@ public class AuthController(
         });
     }
 
+    /// <summary>
+    /// Login para clientes desktop - Retorna el token en el body JSON (sin cookies)
+    /// POST /api/v1/auth/login-desktop
+    /// </summary>
+    [HttpPost("login-desktop")]
+    public async Task<IActionResult> LoginDesktop([FromBody] LoginRequest req)
+    {
+        var email = (req.Email ?? "").Trim().ToLowerInvariant();
+        logger.LogInformation("Intento de login-desktop para {Email}", email);
+
+        var user = await db.Users
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .SingleOrDefaultAsync(u => u.Email == email);
+
+        if (user is null || !user.Enabled)
+        {
+            logger.LogWarning("Login fallido para {Email}: usuario no encontrado o deshabilitado", email);
+            return Unauthorized(new { message = "Credenciales inválidas" });
+        }
+
+        // Detectar hash temporal
+        if (user.PasswordHash.StartsWith("TEMP_HASH_"))
+        {
+            var tempPassword = user.PasswordHash.Replace("TEMP_HASH_", "");
+            
+            if (req.Password != tempPassword)
+            {
+                logger.LogWarning("Login fallido para {Email}: contraseña temporal incorrecta", email);
+                return Unauthorized(new { message = "Credenciales inválidas" });
+            }
+            
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password);
+            user.MustChangePassword = true;
+            user.PasswordChangedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            
+            logger.LogInformation("✅ Hash temporal actualizado a BCrypt para {Email}", email);
+            
+            return Ok(new 
+            { 
+                message = "password_change_required",
+                mustChangePassword = true,
+                user = new { email = user.Email, role = "Usuario" }
+            });
+        }
+
+        // Verificación normal
+        bool ok;
+        try
+        {
+            ok = BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash);
+        }
+        catch (BCrypt.Net.SaltParseException ex)
+        {
+            logger.LogError(ex, "Error de BCrypt al verificar password para {Email}", email);
+            ok = false;
+        }
+
+        if (!ok)
+        {
+            logger.LogWarning("Login fallido para {Email}: contraseña incorrecta", email);
+            return Unauthorized(new { message = "Credenciales inválidas" });
+        }
+
+        // Verificar si debe cambiar contraseña
+        if (user.ShouldChangePassword)
+        {
+            logger.LogInformation("👤 Usuario {Email} debe cambiar contraseña", email);
+            return Ok(new 
+            { 
+                message = "password_change_required",
+                mustChangePassword = true,
+                user = new { email = user.Email, role = user.UserRoles.Select(ur => ur.Role.Name).FirstOrDefault() ?? "Usuario" }
+            });
+        }
+
+        var roles = user.UserRoles.Select(ur => ur.Role.Name).ToArray();
+        
+        // Crear UserSession para tracking de presencia
+        var userAgent = Request.Headers.UserAgent.ToString();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var now = DateTime.UtcNow;
+        
+        var session = new GestionTime.Domain.Auth.UserSession
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            UserAgent = userAgent,
+            Ip = ipAddress,
+            CreatedAt = now,
+            LastSeenAt = now, // Inicializar con hora actual
+            RevokedAt = null
+        };
+        
+        db.UserSessions.Add(session);
+        await db.SaveChangesAsync();
+        
+        // Crear access token con el SessionId en el claim "sid"
+        var accessToken = jwt.CreateAccessToken(user.Id, user.Email, roles, session.Id);
+        
+        logger.LogInformation("Login-desktop exitoso para {Email} (UserId: {UserId}, SessionId: {SessionId}, Roles: {Roles})", 
+            email, user.Id, session.Id, string.Join(", ", roles));
+
+        var role = roles.FirstOrDefault() ?? "Usuario";
+
+        // Retornar token en el body JSON (sin cookies)
+        return Ok(new 
+        { 
+            message = "ok",
+            accessToken = accessToken,
+            sessionId = session.Id,
+            user = new 
+            { 
+                id = user.Id,
+                email = user.Email,
+                role = role,
+                fullName = user.FullName
+            }
+        });
+    }
+
     /// <summary>Refresca el access token usando un refresh token válido. Soporta cookies (web) y JSON body (desktop).</summary>
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshRequest? bodyRequest)
@@ -974,205 +1095,6 @@ public class AuthController(
     }
 
     // Cerrar la clase AuthController
-
-    // ========================================
-    // LOGIN PARA APLICACIÓN DESKTOP (sin cookies)
-    // ========================================
-    
-    [HttpPost("login-desktop")]
-    [AllowAnonymous]
-    public async Task<IActionResult> LoginDesktop([FromBody] LoginRequest req)
-    {
-        var email = (req.Email ?? "").Trim().ToLowerInvariant();
-        logger.LogInformation("Intento de login DESKTOP para {Email}", email);
-
-        var user = await db.Users
-            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
-            .SingleOrDefaultAsync(u => u.Email == email);
-
-        if (user is null || !user.Enabled)
-        {
-            logger.LogWarning("Login fallido para {Email}: usuario no encontrado o deshabilitado", email);
-            return Unauthorized(new { message = "Credenciales inválidas" });
-        }
-
-        // ✅ DETECTAR Y ACTUALIZAR HASH TEMPORAL
-        if (user.PasswordHash.StartsWith("TEMP_HASH_"))
-        {
-            logger.LogInformation("⚠️  Usuario {Email} tiene hash temporal, actualizando con BCrypt...", email);
-            
-            // Extraer la contraseña temporal del hash
-            var tempPassword = user.PasswordHash.Replace("TEMP_HASH_", "");
-            
-            // Verificar que la contraseña ingresada coincida con la temporal
-            if (req.Password != tempPassword)
-            {
-                logger.LogWarning("Login fallido para {Email}: contraseña temporal incorrecta", email);
-                return Unauthorized(new { message = "Credenciales inválidas" });
-            }
-            
-            // Generar hash BCrypt correcto
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password);
-            user.MustChangePassword = true; // Forzar cambio de contraseña
-            user.PasswordChangedAt = DateTime.UtcNow;
-            
-            await db.SaveChangesAsync();
-            
-            logger.LogInformation("✅ Hash temporal actualizado a BCrypt para {Email}", email);
-            
-            // Forzar cambio de contraseña en el primer login real
-            return Ok(new 
-            { 
-                message = "password_change_required",
-                mustChangePassword = true,
-                passwordExpired = false,
-                daysUntilExpiration = 999,
-                userName = !string.IsNullOrWhiteSpace(user.FullName) ? user.FullName : user.Email?.Split('@')[0] ?? "Usuario",
-                temporaryPassword = true // Indicador de que era contraseña temporal
-            });
-        }
-
-        // Verificación normal con BCrypt
-        bool ok;
-        try
-        {
-            ok = BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash);
-        }
-        catch (BCrypt.Net.SaltParseException ex)
-        {
-            logger.LogError(ex, "Error de BCrypt al verificar password para {Email}", email);
-            ok = false;
-        }
-
-        if (!ok)
-        {
-            logger.LogWarning("Login fallido para {Email}: contraseña incorrecta", email);
-            return Unauthorized(new { message = "Credenciales inválidas" });
-        }
-
-        // Verificar si debe cambiar contraseña
-        if (user.ShouldChangePassword)
-        {
-            logger.LogInformation("Usuario {Email} debe cambiar contraseña", email);
-            
-            return Ok(new 
-            { 
-                message = "password_change_required",
-                mustChangePassword = true,
-                passwordExpired = user.IsPasswordExpired,
-                daysUntilExpiration = user.DaysUntilPasswordExpires,
-                userName = !string.IsNullOrWhiteSpace(user.FullName) ? user.FullName : user.Email?.Split('@')[0] ?? "Usuario"
-            });
-        }
-
-        var roles = user.UserRoles.Select(ur => ur.Role.Name).ToArray();
-
-        // ✅ CREAR SESIÓN DE USUARIO (para presencia online)
-        var sessionId = Guid.NewGuid();
-        var userIp = HttpContext.Connection.RemoteIpAddress?.ToString();
-        var userAgent = Request.Headers["User-Agent"].ToString();
-        
-        var session = new GestionTime.Domain.Auth.UserSession
-        {
-            Id = sessionId,
-            UserId = user.Id,
-            CreatedAt = DateTime.UtcNow,
-            LastSeenAt = DateTime.UtcNow,
-            RevokedAt = null,
-            Ip = userIp,
-            UserAgent = userAgent?.Length > 500 ? userAgent.Substring(0, 500) : userAgent
-        };
-        
-        db.UserSessions.Add(session);
-        logger.LogDebug("Sesión creada: {SessionId} para usuario {UserId}", sessionId, user.Id);
-
-        // Access token (JWT) con sessionId en claim "sid"
-        var accessToken = jwt.CreateAccessToken(user.Id, user.Email, roles, sessionId);
-        
-        // Refresh token (raw + hash)
-        var (rawRefresh, refreshHash, refreshExpires) = refreshSvc.Create();
-
-        db.RefreshTokens.Add(new GestionTime.Domain.Auth.RefreshToken
-        {
-            UserId = user.Id,
-            TokenHash = refreshHash,
-            ExpiresAt = refreshExpires,
-            RevokedAt = null
-        });
-
-        await db.SaveChangesAsync();
-
-        logger.LogInformation("Login DESKTOP exitoso para {Email} (UserId: {UserId}, SessionId: {SessionId}, Roles: {Roles})", 
-            email, user.Id, sessionId, string.Join(", ", roles));
-
-        var role = roles.FirstOrDefault() ?? "Usuario";
-        var userName = !string.IsNullOrWhiteSpace(user.FullName) 
-            ? user.FullName 
-            : user.Email?.Split('@')[0] ?? "Usuario";
-
-        // ✅ DEVOLVER TOKENS EN JSON (sin cookies)
-        return Ok(new 
-        { 
-            message = "ok",
-            userName = userName,
-            userEmail = user.Email,
-            userRole = role,
-            mustChangePassword = false,
-            daysUntilPasswordExpires = user.DaysUntilPasswordExpires,
-            // Tokens para Desktop
-            accessToken = accessToken,
-            refreshToken = rawRefresh,
-            expiresAt = refreshExpires,
-            sessionId = sessionId // Para debug
-        });
-    }
-
-    /// <summary>
-    /// Logout para aplicación desktop (revoca sesión y refresh token)
-    /// </summary>
-    [HttpPost("logout-desktop")]
-    [Authorize]
-    public async Task<IActionResult> LogoutDesktop([FromBody] RefreshRequest? req)
-    {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var sessionIdClaim = User.FindFirst("sid")?.Value;
-        
-        logger.LogInformation("Logout DESKTOP solicitado (UserId: {UserId}, SessionId: {SessionId})", 
-            userId, sessionIdClaim ?? "N/A");
-
-        // 1. Revocar sesión actual si existe
-        if (!string.IsNullOrEmpty(sessionIdClaim) && Guid.TryParse(sessionIdClaim, out var sessionId))
-        {
-            var session = await db.UserSessions
-                .SingleOrDefaultAsync(s => s.Id == sessionId && s.RevokedAt == null);
-            
-            if (session != null)
-            {
-                session.RevokedAt = DateTime.UtcNow;
-                logger.LogDebug("Sesión revocada: {SessionId}", sessionId);
-            }
-        }
-
-        // 2. Revocar refresh token si se proporciona
-        if (req != null && !string.IsNullOrWhiteSpace(req.RefreshToken))
-        {
-            var hash = RefreshTokenService.Hash(req.RefreshToken);
-            var refreshToken = await db.RefreshTokens
-                .SingleOrDefaultAsync(t => t.TokenHash == hash && t.RevokedAt == null);
-            
-            if (refreshToken != null)
-            {
-                refreshToken.RevokedAt = DateTime.UtcNow;
-                logger.LogDebug("Refresh token revocado");
-            }
-        }
-
-        await db.SaveChangesAsync();
-        
-        logger.LogInformation("Logout DESKTOP completado para UserId: {UserId}", userId);
-        
-        return Ok(new { message = "bye" });
-    }
 }
 
 public record ForcePasswordChangeRequest

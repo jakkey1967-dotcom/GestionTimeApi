@@ -22,6 +22,12 @@ public class FreshdeskOptions
     public bool SyncEnabled { get; set; } = true;
     
     /// <summary>
+    /// Número de registros por página al consultar Freshdesk API
+    /// Default: 100 (máximo permitido por Freshdesk)
+    /// </summary>
+    public int PerPage { get; set; } = 100;
+    
+    /// <summary>
     /// Normaliza la BaseUrl asegurando que tenga https:// y trailing slash
     /// </summary>
     public string BaseUrl

@@ -6,16 +6,27 @@ public class FreshdeskTicketDto
     public string Subject { get; set; } = string.Empty;
     public int Status { get; set; }
     public int Priority { get; set; }
+    public string? Type { get; set; }
+    
+    // IDs de relaciones
+    public long? RequesterId { get; set; }
+    public long? ResponderId { get; set; }
+    public long? GroupId { get; set; }
+    public long? CompanyId { get; set; }
+    
+    // Timestamps
+    public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    
+    // Tags y custom fields
     public List<string>? Tags { get; set; }
+    public Dictionary<string, object>? CustomFields { get; set; }
     
     // Campos de enriquecimiento (client info)
     public string? RequesterName { get; set; }
-    public long? CompanyId { get; set; }
     public string? CompanyName { get; set; }
     
     // Campos de enriquecimiento (técnico asignado)
-    public long? ResponderId { get; set; }
     public string? TechnicianName { get; set; }
     public string? TechnicianEmail { get; set; }
     
@@ -48,6 +59,45 @@ public class FreshdeskAgentDto
     public long Id { get; set; }
     public string Email { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string? Type { get; set; }
+    public bool? Available { get; set; }
+    public string? Language { get; set; }
+    public string? TimeZone { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+    public FreshdeskAgentContactDto? Contact { get; set; }
+}
+
+public class FreshdeskAgentContactDto
+{
+    public bool? Active { get; set; }
+    public string? Email { get; set; }
+    public string? Name { get; set; }
+    public string? Mobile { get; set; }
+    public string? Phone { get; set; }
+}
+
+// DTO para el agente actual (/api/v2/agents/me)
+public class FreshdeskAgentMeDto
+{
+    public long Id { get; set; }
+    public string? Type { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public FreshdeskAgentMeContactDto? Contact { get; set; }
+}
+
+public class FreshdeskAgentMeContactDto
+{
+    public bool? Active { get; set; }
+    public string? Email { get; set; }
+    public string? Name { get; set; }
+    public string? Language { get; set; }
+    public string? TimeZone { get; set; }
+    public string? Mobile { get; set; }
+    public string? Phone { get; set; }
+    public DateTime? LastLoginAt { get; set; }
 }
 
 public class FreshdeskSearchResponse<T>
@@ -70,12 +120,6 @@ public class FreshdeskRequesterDto
     public long Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
-}
-
-public class FreshdeskCompanyDto
-{
-    public long Id { get; set; }
-    public string Name { get; set; } = string.Empty;
 }
 
 public class FreshdeskAgentDetailDto
@@ -132,6 +176,29 @@ public class FreshdeskConversationDto
     public List<string> CcEmails { get; set; } = new();
     public string BodyText { get; set; } = string.Empty;
 }
+
+// DTOs para Companies
+public class FreshdeskCompanyDto
+{
+    public long Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? Note { get; set; }
+    public List<string>? Domains { get; set; }
+    public string? HealthScore { get; set; }
+    public string? AccountTier { get; set; }
+    public DateTime? RenewalDate { get; set; }
+    public string? Industry { get; set; }
+    public string? Phone { get; set; }
+    public Dictionary<string, object>? CustomFields { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+
+
+
+
 
 
 

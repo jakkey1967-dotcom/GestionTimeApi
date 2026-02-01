@@ -1,5 +1,4 @@
 ﻿using GestionTime.Domain.Freshdesk;
-using GestionTime.Domain.Work;
 using GestionTime.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -124,22 +123,18 @@ public class FreshdeskService
 
     public async Task<List<string>> SuggestTagsAsync(string? term, int limit, CancellationToken ct = default)
     {
-        // Buscar tags desde la tabla de relación ParteTag
-        var query = _db.Set<ParteTag>().AsQueryable();
-        
+        var query = _db.FreshdeskTags.AsQueryable();
+
         if (!string.IsNullOrWhiteSpace(term))
         {
-            query = query.Where(pt => EF.Functions.ILike(pt.TagName, $"%{term}%"));
+            query = query.Where(t => EF.Functions.ILike(t.Name, $"{term}%"));
         }
-        
-        var tagFrequency = await query
-            .GroupBy(pt => pt.TagName)
-            .Select(g => new { Tag = g.Key, Count = g.Count() })
-            .OrderByDescending(t => t.Count)
+
+        return await query
+            .OrderByDescending(t => t.LastSeenAt)
             .Take(limit)
+            .Select(t => t.Name)
             .ToListAsync(ct);
-        
-        return tagFrequency.Select(t => t.Tag).ToList();
     }
 
     public async Task<FreshdeskSyncResult> SyncTagsFromFreshdeskAsync(
@@ -151,8 +146,8 @@ public class FreshdeskService
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var result = new FreshdeskSyncResult { StartedAt = DateTime.UtcNow };
         
-        _logger.LogInformation("?? Iniciando sincronización de tags desde Freshdesk");
-        _logger.LogInformation("   ?? Modo: {Mode}, Días: {Days}, Límite: {Limit}", mode, days, limit);
+        _logger.LogInformation("🔄 Iniciando sincronización de tags desde Freshdesk");
+        _logger.LogInformation("   📊 Modo: {Mode}, Días: {Days}, Límite: {Limit}", mode, days, limit);
 
         try
         {
@@ -161,23 +156,23 @@ public class FreshdeskService
             if (mode == "full")
             {
                 query = "(status:2 OR status:3 OR status:4)"; // Open, Pending, Resolved
-                _logger.LogInformation("   ?? Modo FULL: buscando todos los tickets abiertos/pendientes/resueltos");
+                _logger.LogInformation("   🌐 Modo FULL: buscando todos los tickets abiertos/pendientes/resueltos");
             }
             else // recent
             {
                 var cutoffDate = DateTime.UtcNow.AddDays(-days);
                 var dateStr = cutoffDate.ToString("yyyy-MM-dd");
                 query = $"updated_at:>'{dateStr}'";
-                _logger.LogInformation("   ?? Modo RECENT: tickets actualizados desde {Date}", dateStr);
+                _logger.LogInformation("   📅 Modo RECENT: tickets actualizados desde {Date}", dateStr);
             }
             
-            _logger.LogInformation("   ?? Query Freshdesk: {Query}", query);
+            _logger.LogInformation("   📝 Query Freshdesk: {Query}", query);
             
             // Buscar tickets con paginación
             var tickets = await _client.SearchAllTicketsAsync(query, limit, ct);
             result.TicketsScanned = tickets.Count;
             
-            _logger.LogInformation("   ? {Count} tickets encontrados", tickets.Count);
+            _logger.LogInformation("   ✅ {Count} tickets encontrados", tickets.Count);
 
             var tagsToSync = new HashSet<string>();
             var now = DateTime.UtcNow;
@@ -205,7 +200,7 @@ public class FreshdeskService
             }
 
             result.TagsFound = tagsToSync.Count;
-            _logger.LogInformation("   ???  {Count} tags únicos encontrados", tagsToSync.Count);
+            _logger.LogInformation("   🏷️  {Count} tags únicos encontrados", tagsToSync.Count);
 
             // Upsert en base de datos
             foreach (var tagName in tagsToSync)
@@ -235,8 +230,8 @@ public class FreshdeskService
             result.DurationMs = sw.ElapsedMilliseconds;
             result.CompletedAt = DateTime.UtcNow;
             
-            _logger.LogInformation("? Sincronización completada en {Ms}ms", sw.ElapsedMilliseconds);
-            _logger.LogInformation("   ?? Tickets: {Tickets}, Tags: {Tags} ({Inserted} nuevos, {Updated} actualizados)", 
+            _logger.LogInformation("✅ Sincronización completada en {Ms}ms", sw.ElapsedMilliseconds);
+            _logger.LogInformation("   📊 Tickets: {Tickets}, Tags: {Tags} ({Inserted} nuevos, {Updated} actualizados)", 
                 result.TicketsScanned, result.TagsFound, result.TagsInserted, result.TagsUpdated);
 
             return result;
@@ -248,7 +243,7 @@ public class FreshdeskService
             result.CompletedAt = DateTime.UtcNow;
             result.Error = ex.Message;
             
-            _logger.LogError(ex, "? Error en sincronización de tags (duración: {Ms}ms)", sw.ElapsedMilliseconds);
+            _logger.LogError(ex, "❌ Error en sincronización de tags (duración: {Ms}ms)", sw.ElapsedMilliseconds);
             
             // NO hacer throw - devolver result con error para que el controller pueda mostrar métricas
             return result;

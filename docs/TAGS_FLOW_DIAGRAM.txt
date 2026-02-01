@@ -1,0 +1,166 @@
+﻿```
+===============================================================================
+🏷️ FLUJO DE TAGS EN GESTIONTIME
+===============================================================================
+
+SISTEMA ACTUAL (✅ EN USO)
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  Desktop                    API                       PostgreSQL        │
+│  ┌──────┐                ┌──────┐                  ┌──────────┐        │
+│  │      │  POST /partes  │      │                  │ partes_  │        │
+│  │ User │ ─────────────→ │ API  │ ────INSERT─────→ │ trabajo  │        │
+│  │      │  tags: [...]   │      │                  │          │        │
+│  └──────┘                └──────┘                  │ tags[]   │        │
+│     │                       │                      └──────────┘        │
+│     │                       │                           │              │
+│     │                       │                           │              │
+│  ┌──────┐                ┌──────┐                      │              │
+│  │      │ GET /tags/     │      │                      │              │
+│  │ User │  suggest       │ API  │ ◄─────SELECT────────┘              │
+│  │      │ ◄───────────── │      │   GROUP BY tag                     │
+│  └──────┘  ["tag1",...]  └──────┘   ORDER BY frequency               │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+VENTAJAS:
+✅ Tiempo real (siempre actualizado)
+✅ Ultra rápido (~10ms)
+✅ Sin sincronización manual
+✅ Ordena por frecuencia de uso
+✅ Sin rate limiting
+
+
+SISTEMA LEGACY (❌ DEPRECADO, NO SE USA)
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  Background Service        Freshdesk API          PostgreSQL           │
+│  ┌──────────────┐         ┌────────────┐        ┌──────────────┐      │
+│  │              │         │            │        │ freshdesk_   │      │
+│  │ Cada 24hrs   │ ────→  │  tickets   │ ────→  │ tags         │      │
+│  │              │  GET    │            │ UPSERT │              │      │
+│  └──────────────┘         └────────────┘        │ ❌ NO USADO  │      │
+│                                                  └──────────────┘      │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+DESVENTAJAS:
+❌ Lento (~500ms por request)
+❌ Rate limiting (50 req/min)
+❌ Requiere sincronización periódica
+❌ Tags pueden estar desactualizados
+
+
+===============================================================================
+BACKGROUND SERVICE (🔄 SINCRONIZA TICKETS, NO TAGS)
+===============================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  FreshdeskSyncBackgroundService (cada 24 horas)                        │
+│                                                                         │
+│  ┌────────────┐         ┌────────────┐        ┌──────────────────┐    │
+│  │            │         │ Freshdesk  │        │ PostgreSQL       │    │
+│  │  Timer     │ ────→   │    API     │ ────→  │                  │    │
+│  │  24h       │  GET    │            │ UPSERT │ • tickets_cache  │    │
+│  │            │         │            │        │ • companies_cache│    │
+│  └────────────┘         └────────────┘        │ • agents_cache   │    │
+│                                                └──────────────────┘    │
+│                                                                         │
+│  QUÉ SINCRONIZA:                                                       │
+│  ✅ Tickets headers (últimos 30 días)                                 │
+│  ✅ Companies (todas)                                                  │
+│  ✅ Agents (todos)                                                     │
+│  ❌ Tags (YA NO - Se usa tabla local)                                 │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+===============================================================================
+EJEMPLOS DE USO
+===============================================================================
+
+1. CREAR PARTE CON TAGS
+   ----------------------
+   POST /api/v1/partes-de-trabajo
+   {
+     "ticket": 12345,
+     "accion": "Instalación servidor",
+     "tags": ["urgente", "instalacion", "hardware"]
+   }
+   
+   → Tags se guardan en partes_de_trabajo.tags (text[])
+   → Inmediatamente disponibles para sugerencias
+
+
+2. SOLICITAR SUGERENCIAS
+   ----------------------
+   GET /api/v1/freshdesk/tags/suggest?term=inst&limit=10
+   
+   Response: [
+     "instalacion",    // Usado 145 veces
+     "instancia",      // Usado 23 veces
+     "instrucciones"   // Usado 8 veces
+   ]
+   
+   → Busca en partes_de_trabajo WHERE tags LIKE '%inst%'
+   → Ordena por frecuencia de uso (COUNT)
+
+
+3. VERIFICAR TAGS ACTUALES (SQL)
+   ------------------------------
+   SELECT 
+     UNNEST(tags) as tag,
+     COUNT(*) as frequency
+   FROM pss_dvnx.partes_de_trabajo
+   WHERE tags IS NOT NULL
+   GROUP BY tag
+   ORDER BY frequency DESC;
+
+
+===============================================================================
+CONFIGURACIÓN
+===============================================================================
+
+appsettings.json:
+{
+  "Freshdesk": {
+    "SyncEnabled": true,         // Para tickets/companies (NO tags)
+    "SyncIntervalHours": 24,     // Frecuencia de sync
+    "Domain": "alterasoftware",
+    "ApiKey": "${FRESHDESK_API_KEY}"
+  }
+}
+
+Variables de entorno:
+$env:Freshdesk__SyncEnabled = "true"
+$env:Freshdesk__SyncIntervalHours = "24"
+
+
+===============================================================================
+RESUMEN EJECUTIVO
+===============================================================================
+
+TAGS DE PARTES (Sistema Actual):
+  ├─ Fuente: partes_de_trabajo.tags (text[])
+  ├─ Actualización: Tiempo real (al crear/editar parte)
+  ├─ Endpoint: GET /api/v1/freshdesk/tags/suggest
+  ├─ Performance: ~10ms
+  └─ Status: ✅ EN USO
+
+FRESHDESK TAGS (Sistema Legacy):
+  ├─ Fuente: freshdesk_tags table
+  ├─ Actualización: Background service cada 24h
+  ├─ Endpoint: POST /api/v1/freshdesk/tags/sync (manual)
+  ├─ Performance: ~500ms
+  └─ Status: ❌ DEPRECADO (tabla existe pero no se usa)
+
+BACKGROUND SERVICE:
+  ├─ Sincroniza: Tickets, Companies, Agents
+  ├─ NO sincroniza: Tags (ya no es necesario)
+  ├─ Frecuencia: Cada 24 horas (configurable)
+  └─ Status: ✅ ACTIVO (para tickets/companies)
+
+
+===============================================================================
+```

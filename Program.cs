@@ -387,6 +387,11 @@ try
         builder.Configuration.GetSection(GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions.SectionName));
     builder.Services.AddHttpClient<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskClient>();
     builder.Services.AddScoped<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskService>();
+    builder.Services.AddScoped<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskTicketHeaderSyncService>();
+    builder.Services.AddScoped<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskCompaniesSyncService>();
+    builder.Services.AddScoped<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskAgentMeSyncService>();
+    builder.Services.AddScoped<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskAgentsSyncService>();
+    builder.Services.AddScoped<GestionTime.Api.Services.FreshdeskTicketSuggestService>();
     
     // ? Freshdesk Background Service - Sincronización automática de tags
     builder.Services.AddHostedService<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskSyncBackgroundService>();
