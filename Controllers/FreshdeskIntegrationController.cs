@@ -43,7 +43,7 @@ public class FreshdeskIntegrationController : ControllerBase
         {
             var syncStarted = DateTime.UtcNow;
             
-            // SQL de UPSERT (exactamente como se especificó)
+            // SQL de UPSERT (SIN punto y coma final - EF Core lo añade automáticamente)
             var upsertSql = @"
 insert into pss_dvnx.freshdesk_tags (name, source, last_seen_at)
 select
@@ -57,12 +57,10 @@ cross join lateral (
 where x.tag is not null
   and trim(x.tag) <> ''
 group by left(lower(trim(x.tag)), 100)
-order by 1
 on conflict (name) do update
 set
   source = excluded.source,
-  last_seen_at = greatest(pss_dvnx.freshdesk_tags.last_seen_at, excluded.last_seen_at);
-";
+  last_seen_at = greatest(pss_dvnx.freshdesk_tags.last_seen_at, excluded.last_seen_at)";
 
             // Ejecutar UPSERT
             var rowsAffected = await _db.Database.ExecuteSqlRawAsync(upsertSql, ct);
@@ -70,7 +68,7 @@ set
             _logger.LogInformation("✅ UPSERT completado: {RowsAffected} filas afectadas", rowsAffected);
             
             // Obtener total de tags después del sync
-            var totalTagsSql = "SELECT count(*) FROM pss_dvnx.freshdesk_tags;";
+            var totalTagsSql = "SELECT count(*) FROM pss_dvnx.freshdesk_tags";
             var totalTags = await _db.Database.SqlQueryRaw<int>(totalTagsSql).FirstOrDefaultAsync(ct);
             
             _logger.LogInformation("📊 Total de tags en tabla: {TotalTags}", totalTags);

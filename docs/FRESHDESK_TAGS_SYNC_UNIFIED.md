@@ -38,12 +38,13 @@ CROSS JOIN LATERAL (
 WHERE x.tag IS NOT NULL
   AND trim(x.tag) <> ''
 GROUP BY left(lower(trim(x.tag)), 100)
-ORDER BY 1
 ON CONFLICT (name) DO UPDATE
 SET
   source = excluded.source,
-  last_seen_at = GREATEST(pss_dvnx.freshdesk_tags.last_seen_at, excluded.last_seen_at);
+  last_seen_at = GREATEST(pss_dvnx.freshdesk_tags.last_seen_at, excluded.last_seen_at)
 ```
+
+**Nota:** No lleva punto y coma (`;`) al final porque `ExecuteSqlRawAsync` de EF Core lo añade automáticamente.
 
 #### Respuesta (DTO):
 
