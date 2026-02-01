@@ -28,23 +28,26 @@
 ```sql
 INSERT INTO pss_dvnx.freshdesk_tags (name, source, last_seen_at)
 SELECT
-  left(lower(trim(x.tag)), 100) as name,
+  left(lower(trim(tag_text)), 100) as name,
   'ticket_cache' as source,
-  max(t.updated_at) as last_seen_at
-FROM pss_dvnx.v_freshdesk_ticket_full t
-CROSS JOIN LATERAL (
-  SELECT jsonb_array_elements_text(coalesce(to_jsonb(t.tags), '[]'::jsonb)) as tag
-) x
-WHERE x.tag IS NOT NULL
-  AND trim(x.tag) <> ''
-GROUP BY left(lower(trim(x.tag)), 100)
+  max(h.updated_at) as last_seen_at
+FROM pss_dvnx.freshdesk_ticket_header h
+CROSS JOIN LATERAL jsonb_array_elements_text(
+  coalesce(h.tags, '[]'::jsonb)
+) as tag_text
+WHERE tag_text IS NOT NULL
+  AND trim(tag_text) <> ''
+GROUP BY left(lower(trim(tag_text)), 100)
 ON CONFLICT (name) DO UPDATE
 SET
   source = excluded.source,
   last_seen_at = GREATEST(pss_dvnx.freshdesk_tags.last_seen_at, excluded.last_seen_at)
 ```
 
-**Nota:** No lleva punto y coma (`;`) al final porque `ExecuteSqlRawAsync` de EF Core lo añade automáticamente.
+**Notas:**
+- No lleva punto y coma (`;`) al final porque `ExecuteSqlRawAsync` de EF Core lo añade automáticamente
+- Usa `freshdesk_ticket_header` directamente (no existe vista `v_freshdesk_ticket_full`)
+- El campo `tags` es JSONB, se desempaqueta con `jsonb_array_elements_text`
 
 #### Respuesta (DTO):
 

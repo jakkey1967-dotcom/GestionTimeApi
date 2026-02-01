@@ -44,19 +44,20 @@ public class FreshdeskIntegrationController : ControllerBase
             var syncStarted = DateTime.UtcNow;
             
             // SQL de UPSERT (SIN punto y coma final - EF Core lo añade automáticamente)
+            // Extrae tags desde freshdesk_ticket_header.tags (JSONB)
             var upsertSql = @"
 insert into pss_dvnx.freshdesk_tags (name, source, last_seen_at)
 select
-  left(lower(trim(x.tag)), 100) as name,
+  left(lower(trim(tag_text)), 100) as name,
   'ticket_cache' as source,
-  max(t.updated_at) as last_seen_at
-from pss_dvnx.v_freshdesk_ticket_full t
-cross join lateral (
-  select jsonb_array_elements_text(coalesce(to_jsonb(t.tags), '[]'::jsonb)) as tag
-) x
-where x.tag is not null
-  and trim(x.tag) <> ''
-group by left(lower(trim(x.tag)), 100)
+  max(h.updated_at) as last_seen_at
+from pss_dvnx.freshdesk_ticket_header h
+cross join lateral jsonb_array_elements_text(
+  coalesce(h.tags, '[]'::jsonb)
+) as tag_text
+where tag_text is not null
+  and trim(tag_text) <> ''
+group by left(lower(trim(tag_text)), 100)
 on conflict (name) do update
 set
   source = excluded.source,
