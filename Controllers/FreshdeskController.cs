@@ -145,152 +145,48 @@ public class FreshdeskController : ControllerBase
     }
     
     /// <summary>
-    /// 🏷️ Buscar tags en caché local - Puede ser público o con autenticación
-    /// GET /api/v1/freshdesk/tags/suggest?term=&amp;limit=20
+    /// ⚠️ DEPRECADO: Usar /api/v1/tags/suggest en su lugar
     /// </summary>
     [HttpGet("tags/suggest")]
-    [Authorize]
-    public async Task<IActionResult> SuggestTags(
-        [FromQuery] string? term,
-        [FromQuery] int limit = 20,
-        CancellationToken ct = default)
+    [Obsolete("Este endpoint está deprecado. Use /api/v1/tags/suggest")]
+    [ApiExplorerSettings(IgnoreApi = true)] // Ocultar de Swagger
+    public IActionResult SuggestTagsDeprecated()
     {
-        try
+        _logger.LogWarning("⚠️ Endpoint deprecado /api/v1/freshdesk/tags/suggest fue llamado");
+        
+        return StatusCode(410, new
         {
-            _logger.LogInformation("🏷️ SuggestTags - term: {Term}, limit: {Limit}", term ?? "ninguno", limit);
-
-            var tags = await _freshdeskService.SuggestTagsAsync(term, Math.Min(limit, 50), ct);
-
-            return Ok(new
-            {
-                success = true,
-                count = tags.Count,
-                tags = tags
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "❌ Error al buscar tags");
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Error al buscar tags",
-                error = ex.Message
-            });
-        }
+            success = false,
+            message = "Este endpoint está deprecado. Use /api/v1/tags/suggest en su lugar.",
+            deprecatedSince = "2026-02-01",
+            newEndpoint = "/api/v1/tags/suggest"
+        });
     }
     
     
     /// <summary>
-    /// 🔄 Sincronizar tags desde Freshdesk - Solo ADMIN
-    /// POST /api/v1/freshdesk/tags/sync?mode=recent&amp;days=30&amp;limit=1000
+    /// ⚠️ DEPRECADO: Usar POST /api/v1/integrations/freshdesk/sync/tags en su lugar
     /// </summary>
-    /// <param name="mode">Modo de sincronización: "recent" (últimos N días) o "full" (todos)</param>
-    /// <param name="days">Número de días hacia atrás (solo para mode=recent)</param>
-    /// <param name="limit">Límite máximo de tickets a procesar</param>
     [HttpPost("tags/sync")]
-    [Authorize(Roles = "Admin,ADMIN")]
-    public async Task<IActionResult> SyncTags(
-        [FromQuery] string mode = "recent",
-        [FromQuery] int days = 30,
-        [FromQuery] int limit = 1000,
-        CancellationToken ct = default)
+    [Obsolete("Este endpoint está deprecado. Use POST /api/v1/integrations/freshdesk/sync/tags")]
+    [ApiExplorerSettings(IgnoreApi = true)] // Ocultar de Swagger
+    public IActionResult SyncTagsDeprecated()
     {
-        try
+        _logger.LogWarning("⚠️ Endpoint deprecado /api/v1/freshdesk/tags/sync fue llamado");
+        
+        return StatusCode(410, new
         {
-            // Verificar si el endpoint está habilitado
-            var syncApiEnabled = Environment.GetEnvironmentVariable("FRESHDESK_TAGS_SYNC_API_ENABLED");
-            if (syncApiEnabled != "true")
-            {
-                _logger.LogWarning("❌ Intento de sincronización cuando FRESHDESK_TAGS_SYNC_API_ENABLED != true");
-                return NotFound(new
-                {
-                    success = false,
-                    message = "Endpoint de sincronización deshabilitado",
-                    timestamp = DateTime.UtcNow
-                });
-            }
-            
-            _logger.LogInformation("🔄 Iniciando sincronización MANUAL de tags");
-            _logger.LogInformation("   👤 Usuario: {Email}", User.FindFirstValue(ClaimTypes.Email));
-            _logger.LogInformation("   📊 Parámetros: mode={Mode}, days={Days}, limit={Limit}", mode, days, limit);
-
-            // Validaciones
-            if (mode != "recent" && mode != "full")
-            {
-                return BadRequest(new
-                {
-                    success = false,
-                    message = "❌ Modo inválido. Use 'recent' o 'full'",
-                    validModes = new[] { "recent", "full" }
-                });
-            }
-
-            if (days < 1 || days > 365)
-            {
-                return BadRequest(new
-                {
-                    success = false,
-                    message = "❌ 'days' debe estar entre 1 y 365"
-                });
-            }
-
-            if (limit < 1 || limit > 5000)
-            {
-                return BadRequest(new
-                {
-                    success = false,
-                    message = "❌ 'limit' debe estar entre 1 y 5000"
-                });
-            }
-
-            var result = await _freshdeskService.SyncTagsFromFreshdeskAsync(mode, days, limit, ct);
-
-            if (result.Success)
-            {
-                return Ok(new
-                {
-                    success = true,
-                    message = $"✅ Sincronización completada en {result.DurationMs}ms",
-                    metrics = new
-                    {
-                        ticketsScanned = result.TicketsScanned,
-                        tagsFound = result.TagsFound,
-                        inserted = result.TagsInserted,
-                        updated = result.TagsUpdated,
-                        durationMs = result.DurationMs
-                    },
-                    startedAt = result.StartedAt,
-                    completedAt = result.CompletedAt
-                });
-            }
-            else
-            {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = "❌ Error en sincronización",
-                    error = result.Error,
-                    metrics = new
-                    {
-                        ticketsScanned = result.TicketsScanned,
-                        tagsFound = result.TagsFound,
-                        durationMs = result.DurationMs
-                    }
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "❌ Error al sincronizar tags");
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Error al sincronizar tags desde Freshdesk",
-                error = ex.Message
-            });
-        }
+            success = false,
+            message = "Este endpoint está deprecado. Use POST /api/v1/integrations/freshdesk/sync/tags en su lugar.",
+            deprecatedSince = "2026-02-01",
+            newEndpoint = "/api/v1/integrations/freshdesk/sync/tags",
+            reason = "El nuevo endpoint usa UPSERT directo a la vista de tickets cacheados en lugar de consultar la API de Freshdesk."
+        });
     }
+    
+    // NOTA: El código antiguo de SyncTags fue removido completamente.
+    // La nueva implementación está en FreshdeskIntegrationController.
+    // Endpoint nuevo: POST /api/v1/integrations/freshdesk/sync/tags
     
     /// <summary>
     /// 🔄 Sincronizar ticket headers desde Freshdesk - Solo ADMIN
