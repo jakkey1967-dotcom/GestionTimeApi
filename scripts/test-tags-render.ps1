@@ -1,53 +1,121 @@
-﻿# Script para probar tags en Render
-# Verifica si las tablas de tags existen y funcionan
+﻿# ========================================
+# 🧪 TEST DE TAGS EN RENDER (PRODUCCIÓN)
+# ========================================
 
-$API_URL = "https://gestiontimeapi.onrender.com/api/v1"
-$EMAIL = "tu-email@ejemplo.com"
-$PASSWORD = "tu-password"
+$ErrorActionPreference = "Continue"
+$baseUrl = "https://gestiontimeapi.onrender.com"
 
-Write-Host "🔐 INICIANDO SESIÓN EN RENDER..." -ForegroundColor Cyan
+Write-Host "🧪 TEST: Tags en Render (Producción)" -ForegroundColor Cyan
+Write-Host "=" * 60
 
-# Login
-$loginPayload = @{
-    email = $EMAIL
-    password = $PASSWORD
-} | ConvertTo-Json
-
+# 1. HEALTH CHECK
+Write-Host "`n🏥 Paso 1: Health Check..." -ForegroundColor Yellow
 try {
-    $loginResponse = Invoke-RestMethod -Uri "$API_URL/auth/login" -Method Post -Body $loginPayload -ContentType "application/json"
-    $TOKEN = $loginResponse.token
-    Write-Host "✅ Login exitoso" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Error en login: $_" -ForegroundColor Red
+    $health = Invoke-RestMethod -Uri "$baseUrl/health" -Method GET -TimeoutSec 10
+    Write-Host "✅ Servicio activo" -ForegroundColor Green
+    Write-Host ($health | ConvertTo-Json -Depth 3) -ForegroundColor Gray
+}
+catch {
+    Write-Host "❌ Servicio no responde" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
     exit 1
 }
 
-$headers = @{
-    "Authorization" = "Bearer $TOKEN"
-    "Content-Type" = "application/json"
-}
-
-Write-Host "`n🏷️  PROBANDO ENDPOINT DE TAGS..." -ForegroundColor Cyan
-
-# Test 1: GET /api/v1/tags/suggest (sin filtro)
-Write-Host "`n📋 Test 1: Sugerir tags (sin filtro)" -ForegroundColor Yellow
+# 2. LOGIN
+Write-Host "`n🔐 Paso 2: Login..." -ForegroundColor Yellow
 try {
-    $tagsResponse = Invoke-RestMethod -Uri "$API_URL/tags/suggest?limit=10" -Method Get -Headers $headers
-    Write-Host "✅ Respuesta exitosa" -ForegroundColor Green
-    Write-Host "   Total tags: $($tagsResponse.count)" -ForegroundColor White
+    $loginBody = @{
+        email = "psantos@global-retail.com"
+        password = "12345678"
+    } | ConvertTo-Json
+
+    $loginResponse = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/auth/login-desktop" `
+        -Method POST `
+        -ContentType "application/json" `
+        -Body $loginBody
     
-    if ($tagsResponse.tags -and $tagsResponse.tags.Count -gt 0) {
-        Write-Host "   Tags encontradas:" -ForegroundColor White
-        $tagsResponse.tags | ForEach-Object { Write-Host "      - $_" -ForegroundColor Gray }
-    } else {
-        Write-Host "   ⚠️  No hay tags en la base de datos" -ForegroundColor Yellow
+    $token = $loginResponse.accessToken
+    Write-Host "✅ Login exitoso" -ForegroundColor Green
+    Write-Host "   Email: $($loginResponse.user.email)" -ForegroundColor Gray
+    Write-Host "   Token: $($token.Substring(0, 30))..." -ForegroundColor Gray
+}
+catch {
+    Write-Host "❌ Error en login:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    if ($_.ErrorDetails.Message) {
+        Write-Host $_.ErrorDetails.Message -ForegroundColor Red
     }
-} catch {
-    Write-Host "❌ Error: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "   $($_.ErrorDetails.Message)" -ForegroundColor Red
+    exit 1
 }
 
-# Test 2: GET /api/v1/tags/suggest?term=x
+# 3. OBTENER TAGS SIN FILTRO
+Write-Host "`n📊 Paso 3: Obtener todos los tags (sin filtro)..." -ForegroundColor Yellow
+try {
+    $headers = @{
+        "Authorization" = "Bearer $token"
+        "Accept" = "application/json"
+    }
+    
+    $tags = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/tags?limit=20" `
+        -Method GET `
+        -Headers $headers
+    
+    Write-Host "✅ Tags obtenidos: $($tags.Count)" -ForegroundColor Green
+    Write-Host "   Primeros 10:" -ForegroundColor Gray
+    $tags | Select-Object -First 10 | ForEach-Object { Write-Host "     - $_" -ForegroundColor Gray }
+}
+catch {
+    Write-Host "❌ Error obteniendo tags:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    if ($_.ErrorDetails.Message) {
+        Write-Host $_.ErrorDetails.Message -ForegroundColor Red
+    }
+}
+
+# 4. OBTENER TAGS FILTRADOS POR LETRA
+Write-Host "`n🔍 Paso 4: Filtrar tags por letra..." -ForegroundColor Yellow
+
+$letras = @("a", "b", "c", "t", "s", "p")
+
+foreach ($letra in $letras) {
+    try {
+        $tags = Invoke-RestMethod `
+            -Uri "$baseUrl/api/v1/tags?source=$letra&limit=10" `
+            -Method GET `
+            -Headers $headers
+        
+        Write-Host "   [$letra] → $($tags.Count) tags encontrados" -ForegroundColor $(if ($tags.Count -gt 0) { "Green" } else { "Yellow" })
+        
+        if ($tags.Count -gt 0) {
+            $tags | Select-Object -First 3 | ForEach-Object { Write-Host "        - $_" -ForegroundColor Gray }
+        }
+    }
+    catch {
+        Write-Host "   [$letra] → ❌ Error" -ForegroundColor Red
+    }
+    
+    Start-Sleep -Milliseconds 200
+}
+
+# 5. OBTENER STATS
+Write-Host "`n📈 Paso 5: Obtener estadísticas de tags..." -ForegroundColor Yellow
+try {
+    $stats = Invoke-RestMethod `
+        -Uri "$baseUrl/api/v1/tags/stats" `
+        -Method GET `
+        -Headers $headers
+    
+    Write-Host "✅ Estadísticas obtenidas:" -ForegroundColor Green
+    Write-Host ($stats | ConvertTo-Json -Depth 3) -ForegroundColor Gray
+}
+catch {
+    Write-Host "❌ Error obteniendo stats:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+}
+
+Write-Host "`n✅ TEST COMPLETADO" -ForegroundColor Green
 Write-Host "`n📋 Test 2: Buscar tags con término 'test'" -ForegroundColor Yellow
 try {
     $tagsResponse2 = Invoke-RestMethod -Uri "$API_URL/tags/suggest?term=test&limit=5" -Method Get -Headers $headers
