@@ -6,9 +6,11 @@
 # ?? SECURITY: Archivos sensibles
 *.env
 .env*
+.env.local
 *secrets*
 *SECURE*
 render-env-variables-SECURE.txt
+temp_token.txt
 
 # User-specific files
 *.rsuser
