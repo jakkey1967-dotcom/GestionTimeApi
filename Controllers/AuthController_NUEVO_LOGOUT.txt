@@ -1,0 +1,51 @@
+﻿    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        logger.LogInformation("Logout solicitado{UserInfo}", 
+            userId != null ? $" por UserId: {userId}" : "");
+
+        // 1. Revoca el refresh actual (si existe)
+        if (Request.Cookies.TryGetValue("refresh_token", out var rawRefresh) && !string.IsNullOrWhiteSpace(rawRefresh))
+        {
+            var hash = RefreshTokenService.Hash(rawRefresh);
+
+            var token = await db.RefreshTokens.SingleOrDefaultAsync(t => t.TokenHash == hash);
+            if (token is not null && token.RevokedAt == null)
+            {
+                token.RevokedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+                logger.LogDebug("Refresh token revocado: {TokenId}", token.Id);
+            }
+        }
+
+        // 2. Revocar TODAS las sesiones activas del usuario (marcar offline inmediatamente)
+        if (userId != null && Guid.TryParse(userId, out var userIdGuid))
+        {
+            var activeSessions = await db.UserSessions
+                .Where(s => s.UserId == userIdGuid && s.RevokedAt == null)
+                .ToListAsync();
+            
+            foreach (var session in activeSessions)
+            {
+                session.RevokedAt = DateTime.UtcNow;
+            }
+            
+            if (activeSessions.Any())
+            {
+                await db.SaveChangesAsync();
+                logger.LogInformation("Revocadas {Count} sesiones activas del usuario {UserId}", activeSessions.Count, userIdGuid);
+            }
+        }
+
+        // 3. Borrar cookies
+        Response.Cookies.Delete("access_token");
+        Response.Cookies.Delete("refresh_token", new CookieOptions
+        {
+            Path = "/api/v1/auth/refresh"
+        });
+
+        logger.LogInformation("Logout completado para UserId: {UserId}", userId);
+
+        return Ok(new { message = "bye" });
+    }

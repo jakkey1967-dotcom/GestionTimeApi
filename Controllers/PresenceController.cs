@@ -1,4 +1,4 @@
-ï»¿using GestionTime.Infrastructure.Persistence;
+using GestionTime.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace GestionTime.Api.Controllers;
 
 /// <summary>
-/// Endpoint pÃºblico para consultar usuarios online (presencia)
+/// Endpoint público para consultar usuarios online (presencia)
 /// </summary>
 [ApiController]
 [Route("api/v1/presence")]
@@ -16,8 +16,8 @@ public class PresenceController : ControllerBase
     private readonly GestionTimeDbContext _db;
     private readonly ILogger<PresenceController> _logger;
     
-    // Considerar usuario online si lastSeenAt < 2 minutos
-    private const int ONLINE_THRESHOLD_MINUTES = 2;
+    // Considerar usuario online si lastSeenAt < 30 segundos
+    private const int ONLINE_THRESHOLD_SECONDS = 30;
 
     public PresenceController(GestionTimeDbContext db, ILogger<PresenceController> logger)
     {
@@ -28,13 +28,13 @@ public class PresenceController : ControllerBase
     /// <summary>
     /// Obtiene lista de todos los usuarios con su estado de presencia
     /// </summary>
-    /// <returns>Lista ordenada: ADMIN>EDITOR>USER, online primero, luego alfabÃ©tico</returns>
+    /// <returns>Lista ordenada: ADMIN>EDITOR>USER, online primero, luego alfabético</returns>
     [HttpGet("users")]
     public async Task<IActionResult> GetUsers()
     {
-        var onlineThreshold = DateTime.UtcNow.AddMinutes(-ONLINE_THRESHOLD_MINUTES);
+        var onlineThreshold = DateTime.UtcNow.AddSeconds(-ONLINE_THRESHOLD_SECONDS);
         
-        // Obtener usuarios con sus roles y Ãºltima actividad de sesiÃ³n
+        // Obtener usuarios con sus roles y última actividad de sesión
         var users = await _db.Users
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
@@ -73,7 +73,7 @@ public class PresenceController : ControllerBase
         })
         .OrderBy(u => u.rolePriority)      // ADMIN primero (0), luego EDITOR (1), USER (2)
         .ThenByDescending(u => u.isOnline) // Online primero
-        .ThenBy(u => u.fullName)           // AlfabÃ©tico
+        .ThenBy(u => u.fullName)           // Alfabético
         .Select(u => new
         {
             u.userId,
@@ -103,7 +103,7 @@ public class PresenceController : ControllerBase
     }
 
     /// <summary>
-    /// Obtiene la prioridad numÃ©rica del rol (menor = mayor prioridad)
+    /// Obtiene la prioridad numérica del rol (menor = mayor prioridad)
     /// </summary>
     private static int GetRolePriority(string role)
     {

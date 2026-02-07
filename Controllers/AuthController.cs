@@ -225,6 +225,24 @@ public class AuthController(
 
         var roles = user.UserRoles.Select(ur => ur.Role.Name).ToArray();
         
+        // 🔧 FIX: Revocar TODAS las sesiones anteriores del usuario antes de crear la nueva
+        // Esto asegura que solo haya UNA sesión activa por usuario
+        var oldSessions = await db.UserSessions
+            .Where(s => s.UserId == user.Id && s.RevokedAt == null)
+            .ToListAsync();
+        
+        if (oldSessions.Any())
+        {
+            foreach (var oldSession in oldSessions)
+            {
+                oldSession.RevokedAt = DateTime.UtcNow;
+            }
+            
+            await db.SaveChangesAsync();
+            logger.LogInformation("Revocadas {Count} sesiones antiguas del usuario {UserId} antes de crear nueva sesión", 
+                oldSessions.Count, user.Id);
+        }
+        
         // Crear UserSession para tracking de presencia
         var userAgent = Request.Headers.UserAgent.ToString();
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -376,7 +394,7 @@ public class AuthController(
         logger.LogInformation("Logout solicitado{UserInfo}", 
             userId != null ? $" por UserId: {userId}" : "");
 
-        // Revoca el refresh actual (si existe)
+        // 1. Revoca el refresh actual (si existe)
         if (Request.Cookies.TryGetValue("refresh_token", out var rawRefresh) && !string.IsNullOrWhiteSpace(rawRefresh))
         {
             var hash = RefreshTokenService.Hash(rawRefresh);
@@ -386,17 +404,37 @@ public class AuthController(
             {
                 token.RevokedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync();
-                logger.LogDebug("Refresh token revocado");
+                logger.LogDebug("Refresh token revocado: {TokenId}", token.Id);
             }
         }
 
+        // 2. Revocar TODAS las sesiones activas del usuario (marcar offline inmediatamente)
+        if (userId != null && Guid.TryParse(userId, out var userIdGuid))
+        {
+            var activeSessions = await db.UserSessions
+                .Where(s => s.UserId == userIdGuid && s.RevokedAt == null)
+                .ToListAsync();
+            
+            foreach (var session in activeSessions)
+            {
+                session.RevokedAt = DateTime.UtcNow;
+            }
+            
+            if (activeSessions.Any())
+            {
+                await db.SaveChangesAsync();
+                logger.LogInformation("Revocadas {Count} sesiones activas del usuario {UserId}", activeSessions.Count, userIdGuid);
+            }
+        }
+
+        // 3. Borrar cookies
         Response.Cookies.Delete("access_token");
         Response.Cookies.Delete("refresh_token", new CookieOptions
         {
             Path = "/api/v1/auth/refresh"
         });
 
-        logger.LogInformation("Logout completado");
+        logger.LogInformation("Logout completado para UserId: {UserId}", userId);
 
         return Ok(new { message = "bye" });
     }

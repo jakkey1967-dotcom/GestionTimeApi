@@ -850,7 +850,30 @@ public class FreshdeskClient
             throw;
         }
     }
+    
+    /// <summary>Método genérico GET para obtener cualquier tipo de respuesta desde Freshdesk API.</summary>
+    public async Task<T?> GetAsync<T>(string url, CancellationToken ct = default) where T : class
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync(url, ct);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("⚠️ GET {Url} falló con {StatusCode}", url, response.StatusCode);
+                return null;
+            }
+            
+            return await response.Content.ReadFromJsonAsync<T>(JsonOptions, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Error en GET {Url}", url);
+            throw;
+        }
+    }
 }
+
 
 
 

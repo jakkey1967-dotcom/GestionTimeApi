@@ -505,7 +505,7 @@ try
                 status = canConnect ? "OK" : "DEGRADED",
                 timestamp = DateTime.UtcNow,
                 service = "GestionTime API",
-                version = "1.0.0",
+                version = "1.9.0",
                 client = currentClient.Name,                    // ? Nombre descriptivo
                 clientId = currentClient.Id,                    // ? ID técnico
                 schema = clientConfig.GetDatabaseSchema(),      // ? Schema de BD

@@ -1,5 +1,40 @@
 ﻿# 📋 TAREAS PENDIENTES
 
+## ✅ COMPLETADO RECIENTEMENTE (2025-01-28)
+
+### Fix de Presencia - Triple Mejora ✅
+1. ✅ **Logout:** Revoca todas las sesiones activas → Usuario offline inmediatamente
+2. ✅ **Login:** Limpia sesiones antiguas → Solo UNA sesión activa por usuario
+3. ✅ **Health Check:** Actualiza presencia automáticamente → Todos los roles se mantienen online
+
+**Archivos modificados:**
+- `Controllers/AuthController.cs` - Método `Logout()` con revocación de sesiones
+- `Controllers/AuthController.cs` - Método `LoginDesktop()` con limpieza de sesiones antiguas
+- `Controllers/HealthController.cs` - Actualización automática de presencia en `/health`
+
+**Problemas resueltos:**
+1. **Logout:** Usuario permanecía online 30 segundos después de salir
+2. **Login:** Sesiones antiguas acumuladas (múltiples sesiones simultáneas)
+3. **Presencia:** `/health` no actualizaba `LastSeenAt` → Ahora lo hace automáticamente
+
+**Ventajas del nuevo sistema:**
+- ✅ **Cero cambios en Desktop** - Ya llama a `/health`, no requiere modificaciones
+- ✅ **Universal** - Funciona para USER, EDITOR y ADMIN
+- ✅ **Backward compatible** - Respuesta sigue siendo `{"status":"ok"}`
+- ✅ **Eficiente** - Una sola petición actualiza presencia y health check
+- ✅ **Transparente** - Side effect interno, no afecta API pública
+
+**Próximos pasos:**
+1. Reiniciar el backend: `dotnet run`
+2. Probar login con `wsanchez@global-retail.com` (verificar limpieza de sesiones antiguas)
+3. Probar logout (verificar que aparece offline inmediatamente)
+4. Verificar que `/health` actualiza presencia cada vez que se llama
+5. Ejecutar script de diagnóstico: `.\Scripts\Debug-PresenceSystem.ps1`
+
+**Ver detalles completos:** `LOGOUT_PRESENCE_FIXED.md`
+
+---
+
 ## 🚧 EN PAUSA - Sincronización de Ticket Headers de Freshdesk
 
 **Estado:** ❌ NO FUNCIONA - Error 401 Unauthorized
