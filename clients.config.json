@@ -12,7 +12,7 @@
       "Issuer": "GestionTime",
       "Audience": "GestionTime.Api",
       "Key": "${JWT_SECRET_KEY}",
-      "AccessMinutes": 15,
+      "AccessMinutes": 720,
       "RefreshDays": 14
     },
     "Cors": {
@@ -73,7 +73,7 @@
         "Issuer": "GestionTime",
         "Audience": "GestionTime.Api",
         "Key": "${JWT_SECRET_KEY}",
-        "AccessMinutes": 15,
+        "AccessMinutes": 720,
         "RefreshDays": 14
       },
       
@@ -139,7 +139,7 @@
         "Issuer": "GestionTime",
         "Audience": "GestionTime.Api",
         "Key": "${JWT_SECRET_KEY}",
-        "AccessMinutes": 30,
+        "AccessMinutes": 720,
         "RefreshDays": 7
       },
       
@@ -205,7 +205,7 @@
         "Issuer": "GestionTime",
         "Audience": "GestionTime.Api",
         "Key": "${JWT_SECRET_KEY}",
-        "AccessMinutes": 20,
+        "AccessMinutes": 720,
         "RefreshDays": 10
       },
       
