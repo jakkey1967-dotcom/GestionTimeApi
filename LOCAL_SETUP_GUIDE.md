@@ -304,7 +304,7 @@ $token = $response.accessToken
 
 ## 📝 Notas Importantes
 
-1. **JWT Token Expira:** Cada 15 minutos (configurable en `Jwt:AccessMinutes`)
+1. **JWT Token Expira:** Cada 12 horas (configurable en `Jwt:AccessMinutes`)
 2. **Refresh Token:** Válido por 14 días
 3. **Logs:** Se guardan en `logs/log-YYYY-MM-DD.txt`
 4. **Schema PostgreSQL:** Siempre usar `pss_dvnx` (multi-tenant en futuro)
