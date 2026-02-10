@@ -11,6 +11,10 @@ using Serilog.Events;
 using System.Text;
 using Npgsql;
 
+// ? FORZAR UTF-8 en consola para emojis y caracteres especiales
+Console.OutputEncoding = Encoding.UTF8;
+Console.InputEncoding = Encoding.UTF8;
+
 // Si se invoca con argumentos "export-schema", ejecutar herramienta de exportación
 if (args.Length > 0 && args[0] == "export-schema")
 {
@@ -672,11 +676,11 @@ try
             <p>Sistema de Gestión de Tiempo y Recursos</p>
         </div>
         <div class=""content"">
-            <div class=""status"">? API Online</div>
+            <div class=""status"">✅ API Online</div>
             <p style=""color: #6c757d; margin-bottom: 30px;"">La API está funcionando correctamente</p>
             <div class=""links"">
-                <a href=""/swagger"" class=""link-button"">?? Documentación API</a>
-                <a href=""/health"" class=""link-button secondary"">?? Health Check</a>
+                <a href=""/swagger"" class=""link-button"">📘 Documentación API</a>
+                <a href=""/health"" class=""link-button secondary"">✅ Health Check</a>
             </div>
         </div>
         <div class=""footer"">
@@ -686,7 +690,7 @@ try
     </div>
 </body>
 </html>";
-        return Results.Content(html, "text/html");
+        return Results.Content(html, "text/html; charset=utf-8");
     })
     .ExcludeFromDescription();
 
@@ -904,8 +908,8 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
     var gcGen2 = GC.CollectionCount(2);
 
     var envBadge = environment == "Development" 
-        ? "<span style=\"background: #ffc107; color: #000; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">?? DEV</span>"
-        : "<span style=\"background: #28a745; color: #fff; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">?? PROD</span>";
+        ? "<span style=\"background: #ffc107; color: #000; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🔧 DEV</span>"
+        : "<span style=\"background: #28a745; color: #fff; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🚀 PROD</span>";
 
     var html = $@"
 <!DOCTYPE html>
@@ -1095,7 +1099,7 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
                     <h3>Base de Datos</h3>
                     <div class=""value"">{dbStatus}</div>
                     <div class=""detail"">Latencia: {dbLatency}ms</div>
-                    {(migrationsPending > 0 ? $@"<span class=""badge badge-warning"">?? {migrationsPending} pendiente(s)</span>" : $@"<span class=""badge badge-success"">? {migrationsApplied} aplicada(s)</span>")}
+                    {(migrationsPending > 0 ? $@"<span class=""badge badge-warning"">⚠️ {migrationsPending} pendiente(s)</span>" : $@"<span class=""badge badge-success"">✅ {migrationsApplied} aplicada(s)</span>")}
                 </div>
             </div>
             <div class=""info-grid"">
@@ -1125,8 +1129,8 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
                 </div>
             </div>
             <div class=""links"">
-                <a href=""/swagger"" class=""link-button"">?? Documentación API</a>
-                <a href=""/health"" class=""link-button secondary"">?? Health Check</a>
+                <a href=""/swagger"" class=""link-button"">📘 Documentación API</a>
+                <a href=""/health"" class=""link-button secondary"">✅ Health Check</a>
             </div>
         </div>
         <div class=""footer"">
@@ -1140,7 +1144,7 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
 </body>
 </html>";
 
-    return Results.Content(html, "text/html");
+    return Results.Content(html, "text/html; charset=utf-8");
 }
 
 /// <summary>
