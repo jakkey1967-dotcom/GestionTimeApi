@@ -594,6 +594,10 @@ try
             padding: 40px;
             text-align: center;
         }}
+        .logo-link {{
+            display: inline-block;
+            text-decoration: none;
+        }}
         .logo {{
             max-width: 300px;
             height: auto;
@@ -648,6 +652,20 @@ try
             background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
             box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
         }}
+        .link-button.download {{
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }}
+        .link-button.download:hover {{
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }}
+        .icon {{
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            vertical-align: text-bottom;
+            margin-right: 6px;
+        }}
         .footer {{
             text-align: center;
             padding: 20px;
@@ -671,16 +689,43 @@ try
 <body>
     <div class=""container"">
         <div class=""header"">
-            <img src=""{logoPath}"" alt=""GestionTime"" class=""logo"" onerror=""this.src='/images/LogoOscuro.png'"" />
+            <a href=""https://gestiontimeapi.onrender.com"" target=""_blank"" rel=""noopener"" class=""logo-link"">
+                <img src=""{logoPath}"" alt=""GestionTime"" class=""logo"" onerror=""this.src='/images/LogoOscuro.png'"" />
+            </a>
             <h1>GestionTime API</h1>
             <p>Sistema de Gestión de Tiempo y Recursos</p>
         </div>
         <div class=""content"">
-            <div class=""status"">✅ API Online</div>
+            <div class=""status"">
+                <svg class=""icon"" viewBox=""0 0 24 24"" fill=""none"" xmlns=""http://www.w3.org/2000/svg"">
+                    <circle cx=""12"" cy=""12"" r=""10"" stroke=""#155724"" stroke-width=""2"" fill=""#d4edda""/>
+                    <path d=""M7 12l3 3 7-7"" stroke=""#155724"" stroke-width=""2"" stroke-linecap=""round"" stroke-linejoin=""round""/>
+                </svg>
+                API Online
+            </div>
             <p style=""color: #6c757d; margin-bottom: 30px;"">La API está funcionando correctamente</p>
             <div class=""links"">
-                <a href=""/swagger"" class=""link-button"">📘 Documentación API</a>
-                <a href=""/health"" class=""link-button secondary"">✅ Health Check</a>
+                <a href=""/swagger"" class=""link-button"">
+                    <svg class=""icon"" viewBox=""0 0 24 24"" fill=""currentColor"" xmlns=""http://www.w3.org/2000/svg"">
+                        <path d=""M4 19.5A2.5 2.5 0 0 1 6.5 17H20""/>
+                        <path d=""M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
+                    </svg>
+                    Documentación API
+                </a>
+                <a href=""/health"" class=""link-button secondary"">
+                    <svg class=""icon"" viewBox=""0 0 24 24"" fill=""currentColor"" xmlns=""http://www.w3.org/2000/svg"">
+                        <path d=""M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
+                    </svg>
+                    Health Check
+                </a>
+                <a href=""https://github.com/jakkey1967-dotcom/Repositorio_GestionTimeDesktop/releases/download/v1.9.0-beta/GestionTime-v1.9.3-beta.msi"" class=""link-button download"">
+                    <svg class=""icon"" viewBox=""0 0 24 24"" fill=""currentColor"" xmlns=""http://www.w3.org/2000/svg"">
+                        <path d=""M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
+                        <polyline points=""7 10 12 15 17 10"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
+                        <line x1=""12"" y1=""15"" x2=""12"" y2=""3"" stroke=""currentColor"" stroke-width=""2""/>
+                    </svg>
+                    Descargar App
+                </a>
             </div>
         </div>
         <div class=""footer"">
@@ -864,10 +909,10 @@ static string GetConnectionString(IConfiguration configuration)
 /// </summary>
 static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebApplication app)
 {
-    var apiStatus = "? Online";
+    var apiStatus = "<svg class='icon-inline' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><circle cx='12' cy='12' r='10' stroke='#28a745' stroke-width='2' fill='none'/><path d='M7 12l3 3 7-7' stroke='#28a745' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg> Online";
     var apiStatusClass = "status-ok";
     
-    var dbStatus = "? Desconectado";
+    var dbStatus = "<svg class='icon-inline' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><circle cx='12' cy='12' r='10' stroke='#dc3545' stroke-width='2' fill='none'/><line x1='8' y1='8' x2='16' y2='16' stroke='#dc3545' stroke-width='2'/><line x1='16' y1='8' x2='8' y2='16' stroke='#dc3545' stroke-width='2'/></svg> Desconectado";
     var dbStatusClass = "status-error";
     var dbLatency = 0;
     var migrationsApplied = 0;
@@ -887,14 +932,14 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
         migrationsApplied = appliedMigrations.Count();
         migrationsPending = pendingMigrations.Count();
         
-        dbStatus = "? Conectado";
+        dbStatus = "<svg class='icon-inline' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><circle cx='12' cy='12' r='10' stroke='#28a745' stroke-width='2' fill='none'/><path d='M7 12l3 3 7-7' stroke='#28a745' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg> Conectado";
         dbStatusClass = "status-ok";
     }
     catch (Exception ex)
     {
         sw.Stop();
         dbLatency = (int)sw.ElapsedMilliseconds;
-        dbStatus = $"? Error: {ex.Message[..Math.Min(50, ex.Message.Length)]}...";
+        dbStatus = $"<svg class='icon-inline' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><circle cx='12' cy='12' r='10' stroke='#dc3545' stroke-width='2' fill='none'/><line x1='8' y1='8' x2='16' y2='16' stroke='#dc3545' stroke-width='2'/><line x1='16' y1='8' x2='8' y2='16' stroke='#dc3545' stroke-width='2'/></svg> Error: {ex.Message[..Math.Min(50, ex.Message.Length)]}...";
     }
 
     var process = System.Diagnostics.Process.GetCurrentProcess();
@@ -908,8 +953,8 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
     var gcGen2 = GC.CollectionCount(2);
 
     var envBadge = environment == "Development" 
-        ? "<span style=\"background: #ffc107; color: #000; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🔧 DEV</span>"
-        : "<span style=\"background: #28a745; color: #fff; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\">🚀 PROD</span>";
+        ? "<span style=\"background: #ffc107; color: #000; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\"><svg style='display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px;' viewBox='0 0 24 24' fill='currentColor' xmlns='http://www.w3.org/2000/svg'><path d='M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z' stroke='currentColor' stroke-width='0.5' fill='currentColor'/></svg> DEV</span>"
+        : "<span style=\"background: #28a745; color: #fff; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 600; margin-left: 10px;\"><svg style='display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px;' viewBox='0 0 24 24' fill='currentColor' xmlns='http://www.w3.org/2000/svg'><path d='M5 3l3.057-3 11.943 12-11.943 12-3.057-3 9-9z' stroke='currentColor' stroke-width='1' fill='currentColor'/></svg> PROD</span>";
 
     var html = $@"
 <!DOCTYPE html>
@@ -1074,6 +1119,27 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
             background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
             box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
         }}
+        .link-button.download {{
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }}
+        .link-button.download:hover {{
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }}
+        .icon {{
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            vertical-align: text-bottom;
+            margin-right: 6px;
+        }}
+        .icon-inline {{
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            vertical-align: text-bottom;
+            margin-right: 4px;
+        }}
         @media (max-width: 600px) {{
             .logo {{ max-width: 200px; }}
             .header h1 {{ font-size: 24px; }}
@@ -1084,7 +1150,9 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
 <body>
     <div class=""container"">
         <div class=""header"">
-            <img src=""/images/LogoOscuro.png"" alt=""GestionTime"" class=""logo"" onerror=""this.style.display='none'"" />
+            <a href=""https://gestiontimeapi.onrender.com"" target=""_blank"" rel=""noopener"" style=""display:inline-block;text-decoration:none;"">
+                <img src=""/images/LogoOscuro.png"" alt=""GestionTime"" class=""logo"" onerror=""this.style.display='none'"" />
+            </a>
             <h1>GestionTime API {envBadge}</h1>
             <p>Sistema de Gestión de Tiempo y Recursos</p>
         </div>
@@ -1099,7 +1167,7 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
                     <h3>Base de Datos</h3>
                     <div class=""value"">{dbStatus}</div>
                     <div class=""detail"">Latencia: {dbLatency}ms</div>
-                    {(migrationsPending > 0 ? $@"<span class=""badge badge-warning"">⚠️ {migrationsPending} pendiente(s)</span>" : $@"<span class=""badge badge-success"">✅ {migrationsApplied} aplicada(s)</span>")}
+                    {(migrationsPending > 0 ? $@"<span class=""badge badge-warning""><svg style='display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px;' viewBox='0 0 24 24' fill='#856404' xmlns='http://www.w3.org/2000/svg'><path d='M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z'/></svg> {migrationsPending} pendiente(s)</span>" : $@"<span class=""badge badge-success""><svg style='display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px;' viewBox='0 0 24 24' fill='#155724' xmlns='http://www.w3.org/2000/svg'><circle cx='12' cy='12' r='10' fill='none' stroke='#155724' stroke-width='2'/><path d='M7 12l3 3 7-7' stroke='#155724' stroke-width='2' fill='none'/></svg> {migrationsApplied} aplicada(s)</span>")}
                 </div>
             </div>
             <div class=""info-grid"">
@@ -1129,8 +1197,27 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
                 </div>
             </div>
             <div class=""links"">
-                <a href=""/swagger"" class=""link-button"">📘 Documentación API</a>
-                <a href=""/health"" class=""link-button secondary"">✅ Health Check</a>
+                <a href=""/swagger"" class=""link-button"">
+                    <svg class=""icon"" viewBox=""0 0 24 24"" fill=""currentColor"" xmlns=""http://www.w3.org/2000/svg"">
+                        <path d=""M4 19.5A2.5 2.5 0 0 1 6.5 17H20""/>
+                        <path d=""M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
+                    </svg>
+                    Documentación API
+                </a>
+                <a href=""/health"" class=""link-button secondary"">
+                    <svg class=""icon"" viewBox=""0 0 24 24"" fill=""currentColor"" xmlns=""http://www.w3.org/2000/svg"">
+                        <path d=""M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
+                    </svg>
+                    Health Check
+                </a>
+                <a href=""https://github.com/jakkey1967-dotcom/Repositorio_GestionTimeDesktop/releases/download/v1.9.0-beta/GestionTime-v1.9.3-beta.msi"" class=""link-button download"">
+                    <svg class=""icon"" viewBox=""0 0 24 24"" fill=""currentColor"" xmlns=""http://www.w3.org/2000/svg"">
+                        <path d=""M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
+                        <polyline points=""7 10 12 15 17 10"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
+                        <line x1=""12"" y1=""15"" x2=""12"" y2=""3"" stroke=""currentColor"" stroke-width=""2""/>
+                    </svg>
+                    Descargar App
+                </a>
             </div>
         </div>
         <div class=""footer"">
