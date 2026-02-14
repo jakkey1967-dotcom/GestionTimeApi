@@ -7,12 +7,12 @@
 param(
     [Parameter(Mandatory=$false)]
     [string]$BaseUrl = "https://gestiontime-api.onrender.com",
-    
+
     [Parameter(Mandatory=$false)]
-    [string]$Email = "admin@test.com",
-    
+    [string]$Email = "psantos@global-retail.com",
+
     [Parameter(Mandatory=$false)]
-    [string]$Password = "Admin123!"
+    [string]$Password = "12345678"
 )
 
 $ErrorActionPreference = "Stop"
