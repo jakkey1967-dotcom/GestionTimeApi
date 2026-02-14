@@ -316,7 +316,55 @@ try
 
     // Swagger
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen();
+    builder.Services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+        {
+            Title = "GestionTime API",
+            Version = "v1",
+            Description = "API principal de GestionTime - Gestión de tiempo y recursos"
+        });
+
+        c.SwaggerDoc("v2", new Microsoft.OpenApi.Models.OpenApiInfo
+        {
+            Title = "GestionTime API v2",
+            Version = "v2",
+            Description = "API de Informes (solo lectura) - Consultas optimizadas con vistas SQL"
+        });
+
+        // Incluir comentarios XML para documentación
+        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+        {
+            c.IncludeXmlComments(xmlPath);
+        }
+
+        // Configurar seguridad JWT en Swagger
+        c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        {
+            Description = "JWT Authorization header usando el esquema Bearer. Ejemplo: \"Bearer {token}\"",
+            Name = "Authorization",
+            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+            Scheme = "Bearer"
+        });
+
+        c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+        {
+            {
+                new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                {
+                    Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                    {
+                        Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
+            }
+        });
+    });
 
     // ? DbContext con conversión de DATABASE_URL de Render
     var connectionString = GetConnectionString(builder.Configuration);
@@ -743,10 +791,12 @@ try
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "GestionTime API v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "GestionTime API v1 - Principal");
+        c.SwaggerEndpoint("/swagger/v2/swagger.json", "GestionTime API v2 - Informes");
         c.RoutePrefix = "swagger";
         c.DocumentTitle = "GestionTime API - Documentación";
-        
+        c.DefaultModelsExpandDepth(-1); // Ocultar esquemas por defecto
+
         // ? Habilitar envío de cookies con credenciales
         c.ConfigObject.AdditionalItems["persistAuthorization"] = true;
         c.ConfigObject.AdditionalItems["withCredentials"] = true;

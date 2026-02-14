@@ -8,6 +8,9 @@
     <!-- Deshabilitar inclusión automática de Content para evitar duplicados -->
     <EnableDefaultContentItems>false</EnableDefaultContentItems>
     <UserSecretsId>31ada7ab-731b-4fa8-b646-1367b69d56aa</UserSecretsId>
+    <!-- Generar archivo XML para documentación de Swagger -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
