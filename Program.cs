@@ -429,11 +429,14 @@ try
     
     // ? Servicio centralizado de configuración de clientes
     builder.Services.AddSingleton<GestionTime.Api.Services.ClientConfigurationService>();
-    
+
     // ? CRUD Services para catálogos
     builder.Services.AddScoped<GestionTime.Api.Services.TipoService>();
     builder.Services.AddScoped<GestionTime.Api.Services.GrupoService>();
-    
+
+    // ? Informes v2 Service (solo lectura con vistas SQL)
+    builder.Services.AddScoped<GestionTime.Api.Services.InformesService>();
+
     // ? Freshdesk Integration
     builder.Services.Configure<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions>(
         builder.Configuration.GetSection(GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions.SectionName));

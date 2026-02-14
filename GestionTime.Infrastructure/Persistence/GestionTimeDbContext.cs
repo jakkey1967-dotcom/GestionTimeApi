@@ -370,12 +370,45 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
         {
             e.ToTable("freshdesk_tags");
             e.HasKey(x => x.Name);
-            
+
             e.Property(x => x.Name).HasColumnName("name").HasMaxLength(100);
             e.Property(x => x.Source).HasColumnName("source").HasMaxLength(50).IsRequired();
             e.Property(x => x.LastSeenAt).HasColumnName("last_seen_at").IsRequired();
-            
+
             e.HasIndex(x => x.LastSeenAt).HasDatabaseName("idx_freshdesk_tags_last_seen");
+        });
+
+        // ✅ Vista v_partes_stats_full (solo lectura para informes v2)
+        b.Entity<GestionTime.Domain.Reports.VPartesStatsFull>(e =>
+        {
+            e.HasNoKey();
+            e.ToView("v_partes_stats_full", _schema);
+
+            e.Property(x => x.FechaTrabajo).HasColumnName("fecha_trabajo");
+            e.Property(x => x.HoraInicio).HasColumnName("hora_inicio");
+            e.Property(x => x.HoraFin).HasColumnName("hora_fin");
+            e.Property(x => x.DuracionHoras).HasColumnName("duracion_horas");
+            e.Property(x => x.DuracionMin).HasColumnName("duracion_min");
+            e.Property(x => x.Accion).HasColumnName("accion");
+            e.Property(x => x.Ticket).HasColumnName("ticket");
+            e.Property(x => x.IdCliente).HasColumnName("id_cliente");
+            e.Property(x => x.Tienda).HasColumnName("tienda");
+            e.Property(x => x.IdGrupo).HasColumnName("id_grupo");
+            e.Property(x => x.IdTipo).HasColumnName("id_tipo");
+            e.Property(x => x.IdUsuario).HasColumnName("id_usuario");
+            e.Property(x => x.Estado).HasColumnName("estado");
+            e.Property(x => x.Tags).HasColumnName("tags");
+            e.Property(x => x.FechaDia).HasColumnName("fecha_dia");
+            e.Property(x => x.SemanaIso).HasColumnName("semana_iso");
+            e.Property(x => x.Mes).HasColumnName("mes");
+            e.Property(x => x.Anio).HasColumnName("anio");
+            e.Property(x => x.AgenteNombre).HasColumnName("agente_nombre");
+            e.Property(x => x.AgenteEmail).HasColumnName("agente_email");
+            e.Property(x => x.ClienteNombre).HasColumnName("cliente_nombre");
+            e.Property(x => x.GrupoNombre).HasColumnName("grupo_nombre");
+            e.Property(x => x.TipoNombre).HasColumnName("tipo_nombre");
+            e.Property(x => x.DuracionHorasTs).HasColumnName("duracion_horas_ts");
+            e.Property(x => x.DuracionMinTs).HasColumnName("duracion_min_ts");
         });
     }
 
