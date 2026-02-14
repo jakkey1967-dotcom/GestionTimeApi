@@ -18,7 +18,7 @@ public class VPartesStatsFull
     public string? Estado { get; set; }
     public string? Tags { get; set; }
     public DateTime? FechaDia { get; set; }
-    public string? SemanaIso { get; set; }
+    public int? SemanaIso { get; set; }
     public int? Mes { get; set; }
     public int? Anio { get; set; }
     public string? AgenteNombre { get; set; }
@@ -26,6 +26,6 @@ public class VPartesStatsFull
     public string? ClienteNombre { get; set; }
     public string? GrupoNombre { get; set; }
     public string? TipoNombre { get; set; }
-    public TimeSpan? DuracionHorasTs { get; set; }
-    public TimeSpan? DuracionMinTs { get; set; }
+    public decimal? DuracionHorasTs { get; set; }
+    public decimal? DuracionMinTs { get; set; }
 }

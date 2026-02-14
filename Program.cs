@@ -278,7 +278,7 @@ try
                 {
                     // ? PRIORIDAD 1: Leer desde header Authorization: Bearer {token}
                     // Esto es lo que envía el Desktop y aplicaciones móviles
-                    var authHeader = ctx.Request.Headers["Authorization"].ToString();
+                    var authHeader = ctx.Request.Headers["Authorization"].FirstOrDefault();
                     if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
                     {
                         ctx.Token = authHeader.Substring("Bearer ".Length).Trim();

@@ -335,7 +335,7 @@ public class InformesService
         {
             if (!DateTime.TryParse(date, out var d))
                 throw new ArgumentException("date inválido (formato: YYYY-MM-DD)");
-            return (d.Date, d.Date);
+            return (DateTime.SpecifyKind(d.Date, DateTimeKind.Utc), DateTime.SpecifyKind(d.Date, DateTimeKind.Utc));
         }
 
         if (!string.IsNullOrWhiteSpace(weekIso))
@@ -348,7 +348,7 @@ public class InformesService
         {
             if (!DateTime.TryParse(from, out var f) || !DateTime.TryParse(to, out var t))
                 throw new ArgumentException("from/to inválidos (formato: YYYY-MM-DD)");
-            return (f.Date, t.Date);
+            return (DateTime.SpecifyKind(f.Date, DateTimeKind.Utc), DateTime.SpecifyKind(t.Date, DateTimeKind.Utc));
         }
 
         throw new ArgumentException("Debe especificar date, weekIso, o from+to");
@@ -370,14 +370,14 @@ public class InformesService
     {
         if (!DateTime.TryParse(date, out var d))
             throw new ArgumentException("date inválido (formato: YYYY-MM-DD)");
-        return (d.Date, d.Date);
+        return (DateTime.SpecifyKind(d.Date, DateTimeKind.Utc), DateTime.SpecifyKind(d.Date, DateTimeKind.Utc));
     }
 
     private (DateTime, DateTime) ParseRange(string from, string to)
     {
         if (!DateTime.TryParse(from, out var f) || !DateTime.TryParse(to, out var t))
             throw new ArgumentException("from/to inválidos (formato: YYYY-MM-DD)");
-        return (f.Date, t.Date);
+        return (DateTime.SpecifyKind(f.Date, DateTimeKind.Utc), DateTime.SpecifyKind(t.Date, DateTimeKind.Utc));
     }
 
     /// <summary>Parsea semana ISO (YYYY-Www) a rango de fechas.</summary>
@@ -390,7 +390,10 @@ public class InformesService
         if (parts.Length != 3 || !int.TryParse(parts[0], out var year) || !int.TryParse(parts[2], out var week))
             throw new ArgumentException("weekIso inválido (formato: YYYY-Www)");
 
-        var jan1 = new DateTime(year, 1, 1);
+        if (week < 1 || week > 53)
+            throw new ArgumentException("Semana ISO debe estar entre 1 y 53");
+
+        var jan1 = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var daysOffset = DayOfWeek.Monday - jan1.DayOfWeek;
         if (daysOffset > 3) daysOffset -= 7;
         var firstMonday = jan1.AddDays(daysOffset);
@@ -475,7 +478,7 @@ public class InformesService
             IdUsuario = parte.IdUsuario,
             Estado = parte.Estado,
             Tags = parte.Tags,
-            SemanaIso = parte.SemanaIso,
+            SemanaIso = parte.SemanaIso?.ToString(),
             Mes = parte.Mes,
             Anio = parte.Anio,
             AgenteNombre = parte.AgenteNombre,
