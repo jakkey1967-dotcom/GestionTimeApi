@@ -1,16 +1,59 @@
-version: 2
+﻿# Render Blueprint para GestionTime API
+# Docs: https://render.com/docs/blueprint-spec
 
 services:
+  # API Web Service
   - type: web
     name: gestiontime-api
     runtime: docker
-    plan: starter
+    plan: free
     region: frankfurt
     branch: main
     rootDir: .
     dockerfilePath: ./Dockerfile
+    dockerContext: .
+
+    # Auto-deploy en cada push
+    autoDeploy: true
+
+    # Health check
+    healthCheckPath: /health
+
+    # Environment variables
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
+
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:$PORT
+
+      # Database (conectar después de crear PostgreSQL)
+      - key: DATABASE_URL
+        sync: false
+
+      # JWT Configuration (CAMBIAR EN PRODUCCIÓN)
+      - key: JWT_SECRET_KEY
+        generateValue: true
+
+      - key: JWT_ISSUER
+        value: GestionTimeApi
+
+      - key: JWT_AUDIENCE
+        value: GestionTimeClient
+
+      - key: JWT_EXPIRES_HOURS
+        value: "12"
+
+      # CORS (ajustar según frontend)
+      - key: CORS_ALLOWED_ORIGINS
+        value: "*"
+
+      # Otros
+      - key: AllowedHosts
+        value: "*"
+
+      - key: TZ
+        value: Europe/Madrid
+
+# ⚠️ NOTA: PostgreSQL debe crearse manualmente en Render Dashboard
+# Luego conectar DATABASE_URL al servicio web
