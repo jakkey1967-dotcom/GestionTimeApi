@@ -12,10 +12,19 @@ param(
     [string]$Email = "psantos@global-retail.com",
 
     [Parameter(Mandatory=$false)]
-    [string]$Password = "12345678"
+    [string]$Password
 )
 
 $ErrorActionPreference = "Stop"
+
+# Pedir contraseña de forma segura si no se proporcionó
+if ([string]::IsNullOrEmpty($Password)) {
+    Write-Host "🔐 Ingrese contraseña para $Email" -ForegroundColor Yellow
+    $securePassword = Read-Host "Password" -AsSecureString
+    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+    $Password = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+}
 
 Write-Host @"
 ═══════════════════════════════════════════════════════════════════
