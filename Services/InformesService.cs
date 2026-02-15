@@ -34,10 +34,15 @@ public class InformesService
 
         // Filtro por agente (con control de rol)
         var agentIds = ResolveAgentIds(query.AgentId, query.AgentIds, currentUserId, userRole);
-        if (agentIds.Any())
+
+        // Si es EDITOR/ADMIN y no especificó agentId, usar currentUserId por defecto
+        if (!agentIds.Any() && (userRole == "EDITOR" || userRole == "ADMIN"))
         {
-            baseQuery = baseQuery.Where(p => agentIds.Contains(p.IdUsuario));
+            agentIds.Add(currentUserId);
         }
+
+        // SIEMPRE aplicar filtro de agente (ahora nunca estará vacío)
+        baseQuery = baseQuery.Where(p => agentIds.Contains(p.IdUsuario));
 
         // Filtros opcionales
         if (query.ClientId.HasValue)
@@ -107,10 +112,15 @@ public class InformesService
 
         // Filtro por agente (con control de rol)
         var agentIds = ResolveAgentIds(query.AgentId, query.AgentIds, currentUserId, userRole);
-        if (agentIds.Any())
+
+        // Si es EDITOR/ADMIN y no especificó agentId, usar currentUserId por defecto
+        if (!agentIds.Any() && (userRole == "EDITOR" || userRole == "ADMIN"))
         {
-            baseQuery = baseQuery.Where(p => agentIds.Contains(p.IdUsuario));
+            agentIds.Add(currentUserId);
         }
+
+        // SIEMPRE aplicar filtro de agente (ahora nunca estará vacío)
+        baseQuery = baseQuery.Where(p => agentIds.Contains(p.IdUsuario));
 
         // Filtros opcionales
         if (query.ClientId.HasValue)
