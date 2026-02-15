@@ -769,7 +769,7 @@ try
                     </svg>
                     Health Check
                 </a>
-                <a href=""https://github.com/jakkey1967-dotcom/Repositorio_GestionTimeDesktop/releases/download/v1.9.0-beta/GestionTime-v1.9.3-beta.msi"" class=""link-button download"">
+                <a href=""https://github.com/jakkey1967-dotcom/Repositorio_GestionTimeDesktop/releases/download/v1.9.5-beta/GestionTime-v1.9.5-win-x64.msi"" class=""link-button download"">
                     <svg class=""icon"" viewBox=""0 0 24 24"" fill=""currentColor"" xmlns=""http://www.w3.org/2000/svg"">
                         <path d=""M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
                         <polyline points=""7 10 12 15 17 10"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
@@ -780,7 +780,7 @@ try
             </div>
         </div>
         <div class=""footer"">
-            © 2025 GestionTime - Todos los derechos reservados<br>
+            © 2025 GestionTime
             <small>Desarrollado por TDK Portal</small>
         </div>
     </div>
@@ -1263,7 +1263,7 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
                     </svg>
                     Health Check
                 </a>
-                <a href=""https://github.com/jakkey1967-dotcom/Repositorio_GestionTimeDesktop/releases/download/v1.9.0-beta/GestionTime-v1.9.3-beta.msi"" class=""link-button download"">
+                <a href=""https://github.com/jakkey1967-dotcom/Repositorio_GestionTimeDesktop/releases/download/v1.9.5-beta/GestionTime-v1.9.5-win-x64.msi"" class=""link-button download"">
                     <svg class=""icon"" viewBox=""0 0 24 24"" fill=""currentColor"" xmlns=""http://www.w3.org/2000/svg"">
                         <path d=""M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
                         <polyline points=""7 10 12 15 17 10"" stroke=""currentColor"" stroke-width=""2"" fill=""none""/>
@@ -1274,7 +1274,7 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
             </div>
         </div>
         <div class=""footer"">
-            © {DateTime.Now.Year} GestionTime - Todos los derechos reservados<br>
+            © {DateTime.Now.Year} GestionTime
             <small>Desarrollado por TDK Portal • Auto-refresh: 30s</small>
         </div>
     </div>
