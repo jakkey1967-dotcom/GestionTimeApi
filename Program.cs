@@ -437,6 +437,9 @@ try
     // ? Informes v2 Service (solo lectura con vistas SQL)
     builder.Services.AddScoped<GestionTime.Api.Services.InformesService>();
 
+    // ? Client Version Service (control de versiones Desktop)
+    builder.Services.AddScoped<GestionTime.Api.Services.ClientVersionService>();
+
     // ? Freshdesk Integration
     builder.Services.Configure<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions>(
         builder.Configuration.GetSection(GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions.SectionName));

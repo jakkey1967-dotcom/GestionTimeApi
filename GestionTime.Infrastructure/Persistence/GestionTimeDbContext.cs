@@ -1,6 +1,7 @@
-using GestionTime.Domain.Auth;
-using GestionTime.Domain.Work;
+Ôªøusing GestionTime.Domain.Auth;
 using GestionTime.Domain.Freshdesk;
+using GestionTime.Domain.Versioning;
+using GestionTime.Domain.Work;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -42,9 +43,13 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<FreshdeskAgentMap> FreshdeskAgentMaps => Set<FreshdeskAgentMap>();
     public DbSet<FreshdeskTag> FreshdeskTags => Set<FreshdeskTag>();
 
+    // ? Versioning
+    public DbSet<ClientVersion> ClientVersions => Set<ClientVersion>();
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        // ConfiguraciÛn b·sica
+        // Configuraci√≥n b√°sica
         base.OnConfiguring(optionsBuilder);
         
         // Configurar warnings para Entity Framework 8.0
@@ -63,10 +68,10 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
         // PostgreSQL 9.4 => SERIAL (no IDENTITY)
         b.UseSerialColumns();
 
-        // Configurar schema din·mico desde configuraciÛn
+        // Configurar schema din√°mico desde configuraci√≥n
         b.HasDefaultSchema(_schema);
 
-        // WORK: cat·logos
+        // WORK: cat√°logos
         b.Entity<Cliente>(e =>
         {
             e.ToTable("cliente");
@@ -118,7 +123,7 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Property(x => x.Enabled).HasColumnName("enabled").HasDefaultValue(true);
             e.Property(x => x.EmailConfirmed).HasColumnName("email_confirmed").HasDefaultValue(false);
             
-            // Control de expiraciÛn de contraseÒas
+            // Control de expiraci√≥n de contrase√±as
             e.Property(x => x.PasswordChangedAt).HasColumnName("password_changed_at");
             e.Property(x => x.MustChangePassword).HasColumnName("must_change_password").HasDefaultValue(false);
             e.Property(x => x.PasswordExpirationDays).HasColumnName("password_expiration_days").HasDefaultValue(90);
@@ -128,7 +133,7 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Ignore(x => x.ShouldChangePassword);
             e.Ignore(x => x.DaysUntilPasswordExpires);
             
-            // RelaciÛn 1:1 con UserProfile
+            // Relaci√≥n 1:1 con UserProfile
             e.HasOne(x => x.Profile).WithOne(p => p.User)
              .HasForeignKey<UserProfile>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
         });
@@ -146,12 +151,12 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Property(x => x.Phone).HasColumnName("phone").HasMaxLength(20);
             e.Property(x => x.Mobile).HasColumnName("mobile").HasMaxLength(20);
 
-            // DirecciÛn
+            // Direcci√≥n
             e.Property(x => x.Address).HasColumnName("address").HasMaxLength(200);
             e.Property(x => x.City).HasColumnName("city").HasMaxLength(100);
             e.Property(x => x.PostalCode).HasColumnName("postal_code").HasMaxLength(10);
 
-            // InformaciÛn laboral
+            // Informaci√≥n laboral
             e.Property(x => x.Department).HasColumnName("department").HasMaxLength(100);
             e.Property(x => x.Position).HasColumnName("position").HasMaxLength(100);
             e.Property(x => x.EmployeeType).HasColumnName("employee_type").HasMaxLength(50);
@@ -161,7 +166,7 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Property(x => x.AvatarUrl).HasColumnName("avatar_url").HasMaxLength(500);
             e.Property(x => x.Notes).HasColumnName("notes").HasColumnType("text");
 
-            // AuditorÌa
+            // Auditor√≠a
             e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()").IsRequired();
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()").IsRequired();
 
@@ -239,7 +244,7 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Property(x => x.IdTipo).HasColumnName("id_tipo");
             e.Property(x => x.IdUsuario).HasColumnName("id_usuario");
 
-            // ? Estado (TEXT en BD, conversiÛn a INT en modelo)
+            // ? Estado (TEXT en BD, conversi√≥n a INT en modelo)
             // La columna en BD se llama "estado" (no "state") y es de tipo TEXT
             e.Property(x => x.Estado)
                 .HasColumnName("estado")
@@ -252,7 +257,7 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
                     v => ConvertirEstadoTextoAInt(v)
                 );
 
-            // AuditorÌa
+            // Auditor√≠a
             e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
 
@@ -265,12 +270,12 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Ignore(x => x.PuedeEditar);
             e.Ignore(x => x.EstadoNombre);
 
-            // Õndices
+            // √çndices
             e.HasIndex(x => x.FechaTrabajo).HasDatabaseName("idx_partes_fecha_trabajo");
             e.HasIndex(x => new { x.IdUsuario, x.FechaTrabajo }).HasDatabaseName("idx_partes_user_fecha");
             e.HasIndex(x => x.CreatedAt).HasDatabaseName("idx_partes_created_at");
             
-            // Check constraint para horas v·lidas
+            // Check constraint para horas v√°lidas
             e.ToTable(t => t.HasCheckConstraint("ck_partes_horas_validas", "hora_fin >= hora_inicio"));
         });
         
@@ -287,23 +292,23 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             
             e.Property(x => x.TagName)
                 .HasColumnName("tag_name")
-                .HasMaxLength(100) // ? Mismo lÌmite que freshdesk_tags
+                .HasMaxLength(100) // ? Mismo l√≠mite que freshdesk_tags
                 .IsRequired();
             
-            // RelaciÛn con ParteDeTrabajo
+            // Relaci√≥n con ParteDeTrabajo
             e.HasOne(x => x.Parte)
                 .WithMany(p => p.ParteTags)
                 .HasForeignKey(x => x.ParteId)
                 .OnDelete(DeleteBehavior.Cascade);
             
-            // RelaciÛn con freshdesk_tags
+            // Relaci√≥n con freshdesk_tags
             e.HasOne<FreshdeskTag>()
                 .WithMany()
                 .HasForeignKey(x => x.TagName)
                 .HasPrincipalKey(t => t.Name)
-                .OnDelete(DeleteBehavior.Restrict); // No borrar tag si est· en uso
+                .OnDelete(DeleteBehavior.Restrict); // No borrar tag si est√° en uso
             
-            // Õndices
+            // √çndices
             e.HasIndex(x => x.ParteId)
                 .HasDatabaseName("idx_parte_tags_parte_id");
             
@@ -340,10 +345,10 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
         });
         // GT-END
 
-                // ? Configurar DataProtectionKeys con schema din·mico
+                // ? Configurar DataProtectionKeys con schema din√°mico
         b.Entity<DataProtectionKey>(e =>
         {
-            e.ToTable("dataprotectionkeys"); // ? Forzar min˙sculas
+            e.ToTable("dataprotectionkeys"); // ? Forzar min√∫sculas
             e.HasKey(x => x.Id);
 
             
@@ -368,12 +373,12 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Property(x => x.Ip).HasColumnName("ip").HasMaxLength(45);
             e.Property(x => x.UserAgent).HasColumnName("user_agent").HasMaxLength(500);
             
-            // Õndices para performance
+            // √çndices para performance
             e.HasIndex(x => x.UserId).HasDatabaseName("idx_sessions_user_id");
             e.HasIndex(x => x.LastSeenAt).HasDatabaseName("idx_sessions_last_seen");
             e.HasIndex(x => new { x.UserId, x.RevokedAt }).HasDatabaseName("idx_sessions_user_active");
             
-            // RelaciÛn con User
+            // Relaci√≥n con User
             e.HasOne(x => x.User).WithMany(u => u.Sessions)
              .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
              
@@ -381,7 +386,7 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Ignore(x => x.IsActive);
         });
         
-        // ? Freshdesk Agent Map (cachÈ de agentId por usuario)
+        // ? Freshdesk Agent Map (cach√© de agentId por usuario)
         b.Entity<FreshdeskAgentMap>(e =>
         {
             e.ToTable("freshdesk_agent_map");
@@ -395,7 +400,7 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.HasIndex(x => x.Email).HasDatabaseName("idx_freshdesk_agent_email");
         });
         
-        // ? Freshdesk Tags (cachÈ de tags sincronizados)
+        // ? Freshdesk Tags (cach√© de tags sincronizados)
         b.Entity<FreshdeskTag>(e =>
         {
             e.ToTable("freshdesk_tags");
@@ -406,6 +411,42 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Property(x => x.LastSeenAt).HasColumnName("last_seen_at").IsRequired();
 
             e.HasIndex(x => x.LastSeenAt).HasDatabaseName("idx_freshdesk_tags_last_seen");
+        });
+
+        // ? ClientVersion (historial de versiones de cliente Desktop)
+        b.Entity<ClientVersion>(e =>
+        {
+            e.ToTable("client_versions");
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            e.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
+            e.Property(x => x.Platform).HasColumnName("platform").HasMaxLength(20).HasDefaultValue("Desktop").IsRequired();
+            e.Property(x => x.AppVersionRaw).HasColumnName("app_version_raw").HasMaxLength(50).IsRequired();
+            e.Property(x => x.VerMajor).HasColumnName("ver_major").IsRequired();
+            e.Property(x => x.VerMinor).HasColumnName("ver_minor").IsRequired();
+            e.Property(x => x.VerPatch).HasColumnName("ver_patch").IsRequired();
+            e.Property(x => x.VerPrerelease).HasColumnName("ver_prerelease").HasMaxLength(50);
+            e.Property(x => x.OsVersion).HasColumnName("os_version").HasMaxLength(100);
+            e.Property(x => x.MachineName).HasColumnName("machine_name").HasMaxLength(100);
+            e.Property(x => x.LoggedAt).HasColumnName("logged_at").HasDefaultValueSql("now()").IsRequired();
+
+            e.HasOne(x => x.User).WithMany()
+             .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => new { x.UserId, x.LoggedAt }).HasDatabaseName("idx_client_versions_user_logged");
+            e.HasIndex(x => new { x.VerMajor, x.VerMinor, x.VerPatch }).HasDatabaseName("idx_client_versions_ver");
+        });
+
+        // ? AppSetting (configuraci√≥n global de la aplicaci√≥n)
+        b.Entity<AppSetting>(e =>
+        {
+            e.ToTable("app_settings");
+            e.HasKey(x => x.Key);
+
+            e.Property(x => x.Key).HasColumnName("key").HasMaxLength(100).IsRequired();
+            e.Property(x => x.Value).HasColumnName("value").HasMaxLength(500).IsRequired();
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()").IsRequired();
         });
 
         // ? Vista v_partes_stats_full (solo lectura para informes v2)
@@ -443,7 +484,7 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
     }
 
     /// <summary>
-    /// Convierte cÛdigo de estado (int) a texto para la base de datos
+    /// Convierte c√≥digo de estado (int) a texto para la base de datos
     /// </summary>
     private static string ConvertirEstadoIntATexto(int estado)
     {
@@ -460,18 +501,18 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
 
     /// <summary>
     /// Convierte valores de estado en texto a enteros
-    /// Maneja tanto valores numÈricos como descriptivos
+    /// Maneja tanto valores num√©ricos como descriptivos
     /// </summary>
     private static int ConvertirEstadoTextoAInt(string? valor)
     {
         if (string.IsNullOrEmpty(valor))
             return 0;
 
-        // Si es un n˙mero v·lido, usarlo directamente
+        // Si es un n√∫mero v√°lido, usarlo directamente
         if (int.TryParse(valor, out int numero))
             return numero;
 
-        // Si es texto descriptivo, mapear a n˙meros
+        // Si es texto descriptivo, mapear a n√∫meros
         return valor.ToLowerInvariant().Trim() switch
         {
             "activo" => 0,
