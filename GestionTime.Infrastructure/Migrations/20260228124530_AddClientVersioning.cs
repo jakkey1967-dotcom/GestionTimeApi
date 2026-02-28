@@ -12,12 +12,16 @@ namespace GestionTime.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "nota",
-                schema: "pss_dvnx",
-                table: "cliente",
-                type: "text",
-                nullable: true);
+            // Columna 'nota' puede existir de migración manual anterior
+            migrationBuilder.Sql(@"
+                DO $$ BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'pss_dvnx' AND table_name = 'cliente' AND column_name = 'nota'
+                    ) THEN
+                        ALTER TABLE pss_dvnx.cliente ADD COLUMN nota text;
+                    END IF;
+                END $$;");
 
             migrationBuilder.CreateTable(
                 name: "app_settings",
@@ -63,31 +67,21 @@ namespace GestionTime.Infrastructure.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            migrationBuilder.CreateTable(
-                name: "cliente_notas",
-                schema: "pss_dvnx",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
-                    cliente_id = table.Column<int>(type: "integer", nullable: false),
-                    owner_user_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    nota = table.Column<string>(type: "text", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
-                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
-                    updated_by = table.Column<Guid>(type: "uuid", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_cliente_notas", x => x.id);
-                    table.ForeignKey(
-                        name: "FK_cliente_notas_cliente_cliente_id",
-                        column: x => x.cliente_id,
-                        principalSchema: "pss_dvnx",
-                        principalTable: "cliente",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+            // Tabla 'cliente_notas' puede existir de migración manual anterior
+            migrationBuilder.Sql(@"
+                CREATE TABLE IF NOT EXISTS pss_dvnx.cliente_notas (
+                    id uuid NOT NULL DEFAULT gen_random_uuid(),
+                    cliente_id integer NOT NULL,
+                    owner_user_id uuid,
+                    nota text NOT NULL,
+                    created_at timestamp with time zone NOT NULL DEFAULT now(),
+                    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+                    created_by uuid,
+                    updated_by uuid,
+                    CONSTRAINT ""PK_cliente_notas"" PRIMARY KEY (id),
+                    CONSTRAINT ""FK_cliente_notas_cliente_cliente_id"" FOREIGN KEY (cliente_id)
+                        REFERENCES pss_dvnx.cliente(id) ON DELETE CASCADE
+                );");
 
             migrationBuilder.CreateIndex(
                 name: "idx_client_versions_user_logged",
@@ -112,21 +106,12 @@ namespace GestionTime.Infrastructure.Migrations
                     { "update_url_desktop", "https://github.com/jakkey1967-dotcom/Repositorio_GestionTimeDesktop/releases/latest", new DateTimeOffset(2026, 2, 28, 0, 0, 0, TimeSpan.Zero) }
                 });
 
-            migrationBuilder.CreateIndex(
-                name: "idx_cliente_notas_cliente_id",
-                schema: "pss_dvnx",
-                table: "cliente_notas",
-                column: "cliente_id",
-                unique: true,
-                filter: "owner_user_id IS NULL");
-
-            migrationBuilder.CreateIndex(
-                name: "uq_cliente_notas_personal",
-                schema: "pss_dvnx",
-                table: "cliente_notas",
-                columns: new[] { "cliente_id", "owner_user_id" },
-                unique: true,
-                filter: "owner_user_id IS NOT NULL");
+            // Índices de cliente_notas pueden existir de migración manual anterior
+            migrationBuilder.Sql(@"
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_cliente_notas_cliente_id
+                    ON pss_dvnx.cliente_notas (cliente_id) WHERE owner_user_id IS NULL;
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_cliente_notas_personal
+                    ON pss_dvnx.cliente_notas (cliente_id, owner_user_id) WHERE owner_user_id IS NOT NULL;");
         }
 
         /// <inheritdoc />
@@ -146,14 +131,10 @@ namespace GestionTime.Infrastructure.Migrations
                 name: "client_versions",
                 schema: "pss_dvnx");
 
-            migrationBuilder.DropTable(
-                name: "cliente_notas",
-                schema: "pss_dvnx");
+            migrationBuilder.Sql(@"DROP TABLE IF EXISTS pss_dvnx.cliente_notas;");
 
-            migrationBuilder.DropColumn(
-                name: "nota",
-                schema: "pss_dvnx",
-                table: "cliente");
+            migrationBuilder.Sql(@"
+                ALTER TABLE pss_dvnx.cliente DROP COLUMN IF EXISTS nota;");
         }
     }
 }
