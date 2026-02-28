@@ -485,23 +485,73 @@ try
             }
             
             Log.Information("? Conexión a BD establecida");
-            
-            // ?? NO APLICAR MIGRACIONES AUTOMÁTICAMENTE
-            // Si restauraste la BD, las tablas ya existen y no necesitas migraciones
-            // Para aplicar migraciones manualmente usa: dotnet ef database update
-            Log.Information("??  Migraciones deshabilitadas. Las tablas deben existir en la BD.");
-            
-            // Verificar que las tablas existen haciendo una query simple
+
+            // GL-BEGIN: auto-migrate seguro
+            // Asegurar que las migraciones anteriores (BD creada con scripts) estén registradas
+            // antes de aplicar las pendientes. Esto evita que EF intente crear tablas que ya existen.
             try
             {
+                var conn = db.Database.GetDbConnection();
+                await conn.OpenAsync();
+
+                // 1) Crear __EFMigrationsHistory en pss_dvnx si no existe
+                //    (HasDefaultSchema("pss_dvnx") hace que MigrateAsync use ese schema)
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        CREATE TABLE IF NOT EXISTS pss_dvnx.""__EFMigrationsHistory"" (
+                            ""MigrationId"" varchar(150) NOT NULL PRIMARY KEY,
+                            ""ProductVersion"" varchar(32) NOT NULL
+                        );";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                // 2) Registrar migraciones de tablas que ya existían antes de EF
+                string[] existingMigrations = [
+                    "20251231185227_InitialCreate",
+                    "20260124090758_AddUserSessionsForPresence",
+                    "20260124151520_AddFreshdeskTables",
+                    "20260125110057_AddPartesTagsWithFreshdeskTags"
+                ];
+
+                foreach (var mig in existingMigrations)
+                {
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = $@"
+                        INSERT INTO pss_dvnx.""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
+                        VALUES ('{mig}', '8.0.11')
+                        ON CONFLICT (""MigrationId"") DO NOTHING;";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                await conn.CloseAsync();
+                Log.Information("? Historial de migraciones verificado");
+
+                // 3) Aplicar migraciones pendientes (AddClientVersioning, futuras...)
+                var pending = await db.Database.GetPendingMigrationsAsync();
+                var pendingList = pending.ToList();
+
+                if (pendingList.Count > 0)
+                {
+                    Log.Information("?? Aplicando {Count} migración(es) pendiente(s): {Migrations}",
+                        pendingList.Count, string.Join(", ", pendingList));
+                    await db.Database.MigrateAsync();
+                    Log.Information("? Migraciones aplicadas correctamente");
+                }
+                else
+                {
+                    Log.Information("? Base de datos al día, sin migraciones pendientes");
+                }
+
                 var userCount = await db.Users.CountAsync();
                 Log.Information("? Base de datos operativa ({UserCount} usuarios)", userCount);
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "? Error verificando tablas. ¿La BD está correctamente restaurada?");
+                Log.Error(ex, "? Error en migraciones/verificación de BD");
                 throw;
             }
+            // GL-END: auto-migrate seguro
         }
     }
     catch (Exception ex)
