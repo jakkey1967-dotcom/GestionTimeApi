@@ -244,6 +244,39 @@ public sealed class DesktopClientCampaignService
     }
     // GL-END: SendPendingAsync
 
+    // GL-BEGIN: SendManualAsync
+    /// <summary>Envía el correo de novedades Desktop a un destinatario específico (sin deduplicación).</summary>
+    public async Task SendManualAsync(string email, string fullName, IEmailSender emailSender, CancellationToken ct = default)
+    {
+        var latestRaw = await GetSettingAsync("latest_client_version_desktop", "2.0.2-beta", ct);
+        var updateUrl = await GetSettingAsync("update_url_desktop", null, ct);
+        var releaseUrl = await GetSettingAsync("desktop_release_url", null, ct);
+        var highlights = await GetSettingAsync("desktop_release_highlights_md", null, ct);
+
+        var fakeEntry = new EmailOutbox
+        {
+            Kind = "VERSION_OUTDATED",
+            TargetVersionRaw = latestRaw,
+            User = new GestionTime.Domain.Auth.User { FullName = fullName, Email = email }
+        };
+
+        var subject = $"Conoce GestionTime Desktop v{latestRaw}";
+        var htmlBody = BuildHtmlBody(fakeEntry, updateUrl, releaseUrl, highlights, latestRaw);
+
+        var logoPath = ResolveLogoPath();
+        var logoImages = logoPath != null
+            ? new List<EmailLinkedImage> { new("gestiontime-logo", logoPath) }
+            : null;
+
+        if (logoImages != null)
+            await emailSender.SendRawEmailWithImagesAsync(email, subject, htmlBody, logoImages, ct);
+        else
+            await emailSender.SendRawEmailAsync(email, subject, htmlBody, ct);
+
+        _logger.LogInformation("SendManual: email enviado a {Email} ({Name})", email, fullName);
+    }
+    // GL-END: SendManualAsync
+
     // GL-BEGIN: Helpers
     private static string GetIsoWeekKey(DateTimeOffset date)
     {

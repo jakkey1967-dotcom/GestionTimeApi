@@ -81,6 +81,29 @@ public class AdminDesktopController : ControllerBase
     }
     // GL-END: RunCampaign
 
+    // GL-BEGIN: SendManualEmail
+    /// <summary>Envía manualmente el correo de novedades Desktop a un destinatario específico.</summary>
+    [HttpPost("desktop-campaign/send-manual")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> SendManualEmail(
+        [FromBody] SendManualEmailRequest request, CancellationToken ct)
+    {
+        try
+        {
+            await _campaignService.SendManualAsync(request.Email, request.FullName, _emailSender, ct);
+            return Ok(new { sent = true, email = request.Email, fullName = request.FullName });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error enviando email manual a {Email}", request.Email);
+            return StatusCode(500, new { error = $"Error enviando email: {ex.Message}" });
+        }
+    }
+    // GL-END: SendManualEmail
+
     // GL-BEGIN: GetEmailHistory (P6)
     /// <summary>Histórico de emails enviados a un usuario (paginado).</summary>
     [HttpGet("desktop-client-health/emails")]
