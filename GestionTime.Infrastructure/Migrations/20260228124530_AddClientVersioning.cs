@@ -75,7 +75,7 @@ namespace GestionTime.Infrastructure.Migrations
                 INSERT INTO pss_dvnx.app_settings (key, value, updated_at) VALUES
                     ('min_client_version_desktop', '2.0.0', now()),
                     ('latest_client_version_desktop', '1.9.5-beta', now()),
-                    ('update_url_desktop', 'https://github.com/jakkey1967-dotcom/Repositorio_GestionTimeDesktop/releases/latest', now())
+                    ('update_url_desktop', 'https://gestiontimeapi.onrender.com/', now())
                 ON CONFLICT (key) DO NOTHING;");
 
             // Índices de cliente_notas pueden existir de migración manual anterior

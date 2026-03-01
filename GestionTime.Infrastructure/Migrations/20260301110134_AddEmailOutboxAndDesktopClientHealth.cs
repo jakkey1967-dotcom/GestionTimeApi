@@ -71,7 +71,7 @@ namespace GestionTime.Infrastructure.Migrations
                     ('desktop_send_dow', 'MON', now()),
                     ('desktop_send_hour', '09', now()),
                     ('desktop_email_cooldown_weeks', '1', now()),
-                    ('desktop_release_url', 'https://github.com/jakkey1967-dotcom/Repositorio_GestionTimeDesktop/releases/tag/v2.0.2-beta', now()),
+                    ('desktop_release_url', 'https://gestiontimeapi.onrender.com/', now()),
                     ('desktop_release_highlights_md', 'Mejoras de estabilidad, corrección de bugs y nuevas funcionalidades.', now())
                 ON CONFLICT (key) DO NOTHING;
                 UPDATE pss_dvnx.app_settings SET value = '2.0.2-beta' WHERE key = 'latest_client_version_desktop' AND value = '1.9.5-beta';

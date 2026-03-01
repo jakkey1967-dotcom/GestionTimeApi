@@ -183,6 +183,7 @@ public sealed class DesktopClientCampaignService
         var updateUrl = await GetSettingAsync("update_url_desktop", null, ct);
         var releaseUrl = await GetSettingAsync("desktop_release_url", null, ct);
         var highlights = await GetSettingAsync("desktop_release_highlights_md", null, ct);
+        var latestRaw = await GetSettingAsync("latest_client_version_desktop", "2.0.2-beta", ct);
 
         var pending = await _db.EmailOutboxes
             .Include(e => e.User)
@@ -211,7 +212,7 @@ public sealed class DesktopClientCampaignService
                     continue;
                 }
 
-                var htmlBody = BuildHtmlBody(entry, updateUrl, releaseUrl, highlights);
+                var htmlBody = BuildHtmlBody(entry, updateUrl, releaseUrl, highlights, latestRaw);
 
                 if (logoImages != null)
                     await emailSender.SendRawEmailWithImagesAsync(toEmail,
@@ -256,11 +257,11 @@ public sealed class DesktopClientCampaignService
     {
         return kind switch
         {
-            "VERSION_REQUIRED" => $"Actualizacion obligatoria - GestionTime Desktop v{targetVersion}",
-            "VERSION_OUTDATED" => $"Nueva version disponible - GestionTime Desktop v{targetVersion}",
+            "VERSION_REQUIRED" => $"Actualización obligatoria - GestionTime Desktop v{targetVersion}",
+            "VERSION_OUTDATED" => $"Nueva versión disponible - GestionTime Desktop v{targetVersion}",
             "INACTIVE" => "Hace tiempo que no te conectas - GestionTime Desktop",
-            "NEVER" => "Registra tu version - GestionTime Desktop",
-            _ => "Informacion importante - GestionTime Desktop"
+            "NEVER" => "Registra tu versión - GestionTime Desktop",
+            _ => "Información importante - GestionTime Desktop"
         };
     }
 
@@ -278,23 +279,24 @@ public sealed class DesktopClientCampaignService
         };
     }
 
-    private static string BuildHtmlBody(EmailOutbox entry, string? updateUrl, string? releaseUrl, string? highlights)
+    private static string BuildHtmlBody(EmailOutbox entry, string? updateUrl, string? releaseUrl, string? highlights, string? latestVersion)
     {
         var name = entry.User?.FullName ?? "usuario";
         var firstName = name.Split(' ')[0];
         var kind = entry.Kind;
         var target = entry.TargetVersionRaw;
+        var latest = latestVersion ?? target;
         var downloadUrl = releaseUrl ?? updateUrl ?? "#";
 
-        // Bloque de mensaje principal segun kind
+        // Bloque de mensaje principal según kind
         var messageHtml = kind switch
         {
             "VERSION_REQUIRED" => $@"
                 <tr><td style=""padding:0 30px;"">
                     <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color:#fff3cd;border-left:4px solid #d4a017;border-radius:4px;margin:20px 0;"">
                         <tr><td style=""padding:14px 18px;font-size:14px;color:#856404;"">
-                            Tu version actual es inferior a la minima requerida (<strong>v{target}</strong>).
-                            Es <strong>obligatorio</strong> actualizar para seguir utilizando la aplicacion correctamente.
+                            <strong>Acción requerida: actualiza para continuar.</strong><br/>
+                            Tu versión actual es inferior a la mínima requerida (<strong>v{target}</strong>).
                         </td></tr>
                     </table>
                 </td></tr>",
@@ -302,8 +304,8 @@ public sealed class DesktopClientCampaignService
                 <tr><td style=""padding:0 30px;"">
                     <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color:#d4edda;border-left:4px solid #28a745;border-radius:4px;margin:20px 0;"">
                         <tr><td style=""padding:14px 18px;font-size:14px;color:#155724;"">
-                            Hay una nueva version de GestionTime Desktop disponible: <strong>v{target}</strong>.
-                            Te recomendamos actualizar para disfrutar de las ultimas mejoras.
+                            Hay una nueva versión de GestionTime Desktop disponible: <strong>v{latest}</strong>.
+                            Te recomendamos actualizar para disfrutar de las últimas mejoras.
                         </td></tr>
                     </table>
                 </td></tr>",
@@ -312,7 +314,7 @@ public sealed class DesktopClientCampaignService
                     <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color:#e2e3e5;border-left:4px solid #6c757d;border-radius:4px;margin:20px 0;"">
                         <tr><td style=""padding:14px 18px;font-size:14px;color:#383d41;"">
                             Hace tiempo que no detectamos actividad tuya en GestionTime Desktop.
-                            Si necesitas ayuda o tienes problemas tecnicos, contacta con soporte.
+                            Si necesitas ayuda o tienes problemas técnicos, contacta con soporte.
                         </td></tr>
                     </table>
                 </td></tr>",
@@ -320,8 +322,8 @@ public sealed class DesktopClientCampaignService
                 <tr><td style=""padding:0 30px;"">
                     <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color:#cce5ff;border-left:4px solid #004085;border-radius:4px;margin:20px 0;"">
                         <tr><td style=""padding:14px 18px;font-size:14px;color:#004085;"">
-                            Aun no tenemos registro de tu version de GestionTime Desktop.
-                            Descarga e instala la ultima version para comenzar a usarla.
+                            Aún no tenemos registro de tu versión de GestionTime Desktop.
+                            Descarga e instala la última versión para comenzar a usarla.
                         </td></tr>
                     </table>
                 </td></tr>",
@@ -336,53 +338,53 @@ public sealed class DesktopClientCampaignService
                 <tr><td style=""padding:10px 30px 0 30px;"">
                     <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color:#f8f9fa;border-radius:6px;border:1px solid #dee2e6;"">
                         <tr><td style=""padding:18px 20px 6px 20px;"">
-                            <p style=""margin:0 0 12px 0;font-size:15px;font-weight:bold;color:#1a1a2e;"">Mejoras incluidas (v{target})</p>
+                            <p style=""margin:0 0 12px 0;font-size:15px;font-weight:bold;color:#1a1a2e;"">Mejoras incluidas en v{latest}</p>
                             <table cellpadding=""0"" cellspacing=""0"" style=""font-size:13px;color:#333;"">
                                 <tr><td style=""padding:4px 0;vertical-align:top;width:20px;"">&#8226;</td>
-                                    <td style=""padding:4px 0;"">Filtro avanzado con AutoSuggestBox y pills/chips acumulativos.</td></tr>
+                                    <td style=""padding:4px 0;"">Encuentra proyectos y clientes más rápido con el nuevo filtro avanzado (AutoSuggestBox con chips).</td></tr>
                                 <tr><td style=""padding:4px 0;vertical-align:top;width:20px;"">&#8226;</td>
-                                    <td style=""padding:4px 0;"">Grafica semanal muestra horas trabajadas en lugar de porcentajes.</td></tr>
+                                    <td style=""padding:4px 0;"">Visualiza tus horas semanales de un vistazo con la gráfica mejorada (horas en lugar de porcentajes).</td></tr>
                                 <tr><td style=""padding:4px 0;vertical-align:top;width:20px;"">&#8226;</td>
-                                    <td style=""padding:4px 0;"">Control de versiones automatico con notificacion de actualizacion.</td></tr>
+                                    <td style=""padding:4px 0;"">Recibe avisos automáticos cuando haya una actualización disponible.</td></tr>
                                 <tr><td style=""padding:4px 0;vertical-align:top;width:20px;"">&#8226;</td>
-                                    <td style=""padding:4px 0;"">Correccion: seleccion con raton ya no requiere doble clic.</td></tr>
+                                    <td style=""padding:4px 0;"">Selecciona elementos con un solo clic de ratón, sin necesidad de doble clic.</td></tr>
                                 <tr><td style=""padding:4px 0;vertical-align:top;width:20px;"">&#8226;</td>
-                                    <td style=""padding:4px 0;"">Nuevo boton Salir en la ventana de Informes.</td></tr>
+                                    <td style=""padding:4px 0;"">Nuevo botón Salir en la ventana de Informes para cerrar con comodidad.</td></tr>
                             </table>
                         </td></tr>
                     </table>
                 </td></tr>";
         }
 
-        // Bloque de pasos rapidos
+        // Bloque de pasos rápidos
         var stepsHtml = kind is "VERSION_REQUIRED" or "VERSION_OUTDATED" or "NEVER" ? $@"
                 <tr><td style=""padding:20px 30px 0 30px;"">
-                    <p style=""margin:0 0 10px 0;font-size:15px;font-weight:bold;color:#1a1a2e;"">Pasos rapidos</p>
+                    <p style=""margin:0 0 10px 0;font-size:15px;font-weight:bold;color:#1a1a2e;"">Pasos rápidos</p>
                     <table cellpadding=""0"" cellspacing=""0"" style=""font-size:13px;color:#333;"">
                         <tr><td style=""padding:3px 8px 3px 0;vertical-align:top;font-weight:bold;color:#0B8C99;"">1.</td>
-                            <td style=""padding:3px 0;"">Descarga el instalador desde el enlace de mas abajo.</td></tr>
+                            <td style=""padding:3px 0;"">Descarga el instalador desde el enlace de más abajo.</td></tr>
                         <tr><td style=""padding:3px 8px 3px 0;vertical-align:top;font-weight:bold;color:#0B8C99;"">2.</td>
-                            <td style=""padding:3px 0;"">Cierra GestionTime Desktop si esta abierto.</td></tr>
+                            <td style=""padding:3px 0;"">Cierra GestionTime Desktop si está abierto.</td></tr>
                         <tr><td style=""padding:3px 8px 3px 0;vertical-align:top;font-weight:bold;color:#0B8C99;"">3.</td>
                             <td style=""padding:3px 0;"">Ejecuta el instalador (.msi) y sigue las instrucciones.</td></tr>
                         <tr><td style=""padding:3px 8px 3px 0;vertical-align:top;font-weight:bold;color:#0B8C99;"">4.</td>
-                            <td style=""padding:3px 0;"">Abre la aplicacion e inicia sesion con tus credenciales habituales.</td></tr>
+                            <td style=""padding:3px 0;"">Abre la aplicación e inicia sesión con tus credenciales habituales.</td></tr>
                     </table>
                 </td></tr>" : "";
 
-        // Boton CTA
+        // Botón CTA
         var buttonHtml = kind is not "INACTIVE" ? $@"
                 <tr><td style=""padding:24px 30px 0 30px;text-align:center;"">
                     <table cellpadding=""0"" cellspacing=""0"" align=""center"">
                         <tr><td style=""background-color:#0B8C99;border-radius:6px;"">
                             <a href=""{downloadUrl}"" target=""_blank""
                                style=""display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;font-family:Arial,sans-serif;"">
-                                Descargar actualizacion (v{target})
+                                Actualizar ahora (v{latest})
                             </a>
                         </td></tr>
                     </table>
                     <p style=""margin:14px 0 0 0;font-size:12px;color:#888;"">
-                        Si el boton no funciona, copia y pega este enlace en tu navegador:
+                        Si el botón no funciona, copia y pega este enlace en tu navegador:
                     </p>
                     <p style=""margin:4px 0 0 0;font-size:11px;color:#0B8C99;word-break:break-all;"">
                         {downloadUrl}
@@ -409,11 +411,11 @@ public sealed class DesktopClientCampaignService
             <img src=""cid:gestiontime-logo"" alt=""GestionTime"" width=""180""
                  style=""display:block;margin:0 auto 12px auto;max-width:180px;height:auto;"" />
             <p style=""margin:0;font-size:18px;font-weight:bold;color:#ffffff;letter-spacing:0.5px;"">
-                {(kind == "VERSION_REQUIRED" ? "Actualizacion obligatoria" :
-                  kind == "VERSION_OUTDATED" ? "Nueva version disponible" :
+                {(kind == "VERSION_REQUIRED" ? "Actualización obligatoria" :
+                  kind == "VERSION_OUTDATED" ? "Nueva versión disponible" :
                   kind == "INACTIVE" ? "Te echamos de menos" :
                   kind == "NEVER" ? "Comienza a usar GestionTime" :
-                  "Informacion importante")}
+                  "Información importante")}
             </p>
         </td></tr>
 
@@ -431,10 +433,10 @@ public sealed class DesktopClientCampaignService
         <!-- MEJORAS -->
         {improvementsHtml}
 
-        <!-- PASOS RAPIDOS -->
+        <!-- PASOS RÁPIDOS -->
         {stepsHtml}
 
-        <!-- BOTON CTA -->
+        <!-- BOTÓN CTA -->
         {buttonHtml}
 
         <!-- CIERRE -->
@@ -445,7 +447,7 @@ public sealed class DesktopClientCampaignService
         <!-- FOOTER -->
         <tr><td style=""padding:24px 30px;border-top:1px solid #eee;margin-top:20px;"">
             <p style=""margin:0;font-size:11px;color:#999;text-align:center;"">
-                Este es un correo automatico enviado por GestionTime. Por favor, no respondas a este mensaje.
+                Este es un correo automático enviado por GestionTime. Por favor, no respondas a este mensaje.
             </p>
             <p style=""margin:6px 0 0 0;font-size:11px;color:#bbb;text-align:center;"">
                 &copy; 2025 GestionTime. Todos los derechos reservados.
