@@ -180,12 +180,22 @@ public sealed class DesktopClientCampaignService
     /// <summary>Envía emails PENDING usando IEmailSender. Actualiza status a SENT o ERROR.</summary>
     public async Task<(int Sent, int Errors)> SendPendingAsync(IEmailSender emailSender, CancellationToken ct = default)
     {
+        var updateUrl = await GetSettingAsync("update_url_desktop", null, ct);
+        var releaseUrl = await GetSettingAsync("desktop_release_url", null, ct);
+        var highlights = await GetSettingAsync("desktop_release_highlights_md", null, ct);
+
         var pending = await _db.EmailOutboxes
             .Include(e => e.User)
             .Where(e => e.Status == "PENDING")
             .OrderBy(e => e.CreatedAt)
-            .Take(50) // Lote máximo por ejecución
+            .Take(50)
             .ToListAsync(ct);
+
+        // Resolver ruta del logo una vez
+        var logoPath = ResolveLogoPath();
+        var logoImages = logoPath != null
+            ? new List<EmailLinkedImage> { new("gestiontime-logo", logoPath) }
+            : null;
 
         int sent = 0, errors = 0;
 
@@ -201,8 +211,14 @@ public sealed class DesktopClientCampaignService
                     continue;
                 }
 
-                var htmlBody = BuildHtmlBody(entry);
-                await emailSender.SendRawEmailAsync(toEmail, entry.Subject ?? "GestionTime Desktop", htmlBody, ct);
+                var htmlBody = BuildHtmlBody(entry, updateUrl, releaseUrl, highlights);
+
+                if (logoImages != null)
+                    await emailSender.SendRawEmailWithImagesAsync(toEmail,
+                        entry.Subject ?? "GestionTime Desktop", htmlBody, logoImages, ct);
+                else
+                    await emailSender.SendRawEmailAsync(toEmail,
+                        entry.Subject ?? "GestionTime Desktop", htmlBody, ct);
 
                 entry.Status = "SENT";
                 entry.SentAt = DateTimeOffset.UtcNow;
@@ -240,11 +256,11 @@ public sealed class DesktopClientCampaignService
     {
         return kind switch
         {
-            "VERSION_REQUIRED" => $"⚠️ GestionTime Desktop: actualización obligatoria a v{targetVersion}",
-            "VERSION_OUTDATED" => $"📢 GestionTime Desktop: nueva versión v{targetVersion} disponible",
-            "INACTIVE" => "⏰ GestionTime Desktop: hace tiempo que no te conectas",
-            "NEVER" => "👋 GestionTime Desktop: aún no has registrado tu versión",
-            _ => "GestionTime Desktop: información importante"
+            "VERSION_REQUIRED" => $"Actualizacion obligatoria - GestionTime Desktop v{targetVersion}",
+            "VERSION_OUTDATED" => $"Nueva version disponible - GestionTime Desktop v{targetVersion}",
+            "INACTIVE" => "Hace tiempo que no te conectas - GestionTime Desktop",
+            "NEVER" => "Registra tu version - GestionTime Desktop",
+            _ => "Informacion importante - GestionTime Desktop"
         };
     }
 
@@ -262,59 +278,186 @@ public sealed class DesktopClientCampaignService
         };
     }
 
-    private static string BuildHtmlBody(EmailOutbox entry)
+    private static string BuildHtmlBody(EmailOutbox entry, string? updateUrl, string? releaseUrl, string? highlights)
     {
         var name = entry.User?.FullName ?? "usuario";
         var firstName = name.Split(' ')[0];
         var kind = entry.Kind;
         var target = entry.TargetVersionRaw;
+        var downloadUrl = releaseUrl ?? updateUrl ?? "#";
 
-        var messageBlock = kind switch
+        // Bloque de mensaje principal segun kind
+        var messageHtml = kind switch
         {
             "VERSION_REQUIRED" => $@"
-                <p>Tu versión actual de <strong>GestionTime Desktop</strong> es inferior a la mínima requerida (<strong>v{target}</strong>).</p>
-                <p>Es <strong>obligatorio</strong> actualizar para seguir usando la aplicación correctamente.</p>",
+                <tr><td style=""padding:0 30px;"">
+                    <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color:#fff3cd;border-left:4px solid #d4a017;border-radius:4px;margin:20px 0;"">
+                        <tr><td style=""padding:14px 18px;font-size:14px;color:#856404;"">
+                            Tu version actual es inferior a la minima requerida (<strong>v{target}</strong>).
+                            Es <strong>obligatorio</strong> actualizar para seguir utilizando la aplicacion correctamente.
+                        </td></tr>
+                    </table>
+                </td></tr>",
             "VERSION_OUTDATED" => $@"
-                <p>Hay una nueva versión de <strong>GestionTime Desktop</strong> disponible: <strong>v{target}</strong>.</p>
-                <p>Te recomendamos actualizar para disfrutar de las últimas mejoras y correcciones.</p>",
+                <tr><td style=""padding:0 30px;"">
+                    <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color:#d4edda;border-left:4px solid #28a745;border-radius:4px;margin:20px 0;"">
+                        <tr><td style=""padding:14px 18px;font-size:14px;color:#155724;"">
+                            Hay una nueva version de GestionTime Desktop disponible: <strong>v{target}</strong>.
+                            Te recomendamos actualizar para disfrutar de las ultimas mejoras.
+                        </td></tr>
+                    </table>
+                </td></tr>",
             "INACTIVE" => @"
-                <p>Hace tiempo que no detectamos actividad tuya en <strong>GestionTime Desktop</strong>.</p>
-                <p>Si necesitas ayuda o tienes problemas técnicos, no dudes en contactar con soporte.</p>",
+                <tr><td style=""padding:0 30px;"">
+                    <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color:#e2e3e5;border-left:4px solid #6c757d;border-radius:4px;margin:20px 0;"">
+                        <tr><td style=""padding:14px 18px;font-size:14px;color:#383d41;"">
+                            Hace tiempo que no detectamos actividad tuya en GestionTime Desktop.
+                            Si necesitas ayuda o tienes problemas tecnicos, contacta con soporte.
+                        </td></tr>
+                    </table>
+                </td></tr>",
             "NEVER" => @"
-                <p>Aún no tenemos registro de tu versión de <strong>GestionTime Desktop</strong>.</p>
-                <p>Descarga e instala la última versión para comenzar a usar la aplicación.</p>",
-            _ => "<p>Información importante sobre GestionTime Desktop.</p>"
+                <tr><td style=""padding:0 30px;"">
+                    <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color:#cce5ff;border-left:4px solid #004085;border-radius:4px;margin:20px 0;"">
+                        <tr><td style=""padding:14px 18px;font-size:14px;color:#004085;"">
+                            Aun no tenemos registro de tu version de GestionTime Desktop.
+                            Descarga e instala la ultima version para comenzar a usarla.
+                        </td></tr>
+                    </table>
+                </td></tr>",
+            _ => ""
         };
 
-        return $@"
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <style>
-                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }}
-                    .header {{ background-color: #0B8C99; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
-                    .content {{ padding: 30px; background-color: white; border-radius: 0 0 8px 8px; }}
-                    .footer {{ text-align: center; padding: 20px; font-size: 12px; color: #666; }}
-                </style>
-            </head>
-            <body>
-                <div class='container'>
-                    <div class='header'>
-                        <h1>GestionTime Desktop</h1>
-                    </div>
-                    <div class='content'>
-                        <p>Hola <strong>{firstName}</strong>,</p>
-                        {messageBlock}
-                        <p>Saludos,<br/>El equipo de GestionTime</p>
-                    </div>
-                    <div class='footer'>
-                        <p>Este es un correo automático, por favor no respondas a este mensaje.</p>
-                        <p>&copy; 2025 GestionTime. Todos los derechos reservados.</p>
-                    </div>
-                </div>
-            </body>
-            </html>";
+        // Bloque de mejoras (solo para VERSION_REQUIRED y VERSION_OUTDATED)
+        var improvementsHtml = "";
+        if (kind is "VERSION_REQUIRED" or "VERSION_OUTDATED")
+        {
+            improvementsHtml = $@"
+                <tr><td style=""padding:10px 30px 0 30px;"">
+                    <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color:#f8f9fa;border-radius:6px;border:1px solid #dee2e6;"">
+                        <tr><td style=""padding:18px 20px 6px 20px;"">
+                            <p style=""margin:0 0 12px 0;font-size:15px;font-weight:bold;color:#1a1a2e;"">Mejoras incluidas (v{target})</p>
+                            <table cellpadding=""0"" cellspacing=""0"" style=""font-size:13px;color:#333;"">
+                                <tr><td style=""padding:4px 0;vertical-align:top;width:20px;"">&#8226;</td>
+                                    <td style=""padding:4px 0;"">Filtro avanzado con AutoSuggestBox y pills/chips acumulativos.</td></tr>
+                                <tr><td style=""padding:4px 0;vertical-align:top;width:20px;"">&#8226;</td>
+                                    <td style=""padding:4px 0;"">Grafica semanal muestra horas trabajadas en lugar de porcentajes.</td></tr>
+                                <tr><td style=""padding:4px 0;vertical-align:top;width:20px;"">&#8226;</td>
+                                    <td style=""padding:4px 0;"">Control de versiones automatico con notificacion de actualizacion.</td></tr>
+                                <tr><td style=""padding:4px 0;vertical-align:top;width:20px;"">&#8226;</td>
+                                    <td style=""padding:4px 0;"">Correccion: seleccion con raton ya no requiere doble clic.</td></tr>
+                                <tr><td style=""padding:4px 0;vertical-align:top;width:20px;"">&#8226;</td>
+                                    <td style=""padding:4px 0;"">Nuevo boton Salir en la ventana de Informes.</td></tr>
+                            </table>
+                        </td></tr>
+                    </table>
+                </td></tr>";
+        }
+
+        // Bloque de pasos rapidos
+        var stepsHtml = kind is "VERSION_REQUIRED" or "VERSION_OUTDATED" or "NEVER" ? $@"
+                <tr><td style=""padding:20px 30px 0 30px;"">
+                    <p style=""margin:0 0 10px 0;font-size:15px;font-weight:bold;color:#1a1a2e;"">Pasos rapidos</p>
+                    <table cellpadding=""0"" cellspacing=""0"" style=""font-size:13px;color:#333;"">
+                        <tr><td style=""padding:3px 8px 3px 0;vertical-align:top;font-weight:bold;color:#0B8C99;"">1.</td>
+                            <td style=""padding:3px 0;"">Descarga el instalador desde el enlace de mas abajo.</td></tr>
+                        <tr><td style=""padding:3px 8px 3px 0;vertical-align:top;font-weight:bold;color:#0B8C99;"">2.</td>
+                            <td style=""padding:3px 0;"">Cierra GestionTime Desktop si esta abierto.</td></tr>
+                        <tr><td style=""padding:3px 8px 3px 0;vertical-align:top;font-weight:bold;color:#0B8C99;"">3.</td>
+                            <td style=""padding:3px 0;"">Ejecuta el instalador (.msi) y sigue las instrucciones.</td></tr>
+                        <tr><td style=""padding:3px 8px 3px 0;vertical-align:top;font-weight:bold;color:#0B8C99;"">4.</td>
+                            <td style=""padding:3px 0;"">Abre la aplicacion e inicia sesion con tus credenciales habituales.</td></tr>
+                    </table>
+                </td></tr>" : "";
+
+        // Boton CTA
+        var buttonHtml = kind is not "INACTIVE" ? $@"
+                <tr><td style=""padding:24px 30px 0 30px;text-align:center;"">
+                    <table cellpadding=""0"" cellspacing=""0"" align=""center"">
+                        <tr><td style=""background-color:#0B8C99;border-radius:6px;"">
+                            <a href=""{downloadUrl}"" target=""_blank""
+                               style=""display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;font-family:Arial,sans-serif;"">
+                                Descargar actualizacion (v{target})
+                            </a>
+                        </td></tr>
+                    </table>
+                    <p style=""margin:14px 0 0 0;font-size:12px;color:#888;"">
+                        Si el boton no funciona, copia y pega este enlace en tu navegador:
+                    </p>
+                    <p style=""margin:4px 0 0 0;font-size:11px;color:#0B8C99;word-break:break-all;"">
+                        {downloadUrl}
+                    </p>
+                </td></tr>" : "";
+
+        return $@"<!DOCTYPE html>
+<html lang=""es"" xmlns=""http://www.w3.org/1999/xhtml"">
+<head>
+    <meta charset=""UTF-8"" />
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+    <title>GestionTime Desktop</title>
+</head>
+<body style=""margin:0;padding:0;background-color:#eaeaea;font-family:Arial,Helvetica,sans-serif;"">
+<table role=""presentation"" width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color:#eaeaea;"">
+<tr><td align=""center"" style=""padding:30px 10px;"">
+
+    <!-- Contenedor principal 600px -->
+    <table role=""presentation"" width=""600"" cellpadding=""0"" cellspacing=""0""
+           style=""background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);"">
+
+        <!-- HEADER oscuro con logo -->
+        <tr><td style=""background-color:#1a1a2e;padding:28px 30px;text-align:center;"">
+            <img src=""cid:gestiontime-logo"" alt=""GestionTime"" width=""180""
+                 style=""display:block;margin:0 auto 12px auto;max-width:180px;height:auto;"" />
+            <p style=""margin:0;font-size:18px;font-weight:bold;color:#ffffff;letter-spacing:0.5px;"">
+                {(kind == "VERSION_REQUIRED" ? "Actualizacion obligatoria" :
+                  kind == "VERSION_OUTDATED" ? "Nueva version disponible" :
+                  kind == "INACTIVE" ? "Te echamos de menos" :
+                  kind == "NEVER" ? "Comienza a usar GestionTime" :
+                  "Informacion importante")}
+            </p>
+        </td></tr>
+
+        <!-- Barra teal decorativa -->
+        <tr><td style=""background-color:#0B8C99;height:4px;font-size:0;line-height:0;"">&nbsp;</td></tr>
+
+        <!-- SALUDO -->
+        <tr><td style=""padding:28px 30px 0 30px;"">
+            <p style=""margin:0;font-size:15px;color:#333;"">Hola <strong>{firstName}</strong>,</p>
+        </td></tr>
+
+        <!-- MENSAJE PRINCIPAL -->
+        {messageHtml}
+
+        <!-- MEJORAS -->
+        {improvementsHtml}
+
+        <!-- PASOS RAPIDOS -->
+        {stepsHtml}
+
+        <!-- BOTON CTA -->
+        {buttonHtml}
+
+        <!-- CIERRE -->
+        <tr><td style=""padding:28px 30px 0 30px;"">
+            <p style=""margin:0;font-size:14px;color:#333;"">Saludos,<br/><strong>El equipo de GestionTime</strong></p>
+        </td></tr>
+
+        <!-- FOOTER -->
+        <tr><td style=""padding:24px 30px;border-top:1px solid #eee;margin-top:20px;"">
+            <p style=""margin:0;font-size:11px;color:#999;text-align:center;"">
+                Este es un correo automatico enviado por GestionTime. Por favor, no respondas a este mensaje.
+            </p>
+            <p style=""margin:6px 0 0 0;font-size:11px;color:#bbb;text-align:center;"">
+                &copy; 2025 GestionTime. Todos los derechos reservados.
+            </p>
+        </td></tr>
+
+    </table>
+
+</td></tr>
+</table>
+</body>
+</html>";
     }
 
     private async Task<string?> GetSettingAsync(string key, string? defaultValue, CancellationToken ct)
@@ -323,6 +466,18 @@ public sealed class DesktopClientCampaignService
             .Where(s => s.Key == key)
             .FirstOrDefaultAsync(ct);
         return setting?.Value ?? defaultValue;
+    }
+
+    private static string? ResolveLogoPath()
+    {
+        var candidates = new[]
+        {
+            Path.Combine("wwwroot", "images", "LogoOscuro.png"),
+            Path.Combine("wwwroot_pss_dvnx", "images", "LogoOscuro.png"),
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "images", "LogoOscuro.png"),
+            Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "LogoOscuro.png")
+        };
+        return candidates.FirstOrDefault(File.Exists);
     }
     // GL-END: Helpers
 

@@ -275,6 +275,13 @@ public class SmtpEmailService : IEmailService, IEmailSender
     {
         await SendEmailAsync(toEmail, subject, htmlBody);
     }
+
+    /// <summary>Envío de email HTML con imágenes embebidas por CID (logo, etc.).</summary>
+    public async Task SendRawEmailWithImagesAsync(string toEmail, string subject, string htmlBody,
+        IReadOnlyList<EmailLinkedImage>? linkedImages = null, CancellationToken ct = default)
+    {
+        await SendEmailWithLinkedImagesAsync(toEmail, subject, htmlBody, linkedImages);
+    }
     // GL-END: IEmailSender
 
     private async Task SendEmailAsync(string toEmail, string subject, string htmlBody)
@@ -328,4 +335,63 @@ public class SmtpEmailService : IEmailService, IEmailSender
             throw;
         }
     }
+
+    // GL-BEGIN: SendEmailWithLinkedImagesAsync
+    private async Task SendEmailWithLinkedImagesAsync(string toEmail, string subject, string htmlBody,
+        IReadOnlyList<EmailLinkedImage>? linkedImages)
+    {
+        try
+        {
+            var smtpHost = _config["Email:SmtpHost"];
+            var smtpPort = int.Parse(_config["Email:SmtpPort"] ?? "587");
+            var smtpUser = _config["Email:SmtpUser"];
+            var smtpPass = _config["Email:SmtpPassword"];
+            var fromEmail = _config["Email:From"] ?? "noreply@gestiontime.com";
+            var fromName = _config["Email:FromName"] ?? "GestionTime";
+
+            if (string.IsNullOrEmpty(smtpHost) || string.IsNullOrEmpty(smtpUser) || string.IsNullOrEmpty(smtpPass))
+                throw new InvalidOperationException("Configuración de email incompleta");
+
+            _logger.LogInformation("📧 Enviando email con CID images a {Email}", toEmail);
+
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(fromName, fromEmail));
+            message.To.Add(new MailboxAddress("", toEmail));
+            message.Subject = subject;
+
+            var bodyBuilder = new BodyBuilder { HtmlBody = htmlBody };
+
+            if (linkedImages is { Count: > 0 })
+            {
+                foreach (var img in linkedImages)
+                {
+                    if (!File.Exists(img.FilePath))
+                    {
+                        _logger.LogWarning("CID image no encontrada: {Path}", img.FilePath);
+                        continue;
+                    }
+
+                    var attachment = bodyBuilder.LinkedResources.Add(img.FilePath);
+                    attachment.ContentId = img.ContentId;
+                    attachment.ContentDisposition = new MimeKit.ContentDisposition(MimeKit.ContentDisposition.Inline);
+                }
+            }
+
+            message.Body = bodyBuilder.ToMessageBody();
+
+            using var client = new SmtpClient();
+            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls);
+            await client.AuthenticateAsync(smtpUser, smtpPass);
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
+
+            _logger.LogInformation("✅ Email con CID enviado a {Email}", toEmail);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Error enviando email con CID a {Email}", toEmail);
+            throw;
+        }
+    }
+    // GL-END: SendEmailWithLinkedImagesAsync
 }
