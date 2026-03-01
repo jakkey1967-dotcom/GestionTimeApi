@@ -33,7 +33,7 @@ public class FreshdeskIntegrationController : ControllerBase
     /// ⚠️ Este endpoint llama DIRECTAMENTE a la API de Freshdesk (NO usa cache local).
     /// 
     /// Lógica idéntica al script PowerShell:
-    /// 1. Llama a GET /api/v2/tickets?per_page=100&updated_since={since}&order_by=updated_at&order_type=asc
+    /// 1. Llama a GET /api/v2/tickets?per_page=100&amp;updated_since={since}&amp;order_by=updated_at&amp;order_type=asc
     /// 2. Pagina hasta 300 páginas (límite de Freshdesk)
     /// 3. Corta cuando updated_at >= until
     /// 4. Extrae todos los tags de cada ticket

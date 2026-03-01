@@ -97,6 +97,7 @@ public class FreshdeskController : ControllerBase
     /// <param name="ticket">Prefijo del ticket ID (opcional)</param>
     /// <param name="customer">Parte del nombre del cliente (opcional)</param>
     /// <param name="limit">Límite de resultados (default 10, max 50)</param>
+    /// <param name="ct">Token de cancelación.</param>
     [HttpGet("tickets/search-from-view")]
     [Authorize]
     public async Task<IActionResult> SearchTicketsFromView(
@@ -193,6 +194,7 @@ public class FreshdeskController : ControllerBase
     /// POST /api/v1/integrations/freshdesk/sync/ticket-headers?full=true
     /// </summary>
     /// <param name="full">True para sincronización completa, False para incremental</param>
+    /// <param name="ct">Token de cancelación.</param>
     [HttpPost("/api/v1/integrations/freshdesk/sync/ticket-headers")]
     [Authorize(Roles = "Admin,ADMIN")]
     public async Task<IActionResult> SyncTicketHeaders(

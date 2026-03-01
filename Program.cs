@@ -967,9 +967,7 @@ finally
     SerilogConfiguration.CloseAndFlush();
 }
 
-/// <summary>
-/// Convierte DATABASE_URL de Render (postgresql://...) a formato Npgsql connection string
-/// </summary>
+// Convierte DATABASE_URL de Render (postgresql://...) a formato Npgsql connection string.
 static string GetConnectionString(IConfiguration configuration)
 {
     var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
@@ -1017,9 +1015,7 @@ static string GetConnectionString(IConfiguration configuration)
     return databaseUrl;
 }
 
-/// <summary>
-/// Genera página de diagnósticos con información del sistema
-/// </summary>
+// Genera página de diagnósticos con información del sistema.
 static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebApplication app)
 {
     var apiStatus = "<svg class='icon-inline' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><circle cx='12' cy='12' r='10' stroke='#28a745' stroke-width='2' fill='none'/><path d='M7 12l3 3 7-7' stroke='#28a745' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg> Online";
@@ -1347,9 +1343,7 @@ static async Task<IResult> GetDiagnosticsPageAsync(GestionTimeDbContext db, WebA
     return Results.Content(html, "text/html; charset=utf-8");
 }
 
-/// <summary>
-/// Asegura que la base de datos y el schema existan antes de continuar
-/// </summary>
+// Asegura que la base de datos y el schema existan antes de continuar.
 static async Task EnsureDatabaseAndSchemaExistAsync(string connectionString, string schema)
 {
     try
