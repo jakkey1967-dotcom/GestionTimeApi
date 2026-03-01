@@ -46,6 +46,7 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
     // ? Versioning
     public DbSet<ClientVersion> ClientVersions => Set<ClientVersion>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+    public DbSet<EmailOutbox> EmailOutboxes => Set<EmailOutbox>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -447,6 +448,54 @@ public sealed class GestionTimeDbContext : DbContext, IDataProtectionKeyContext
             e.Property(x => x.Key).HasColumnName("key").HasMaxLength(100).IsRequired();
             e.Property(x => x.Value).HasColumnName("value").HasMaxLength(500).IsRequired();
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()").IsRequired();
+        });
+
+        // ? EmailOutbox (outbox de campañas de email con deduplicación)
+        b.Entity<EmailOutbox>(e =>
+        {
+            e.ToTable("email_outbox");
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            e.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
+            e.Property(x => x.Kind).HasColumnName("kind").HasMaxLength(30).IsRequired();
+            e.Property(x => x.Platform).HasColumnName("platform").HasMaxLength(20).HasDefaultValue("Desktop").IsRequired();
+            e.Property(x => x.TargetVersionRaw).HasColumnName("target_version_raw").HasMaxLength(50);
+            e.Property(x => x.PeriodKey).HasColumnName("period_key").HasMaxLength(20).IsRequired();
+            e.Property(x => x.DedupeKey).HasColumnName("dedupe_key").HasMaxLength(300).IsRequired();
+            e.Property(x => x.Subject).HasColumnName("subject").HasMaxLength(300);
+            e.Property(x => x.BodyPreview).HasColumnName("body_preview").HasMaxLength(500);
+            e.Property(x => x.Status).HasColumnName("status").HasMaxLength(10).HasDefaultValue("PENDING").IsRequired();
+            e.Property(x => x.SentAt).HasColumnName("sent_at");
+            e.Property(x => x.Error).HasColumnName("error").HasMaxLength(1000);
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()").IsRequired();
+
+            e.HasOne(x => x.User).WithMany()
+             .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.DedupeKey).IsUnique().HasDatabaseName("uq_email_outbox_dedupe");
+            e.HasIndex(x => new { x.UserId, x.CreatedAt }).HasDatabaseName("idx_email_outbox_user_created");
+            e.HasIndex(x => x.Status).HasDatabaseName("idx_email_outbox_status");
+        });
+
+        // ? Vista v_desktop_client_last_version (última versión Desktop por usuario, solo lectura)
+        b.Entity<VDesktopClientLastVersion>(e =>
+        {
+            e.HasNoKey();
+            e.ToView("v_desktop_client_last_version", _schema);
+
+            e.Property(x => x.UserId).HasColumnName("user_id");
+            e.Property(x => x.FullName).HasColumnName("full_name");
+            e.Property(x => x.Email).HasColumnName("email");
+            e.Property(x => x.AppVersionRaw).HasColumnName("app_version_raw");
+            e.Property(x => x.Platform).HasColumnName("platform");
+            e.Property(x => x.VerMajor).HasColumnName("ver_major");
+            e.Property(x => x.VerMinor).HasColumnName("ver_minor");
+            e.Property(x => x.VerPatch).HasColumnName("ver_patch");
+            e.Property(x => x.VerPrerelease).HasColumnName("ver_prerelease");
+            e.Property(x => x.OsVersion).HasColumnName("os_version");
+            e.Property(x => x.MachineName).HasColumnName("machine_name");
+            e.Property(x => x.LoggedAt).HasColumnName("logged_at");
         });
 
         // ? Vista v_partes_stats_full (solo lectura para informes v2)

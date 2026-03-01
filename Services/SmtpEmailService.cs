@@ -4,7 +4,7 @@ using MimeKit;
 
 namespace GestionTime.Api.Services;
 
-public class SmtpEmailService : IEmailService
+public class SmtpEmailService : IEmailService, IEmailSender
 {
     private readonly IConfiguration _config;
     private readonly ILogger<SmtpEmailService> _logger;
@@ -268,6 +268,14 @@ public class SmtpEmailService : IEmailService
         
         return $"{baseUrl}/api/v1/auth/activate/{token}";
     }
+
+    // GL-BEGIN: IEmailSender
+    /// <summary>Envío genérico de email HTML (usado por campañas).</summary>
+    public async Task SendRawEmailAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default)
+    {
+        await SendEmailAsync(toEmail, subject, htmlBody);
+    }
+    // GL-END: IEmailSender
 
     private async Task SendEmailAsync(string toEmail, string subject, string htmlBody)
     {

@@ -425,8 +425,9 @@ try
     builder.Services.AddScoped<GestionTime.Api.Services.ResetTokenService>();
     builder.Services.AddScoped<GestionTime.Api.Services.EmailVerificationTokenService>();
     builder.Services.AddScoped<GestionTime.Api.Services.IEmailService, GestionTime.Api.Services.SmtpEmailService>();
-    
-    
+    builder.Services.AddScoped<GestionTime.Api.Services.IEmailSender, GestionTime.Api.Services.SmtpEmailService>();
+
+
     // ? Servicio centralizado de configuración de clientes
     builder.Services.AddSingleton<GestionTime.Api.Services.ClientConfigurationService>();
 
@@ -439,6 +440,12 @@ try
 
     // ? Client Version Service (control de versiones Desktop)
     builder.Services.AddScoped<GestionTime.Api.Services.ClientVersionService>();
+
+    // GL-BEGIN: Desktop Client Health + Campaign (P2-P6)
+    builder.Services.AddScoped<GestionTime.Api.Services.DesktopClientHealthService>();
+    builder.Services.AddScoped<GestionTime.Api.Services.DesktopClientCampaignService>();
+    builder.Services.AddHostedService<GestionTime.Api.Services.WeeklyDesktopCampaignHostedService>();
+    // GL-END: Desktop Client Health + Campaign
 
     // ? Freshdesk Integration
     builder.Services.Configure<GestionTime.Infrastructure.Services.Freshdesk.FreshdeskOptions>(
