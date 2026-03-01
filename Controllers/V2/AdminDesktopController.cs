@@ -82,7 +82,7 @@ public class AdminDesktopController : ControllerBase
     // GL-END: RunCampaign
 
     // GL-BEGIN: SendManualEmail
-    /// <summary>Envía manualmente el correo de novedades Desktop a un destinatario específico.</summary>
+    /// <summary>Envía manualmente el correo de novedades Desktop a uno o varios destinatarios.</summary>
     [HttpPost("desktop-campaign/send-manual")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -91,16 +91,26 @@ public class AdminDesktopController : ControllerBase
     public async Task<IActionResult> SendManualEmail(
         [FromBody] SendManualEmailRequest request, CancellationToken ct)
     {
-        try
+        var results = new List<object>();
+        int sentCount = 0, errorCount = 0;
+
+        foreach (var r in request.Recipients)
         {
-            await _campaignService.SendManualAsync(request.Email, request.FullName, _emailSender, ct);
-            return Ok(new { sent = true, email = request.Email, fullName = request.FullName });
+            try
+            {
+                await _campaignService.SendManualAsync(r.Email, r.FullName, _emailSender, ct);
+                results.Add(new { email = r.Email, fullName = r.FullName, sent = true, error = (string?)null });
+                sentCount++;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error enviando email manual a {Email}", r.Email);
+                results.Add(new { email = r.Email, fullName = r.FullName, sent = false, error = ex.Message });
+                errorCount++;
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error enviando email manual a {Email}", request.Email);
-            return StatusCode(500, new { error = $"Error enviando email: {ex.Message}" });
-        }
+
+        return Ok(new { totalRecipients = request.Recipients.Count, sent = sentCount, errors = errorCount, results });
     }
     // GL-END: SendManualEmail
 
