@@ -17,7 +17,6 @@ public sealed class ManualEmailRecipient
     [Required, EmailAddress]
     public string Email { get; set; } = "";
 
-    /// <summary>Nombre completo del destinatario.</summary>
-    [Required, MinLength(2)]
-    public string FullName { get; set; } = "";
+    /// <summary>Nombre completo del destinatario (si no se envía, usa la parte local del email).</summary>
+    public string? FullName { get; set; }
 }

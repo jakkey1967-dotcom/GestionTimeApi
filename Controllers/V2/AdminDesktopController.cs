@@ -96,16 +96,20 @@ public class AdminDesktopController : ControllerBase
 
         foreach (var r in request.Recipients)
         {
+            var name = string.IsNullOrWhiteSpace(r.FullName)
+                ? r.Email.Split('@')[0]
+                : r.FullName;
+
             try
             {
-                await _campaignService.SendManualAsync(r.Email, r.FullName, _emailSender, ct);
-                results.Add(new { email = r.Email, fullName = r.FullName, sent = true, error = (string?)null });
+                await _campaignService.SendManualAsync(r.Email, name, _emailSender, ct);
+                results.Add(new { email = r.Email, fullName = name, sent = true, error = (string?)null });
                 sentCount++;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error enviando email manual a {Email}", r.Email);
-                results.Add(new { email = r.Email, fullName = r.FullName, sent = false, error = ex.Message });
+                results.Add(new { email = r.Email, fullName = name, sent = false, error = ex.Message });
                 errorCount++;
             }
         }
